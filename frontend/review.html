@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Review campaign — BrokerAI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body
+    class="brokerai-app min-h-screen bg-[#f9fafb] text-slate-900 antialiased"
+    data-page="review"
+  >
+    <div
+      id="brokerai-loading"
+      class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-white/70 backdrop-blur-sm"
+    >
+      <div class="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-xl">
+        <div class="brokerai-spinner" aria-label="Loading"></div>
+        <p class="text-sm font-medium text-slate-700">Loading campaign…</p>
+      </div>
+    </div>
+
+    <div
+      id="publish-overlay"
+      class="hidden fixed inset-0 z-[70] flex flex-col items-center justify-center bg-slate-900/40 px-4 backdrop-blur-md"
+    >
+      <div class="max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-2xl">
+        <div class="brokerai-spinner mx-auto mb-4"></div>
+        <p class="text-lg font-semibold text-slate-900">Approving your campaign…</p>
+        <p class="mt-2 text-sm text-slate-600">
+          Posts will be queued for publishing on their scheduled dates via Ayrshare.
+        </p>
+      </div>
+    </div>
+
+    <div
+      id="app-sidebar-overlay"
+      class="fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur-sm md:hidden"
+      aria-hidden="true"
+    ></div>
+    <aside
+      id="app-sidebar"
+      class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl md:block"
+    ></aside>
+
+    <div class="flex min-h-screen flex-col md:pl-64">
+      <header
+        id="app-topnav"
+        class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"
+      ></header>
+
+      <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/20 px-4 py-8 md:px-8">
+        <div class="mx-auto max-w-5xl">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Review your campaign</h1>
+              <p class="mt-1 text-sm text-slate-600" id="campaign-meta"></p>
+            </div>
+            <button
+              type="button"
+              id="refresh"
+              class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition duration-200 hover:scale-105 hover:shadow-md active:scale-95"
+            >
+              Refresh
+            </button>
+          </div>
+
+          <div id="summary-bar" class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div
+              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 text-center shadow-lg backdrop-blur-md transition duration-300 hover:shadow-xl"
+            >
+              <div id="stat-total" class="text-2xl font-bold text-slate-900">0</div>
+              <div class="text-xs font-medium text-slate-500">Total posts</div>
+            </div>
+            <div
+              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 text-center shadow-lg backdrop-blur-md transition duration-300 hover:shadow-xl"
+            >
+              <div id="stat-compliant" class="text-2xl font-bold text-emerald-600">0</div>
+              <div class="text-xs font-medium text-slate-500">Compliant</div>
+            </div>
+            <div
+              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 text-center shadow-lg backdrop-blur-md transition duration-300 hover:shadow-xl"
+            >
+              <div id="stat-images" class="text-2xl font-bold text-amber-600">0</div>
+              <div class="text-xs font-medium text-slate-500">With images</div>
+            </div>
+            <div
+              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 text-center shadow-lg backdrop-blur-md transition duration-300 hover:shadow-xl"
+            >
+              <div id="stat-platforms" class="text-2xl font-bold text-sky-600">-</div>
+              <div class="text-xs font-medium text-slate-500">Platforms</div>
+            </div>
+          </div>
+
+          <div
+            id="approve-wrap"
+            class="mt-8 flex flex-col gap-4 rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-white p-6 shadow-lg backdrop-blur-md sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p class="text-sm font-semibold text-slate-900">Ready to publish?</p>
+              <p class="mt-0.5 text-xs text-slate-600">Approve the full campaign to schedule all posts.</p>
+            </div>
+            <button
+              type="button"
+              id="approve-campaign-btn"
+              class="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-8 py-3 text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-105 hover:shadow-xl active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+            >
+              Approve &amp; schedule
+            </button>
+          </div>
+
+          <div id="posts-skeleton" class="mt-10 hidden space-y-6">
+            <div class="brokerai-skeleton h-4 w-48 rounded-lg"></div>
+            <div class="space-y-4">
+              <div class="brokerai-skeleton h-80 rounded-2xl"></div>
+              <div class="brokerai-skeleton h-80 rounded-2xl"></div>
+              <div class="brokerai-skeleton h-80 rounded-2xl"></div>
+            </div>
+          </div>
+
+          <div id="posts" class="mt-10 space-y-6"></div>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/nav.js"></script>
+    <script>
+      if (!BrokerAI.requireAuth()) {
+        /* redirected */
+      }
+
+      var campaignId = null;
+      var campaignPending = false;
+
+      function complianceBadgeClass(passed) {
+        if (passed === true) return "bg-emerald-100 text-emerald-800 ring-emerald-300";
+        if (passed === false) return "bg-red-100 text-red-800 ring-red-300";
+        return "bg-amber-100 text-amber-900 ring-amber-300";
+      }
+      function complianceBadgeText(passed) {
+        if (passed === true) return "Compliance: Pass";
+        if (passed === false) return "Compliance: Failed";
+        return "Compliance: Review";
+      }
+      function statusBadge(st) {
+        var map = {
+          published: "bg-emerald-100 text-emerald-800",
+          approved: "bg-blue-100 text-blue-800",
+          pending_approval: "bg-amber-100 text-amber-900",
+          publish_failed: "bg-red-100 text-red-800",
+          publishing: "bg-sky-100 text-sky-800",
+          pending: "bg-slate-100 text-slate-700",
+        };
+        return map[st] || "bg-slate-100 text-slate-700";
+      }
+      function fmtDate(iso) {
+        if (!iso) return "";
+        var d = new Date(iso);
+        return (
+          d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) +
+          " · " +
+          d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+        );
+      }
+
+      function render(data) {
+        var camp = data.campaign;
+        campaignId = camp.id;
+        campaignPending = camp.status === "pending_approval";
+        var meta = document.getElementById("campaign-meta");
+        meta.textContent = "Campaign #" + camp.id + " · " + camp.status.replace(/_/g, " ");
+
+        var btn = document.getElementById("approve-campaign-btn");
+        var wrap = document.getElementById("approve-wrap");
+        var pending = camp.status === "pending_approval";
+        btn.disabled = !pending;
+        btn.textContent = pending
+          ? "Approve & schedule"
+          : camp.status === "completed"
+            ? "Campaign approved"
+            : camp.status.replace(/_/g, " ");
+        wrap.classList.toggle("opacity-60", !pending);
+
+        var posts = data.posts || [];
+        document.getElementById("stat-total").textContent = posts.length;
+        document.getElementById("stat-compliant").textContent = posts.filter(function (p) {
+          return p.compliance_passed === true;
+        }).length;
+        document.getElementById("stat-images").textContent = posts.filter(function (p) {
+          return p.image_url && !p.image_url.includes("placehold");
+        }).length;
+        document.getElementById("stat-platforms").textContent = posts.length ? "Active" : "-";
+
+        var root = document.getElementById("posts");
+        root.innerHTML = "";
+        if (!posts.length) {
+          root.innerHTML =
+            '<p class="text-slate-600">No posts yet. <a href="/wizard.html" class="font-medium text-amber-600 hover:underline">Run the wizard</a>.</p>';
+          return;
+        }
+
+        posts.forEach(function (p, idx) {
+          var card = document.createElement("article");
+          card.className =
+            "overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-2xl";
+          card.id = "post-card-" + p.id;
+
+          var postPending = campaignPending && (p.status === "pending_approval" || p.status === "pending");
+          var postApproved = p.status === "approved" || p.status === "published" || p.status === "publishing";
+
+          var head =
+            '<div class="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white px-5 py-3">' +
+            '<span class="text-sm font-bold text-amber-600">' +
+            (p.day || "Day " + (idx + 1)) +
+            "</span>" +
+            '<span class="rounded-full px-2.5 py-0.5 text-xs font-semibold ' +
+            statusBadge(p.status) +
+            '">' +
+            (p.status || "").replace(/_/g, " ") +
+            "</span>" +
+            '<span class="rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ' +
+            complianceBadgeClass(p.compliance_passed) +
+            '">' +
+            complianceBadgeText(p.compliance_passed) +
+            "</span>" +
+            (p.scheduled_at
+              ? '<span class="ml-auto text-xs text-slate-500">' + fmtDate(p.scheduled_at) + "</span>"
+              : "") +
+            "</div>";
+
+          var body = '<div class="grid gap-0 lg:grid-cols-[minmax(0,320px)_1fr]">';
+          if (p.image_url && p.image_url.length > 5) {
+            body +=
+              '<div class="relative aspect-video overflow-hidden bg-slate-100 lg:aspect-auto lg:min-h-[220px]">' +
+              '<img src="' +
+              p.image_url +
+              '" alt="" class="h-full w-full object-cover" loading="lazy" />' +
+              "</div>";
+          } else {
+            body +=
+              '<div class="flex min-h-[200px] items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 text-sm text-slate-400">No image</div>';
+          }
+
+          body += '<div class="space-y-4 p-5 lg:p-6">';
+
+          body += '<div id="caption-display-' + p.id + '">';
+          var rendered =
+            typeof marked !== "undefined"
+              ? marked.parse(p.caption || "")
+              : (p.caption || "").replace(/\n/g, "<br/>");
+          body +=
+            '<div class="max-w-none text-sm leading-relaxed text-slate-800 [&_a]:text-amber-600 [&_strong]:text-slate-900">' +
+            rendered +
+            "</div>";
+          body +=
+            '<button type="button" onclick="startEdit(' +
+            p.id +
+            ')" class="mt-3 inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:scale-105 active:scale-95">Edit caption</button>';
+          body += "</div>";
+
+          body += '<div id="caption-edit-' + p.id + '" class="hidden space-y-2">';
+          body +=
+            '<textarea id="caption-textarea-' +
+            p.id +
+            '" rows="5" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20">' +
+            (p.caption || "").replace(/</g, "&lt;") +
+            "</textarea>";
+          body += '<div class="flex flex-wrap gap-2">';
+          body +=
+            '<button type="button" onclick="saveEdit(' +
+            p.id +
+            ')" class="rounded-lg bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:scale-105 active:scale-95">Save</button>';
+          body +=
+            '<button type="button" onclick="cancelEdit(' +
+            p.id +
+            ')" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:scale-105 active:scale-95">Cancel</button>';
+          body += "</div></div>";
+
+          body += '<div class="flex flex-wrap gap-1.5">';
+          (p.hashtags || []).forEach(function (tag) {
+            body +=
+              '<span class="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">' +
+              tag +
+              "</span>";
+          });
+          body += "</div>";
+
+          if (p.compliance_passed === false && p.compliance_issues && p.compliance_issues.length) {
+            body +=
+              '<div class="rounded-xl border border-red-200 bg-red-50/80 px-3 py-2 text-xs text-red-900">';
+            body += '<p class="mb-1 font-semibold">Compliance issues</p><ul class="list-inside list-disc space-y-0.5 opacity-90">';
+            p.compliance_issues.forEach(function (issue) {
+              body += "<li>" + issue.replace(/</g, "&lt;") + "</li>";
+            });
+            body += "</ul></div>";
+          }
+
+          if (p.video_script) {
+            body +=
+              '<details class="group rounded-xl border border-slate-200 bg-slate-50/80 open:bg-white open:shadow-sm">';
+            body +=
+              '<summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-amber-700 marker:hidden [&::-webkit-details-marker]:hidden">Video script <span class="text-slate-400 group-open:hidden">· tap to expand</span></summary>';
+            body +=
+              '<pre class="max-h-48 overflow-auto whitespace-pre-wrap border-t border-slate-100 p-3 text-xs leading-relaxed text-slate-700">' +
+              (p.video_script || "").replace(/</g, "&lt;") +
+              "</pre>";
+            body += "</details>";
+          }
+
+          body += '<div class="flex flex-wrap items-center gap-4 border-t border-slate-100 pt-4">';
+          body += '<span class="text-xs font-medium text-slate-500">Post approve</span>';
+          body += '<label class="inline-flex cursor-pointer items-center gap-2">';
+          body +=
+            '<input type="checkbox" class="peer sr-only" data-post-approve="' +
+            p.id +
+            '" ' +
+            (postApproved ? "checked disabled" : postPending ? "" : "disabled") +
+            " />";
+          body +=
+            '<span class="relative h-7 w-12 rounded-full bg-slate-200 transition peer-checked:bg-emerald-500 peer-disabled:opacity-50 after:absolute after:left-1 after:top-1 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition peer-checked:after:translate-x-5"></span>';
+          body += "</label>";
+          body +=
+            '<span class="text-[11px] text-slate-400">Use per-post approve or the campaign button above.</span>';
+          body += "</div>";
+
+          body += "</div></div>";
+          card.innerHTML = head + body;
+          root.appendChild(card);
+
+          var toggle = card.querySelector('[data-post-approve="' + p.id + '"]');
+          if (toggle && !toggle.disabled && postPending) {
+            toggle.addEventListener("change", async function () {
+              if (!this.checked) return;
+              try {
+                await BrokerAI.apiJson("/approve-post/" + p.id, { method: "POST" });
+                BrokerAI.showToast("Post approved", "success");
+                load();
+              } catch (err) {
+                BrokerAI.showToast(err.message, "error");
+                this.checked = false;
+              }
+            });
+          }
+        });
+      }
+
+      function startEdit(postId) {
+        document.getElementById("caption-display-" + postId).classList.add("hidden");
+        document.getElementById("caption-edit-" + postId).classList.remove("hidden");
+        document.getElementById("caption-textarea-" + postId).focus();
+      }
+      function cancelEdit(postId) {
+        document.getElementById("caption-display-" + postId).classList.remove("hidden");
+        document.getElementById("caption-edit-" + postId).classList.add("hidden");
+      }
+      async function saveEdit(postId) {
+        var newCaption = document.getElementById("caption-textarea-" + postId).value;
+        try {
+          await BrokerAI.apiJson("/update-post/" + postId, {
+            method: "POST",
+            body: JSON.stringify({ caption: newCaption }),
+          });
+          BrokerAI.showToast("Caption updated", "success");
+          load();
+        } catch (err) {
+          BrokerAI.showToast(err.message, "error");
+        }
+      }
+
+      async function load() {
+        var q = new URLSearchParams(location.search).get("campaign");
+        var id = q || sessionStorage.getItem("brokerai_campaign_id");
+        var sk = document.getElementById("posts-skeleton");
+        var root = document.getElementById("posts");
+        if (!id) {
+          root.innerHTML =
+            '<p class="text-slate-600">Open from the wizard or add <code class="rounded bg-slate-100 px-1 text-amber-700">?campaign=ID</code> to the URL.</p>';
+          document.getElementById("approve-campaign-btn").disabled = true;
+          sk.classList.add("hidden");
+          return;
+        }
+        sk.classList.remove("hidden");
+        root.innerHTML = "";
+        BrokerAI.setLoading(true);
+        try {
+          var data = await BrokerAI.apiJson("/campaign/" + encodeURIComponent(id), { method: "GET" });
+          sk.classList.add("hidden");
+          render(data);
+        } catch (err) {
+          sk.classList.add("hidden");
+          BrokerAI.showToast(err.message, "error");
+        } finally {
+          BrokerAI.setLoading(false);
+        }
+      }
+
+      document.getElementById("refresh").addEventListener("click", load);
+      document.getElementById("approve-campaign-btn").addEventListener("click", async function () {
+        if (!campaignId) return;
+        var btn = this;
+        btn.disabled = true;
+        document.getElementById("publish-overlay").classList.remove("hidden");
+        try {
+          await BrokerAI.apiJson("/approve-campaign", {
+            method: "POST",
+            body: JSON.stringify({ campaign_id: campaignId }),
+          });
+          BrokerAI.showToast("Campaign approved — posts are scheduled.", "success");
+          setTimeout(function () {
+            window.location.href = "/dashboard.html";
+          }, 1200);
+        } catch (err) {
+          BrokerAI.showToast(err.message, "error");
+          btn.disabled = false;
+        } finally {
+          document.getElementById("publish-overlay").classList.add("hidden");
+        }
+      });
+
+      load();
+    </script>
+  </body>
+</html>

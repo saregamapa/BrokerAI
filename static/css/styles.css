@@ -1,0 +1,153 @@
+/* BrokerAI — design system + utilities (Tailwind CDN companion) */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  --ba-bg: #f9fafb;
+  --ba-sidebar: #0f172a;
+  --ba-accent: #f59e0b;
+  --ba-accent-hover: #d97706;
+  --ba-success: #10b981;
+  --ba-error: #ef4444;
+  --ba-info: #3b82f6;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+.brokerai-app {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+@keyframes brokerai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.brokerai-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid rgba(245, 158, 11, 0.2);
+  border-top-color: var(--ba-accent);
+  border-radius: 9999px;
+  animation: brokerai-spin 0.65s linear infinite;
+}
+
+@keyframes brokerai-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.brokerai-page {
+  animation: brokerai-fade-in 0.35s ease-out;
+}
+
+.brokerai-skeleton {
+  border-radius: 0.75rem;
+  background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
+  background-size: 200% 100%;
+  animation: brokerai-skeleton 1.2s ease-in-out infinite;
+}
+
+@keyframes brokerai-skeleton {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.brokerai-toast {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 100;
+  max-width: 24rem;
+  padding: 0.875rem 1rem 0.875rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow:
+    0 10px 40px rgba(15, 23, 42, 0.12),
+    0 4px 12px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-left-width: 4px;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+
+.brokerai-toast--success {
+  background: #fff;
+  color: #065f46;
+  border-left-color: var(--ba-success);
+}
+
+.brokerai-toast--error {
+  background: #fff;
+  color: #991b1b;
+  border-left-color: var(--ba-error);
+}
+
+.brokerai-toast--info {
+  background: #fff;
+  color: #1e40af;
+  border-left-color: var(--ba-info);
+}
+
+.brokerai-modal-backdrop {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.brokerai-modal-backdrop.is-open {
+  opacity: 1;
+}
+
+.brokerai-modal-panel {
+  opacity: 0;
+  transform: scale(0.97) translateY(8px);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.brokerai-modal-backdrop.is-open .brokerai-modal-panel {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* Mobile sidebar drawer */
+#app-sidebar {
+  transition: transform 0.25s ease;
+}
+
+@media (max-width: 767px) {
+  #app-sidebar:not(.brokerai-sidebar-open) {
+    transform: translateX(-100%);
+  }
+  #app-sidebar.brokerai-sidebar-open {
+    transform: translateX(0);
+  }
+}
+
+@media (min-width: 768px) {
+  #app-sidebar {
+    transform: translateX(0) !important;
+  }
+}

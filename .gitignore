@@ -1,0 +1,28 @@
+# Secrets
+.env
+.env.local
+*.pem
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Local database
+*.db
+
+# Local dev server (nohup)
+_uvicorn.log
+_uvicorn.pid
+_health_after_restart.json
+_pytest_out.txt
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

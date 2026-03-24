@@ -1,0 +1,25 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploy: Dashboard → New → Blueprint → connect this repo → apply.
+# After deploy, open the web service → Environment → set sync: false secrets (or generate JWT below).
+
+services:
+  - type: web
+    name: brokerai
+    runtime: docker
+    region: oregon
+    # Use `starter` or higher if `free` is unavailable for Docker in your workspace.
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: AYRSHARE_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

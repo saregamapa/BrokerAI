@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Campaign wizard — BrokerAI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body
+    class="brokerai-app min-h-screen bg-[#f9fafb] text-slate-900 antialiased"
+    data-page="wizard"
+  >
+    <div
+      id="brokerai-loading"
+      class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-white/75 backdrop-blur-md"
+    >
+      <div class="mx-4 flex w-full max-w-md flex-col items-center gap-5 rounded-2xl border border-slate-200/80 bg-white/90 p-8 shadow-2xl">
+        <div class="brokerai-spinner" aria-label="Loading"></div>
+        <p id="loading-step" class="text-center text-sm font-semibold text-slate-800">
+          Generating your campaign…
+        </p>
+        <p class="text-center text-xs text-slate-500">Our agents are building strategy, content, media, and schedule.</p>
+        <div class="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+          <div
+            id="loading-bar"
+            class="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-700"
+            style="width: 5%"
+          ></div>
+        </div>
+        <div id="loading-steps" class="grid w-full grid-cols-5 gap-1">
+          <div class="text-center">
+            <div id="step-dot-0" class="mx-auto h-2 w-2 rounded-full bg-slate-200"></div>
+            <span class="mt-1 block text-[10px] text-slate-400">Strategy</span>
+          </div>
+          <div class="text-center">
+            <div id="step-dot-1" class="mx-auto h-2 w-2 rounded-full bg-slate-200"></div>
+            <span class="mt-1 block text-[10px] text-slate-400">Content</span>
+          </div>
+          <div class="text-center">
+            <div id="step-dot-2" class="mx-auto h-2 w-2 rounded-full bg-slate-200"></div>
+            <span class="mt-1 block text-[10px] text-slate-400">Media</span>
+          </div>
+          <div class="text-center">
+            <div id="step-dot-3" class="mx-auto h-2 w-2 rounded-full bg-slate-200"></div>
+            <span class="mt-1 block text-[10px] text-slate-400">Compliance</span>
+          </div>
+          <div class="text-center">
+            <div id="step-dot-4" class="mx-auto h-2 w-2 rounded-full bg-slate-200"></div>
+            <span class="mt-1 block text-[10px] text-slate-400">Schedule</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="app-sidebar-overlay"
+      class="fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur-sm md:hidden"
+      aria-hidden="true"
+    ></div>
+    <aside
+      id="app-sidebar"
+      class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl md:block"
+    ></aside>
+
+    <div class="flex min-h-screen flex-col md:pl-64">
+      <header
+        id="app-topnav"
+        class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"
+      ></header>
+
+      <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/25 px-4 py-8 md:px-8 lg:px-10">
+        <div class="mx-auto max-w-3xl">
+          <h1 class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Create a campaign</h1>
+          <p class="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
+            Tell us about your business and goals. AI agents build a 7-day plan with captions, images, compliance, and
+            a publishing schedule.
+          </p>
+
+          <!-- Step progress -->
+          <div class="mt-8 rounded-2xl border border-slate-200/80 bg-white/70 p-4 shadow-lg backdrop-blur-md md:p-5">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Steps</p>
+            <div class="mt-3 flex flex-wrap items-center gap-2 md:gap-0">
+              <div class="flex items-center gap-2">
+                <span
+                  class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white shadow-md"
+                  >1</span
+                >
+                <span class="text-sm font-medium text-slate-800">Business</span>
+              </div>
+              <div class="mx-2 hidden h-px w-8 bg-slate-200 md:block"></div>
+              <div class="flex items-center gap-2">
+                <span
+                  class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-500"
+                  >2</span
+                >
+                <span class="text-sm font-medium text-slate-600">Schedule</span>
+              </div>
+              <div class="mx-2 hidden h-px w-8 bg-slate-200 md:block"></div>
+              <div class="flex items-center gap-2">
+                <span
+                  class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-500"
+                  >3</span
+                >
+                <span class="text-sm font-medium text-slate-600">Platforms &amp; AI</span>
+              </div>
+              <div class="mx-2 hidden h-px w-8 bg-slate-200 md:block"></div>
+              <div class="flex items-center gap-2">
+                <span
+                  class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-sm font-semibold text-slate-500"
+                  >4</span
+                >
+                <span class="text-sm font-medium text-slate-600">Generate</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            id="openai-banner"
+            class="mt-6 hidden max-w-2xl rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-900 shadow-md"
+          >
+            <strong class="font-semibold text-amber-800">OpenAI not configured.</strong>
+            Add a real <code class="rounded bg-white/80 px-1.5 py-0.5 text-xs">OPENAI_API_KEY</code> to the project root
+            <code class="rounded bg-white/80 px-1.5 py-0.5 text-xs">.env</code> and restart the server. Until then, the app
+            uses template captions and placeholder images only.
+          </div>
+
+          <form id="wizard-form" class="mt-8 space-y-6">
+            <section
+              id="wizard-section-business"
+              class="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-2xl md:p-6"
+            >
+              <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">About your business</h2>
+              <div class="mt-5 grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700">Business type</label>
+                  <select
+                    name="business_type"
+                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  >
+                    <option value="Real Estate Agent" selected>Real Estate Agent</option>
+                    <option value="Real Estate Team">Real Estate Team</option>
+                    <option value="Mortgage Broker">Mortgage Broker</option>
+                    <option value="Property Manager">Property Manager</option>
+                    <option value="Real Estate Investor">Real Estate Investor</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700"
+                    >Location <span class="text-red-500">*</span></label
+                  >
+                  <input
+                    name="location"
+                    type="text"
+                    placeholder="e.g. Austin, TX"
+                    required
+                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  />
+                </div>
+              </div>
+              <div class="mt-5">
+                <label class="block text-sm font-medium text-slate-700"
+                  >Campaign goal <span class="text-red-500">*</span></label
+                >
+                <select
+                  name="goal"
+                  required
+                  class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                >
+                  <option value="">Select a goal…</option>
+                  <option value="Generate buyer leads">Generate buyer leads</option>
+                  <option value="Generate seller leads">Generate seller leads</option>
+                  <option value="Build brand awareness">Build brand awareness</option>
+                  <option value="Promote a new listing">Promote a new listing</option>
+                  <option value="Establish thought leadership">Establish thought leadership</option>
+                  <option value="Drive open house traffic">Drive open house traffic</option>
+                </select>
+              </div>
+              <div class="mt-5">
+                <label class="block text-sm font-medium text-slate-700">Target audience</label>
+                <input
+                  name="audience"
+                  type="text"
+                  placeholder="e.g. First-time homebuyers aged 28–40"
+                  class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+            </section>
+
+            <section
+              id="wizard-section-schedule"
+              class="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-2xl md:p-6"
+            >
+              <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Schedule</h2>
+              <div class="mt-5 grid gap-5 sm:grid-cols-3">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700">Start date</label>
+                  <input
+                    name="start_date"
+                    type="date"
+                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700">Post time</label>
+                  <select
+                    name="post_hour"
+                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  >
+                    <option value="7">7:00 AM</option>
+                    <option value="8">8:00 AM</option>
+                    <option value="9">9:00 AM</option>
+                    <option value="10" selected>10:00 AM</option>
+                    <option value="11">11:00 AM</option>
+                    <option value="12">12:00 PM</option>
+                    <option value="13">1:00 PM</option>
+                    <option value="14">2:00 PM</option>
+                    <option value="15">3:00 PM</option>
+                    <option value="17">5:00 PM</option>
+                    <option value="18">6:00 PM</option>
+                    <option value="19">7:00 PM</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700">Timezone</label>
+                  <select
+                    name="timezone"
+                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                  >
+                    <option value="America/New_York">Eastern (ET)</option>
+                    <option value="America/Chicago">Central (CT)</option>
+                    <option value="America/Denver">Mountain (MT)</option>
+                    <option value="America/Los_Angeles">Pacific (PT)</option>
+                    <option value="America/Phoenix">Arizona (MST)</option>
+                    <option value="Pacific/Honolulu">Hawaii (HST)</option>
+                    <option value="America/Anchorage">Alaska (AKT)</option>
+                  </select>
+                </div>
+              </div>
+              <div class="mt-5">
+                <label class="block text-sm font-medium text-slate-700">Posting frequency</label>
+                <div class="mt-3 flex flex-wrap gap-3">
+                  <label class="cursor-pointer">
+                    <input type="radio" name="frequency" value="daily" class="peer sr-only" />
+                    <span
+                      class="block rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition duration-200 peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-900 peer-checked:shadow-md hover:scale-105 active:scale-95"
+                      >Daily (7/wk)</span
+                    >
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="radio" name="frequency" value="5 per week" class="peer sr-only" />
+                    <span
+                      class="block rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition duration-200 peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-900 peer-checked:shadow-md hover:scale-105 active:scale-95"
+                      >Weekdays (5/wk)</span
+                    >
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="radio" name="frequency" value="3 per week" checked class="peer sr-only" />
+                    <span
+                      class="block rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition duration-200 peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-900 peer-checked:shadow-md hover:scale-105 active:scale-95"
+                      >3× per week</span
+                    >
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="radio" name="frequency" value="1 per week" class="peer sr-only" />
+                    <span
+                      class="block rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition duration-200 peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-900 peer-checked:shadow-md hover:scale-105 active:scale-95"
+                      >Weekly (1/wk)</span
+                    >
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section
+              id="wizard-section-platforms"
+              class="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-2xl md:p-6"
+            >
+              <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Platforms &amp; AI</h2>
+              <div class="mt-5">
+                <label class="mb-3 block text-sm font-medium text-slate-700">Publish to</label>
+                <div class="flex flex-wrap gap-3">
+                  <label class="cursor-pointer">
+                    <input type="checkbox" name="platform" value="Facebook" checked class="peer sr-only" />
+                    <span
+                      class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition duration-200 peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-900 hover:scale-105 active:scale-95"
+                    >
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                          d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
+                        />
+                      </svg>
+                      Facebook
+                    </span>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="checkbox" name="platform" value="Instagram" checked class="peer sr-only" />
+                    <span
+                      class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition duration-200 peer-checked:border-pink-500 peer-checked:bg-pink-50 peer-checked:text-pink-900 hover:scale-105 active:scale-95"
+                    >
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                          d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"
+                        />
+                      </svg>
+                      Instagram
+                    </span>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="checkbox" name="platform" value="LinkedIn" class="peer sr-only" />
+                    <span
+                      class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm transition duration-200 peer-checked:border-sky-500 peer-checked:bg-sky-50 peer-checked:text-sky-900 hover:scale-105 active:scale-95"
+                    >
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                          d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"
+                        />
+                      </svg>
+                      LinkedIn
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="mt-8 border-t border-slate-100 pt-6">
+                <label class="block text-sm font-medium text-slate-700">Your social profiles (optional)</label>
+                <p class="mt-1 text-xs text-slate-500">
+                  Profile or page URLs for personalization and analytics. Leave blank if you prefer not to share.
+                </p>
+                <div class="mt-4 grid gap-4 sm:grid-cols-1">
+                  <div>
+                    <label class="block text-xs font-medium text-slate-600">Facebook URL</label>
+                    <input
+                      name="facebook_url"
+                      type="text"
+                      inputmode="url"
+                      autocomplete="url"
+                      placeholder="https://facebook.com/yourpage"
+                      class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-600">Instagram URL</label>
+                    <input
+                      name="instagram_url"
+                      type="text"
+                      inputmode="url"
+                      autocomplete="url"
+                      placeholder="https://instagram.com/yourhandle"
+                      class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-600">LinkedIn URL</label>
+                    <input
+                      name="linkedin_url"
+                      type="text"
+                      inputmode="url"
+                      autocomplete="url"
+                      placeholder="https://linkedin.com/in/yourprofile"
+                      class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                    />
+                  </div>
+                </div>
+                <p id="social-url-error" class="mt-2 hidden text-xs font-medium text-red-600"></p>
+              </div>
+
+              <div class="mt-6 space-y-3">
+                <label class="block text-sm font-medium text-slate-700">AI features</label>
+                <label
+                  class="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition duration-200 hover:border-amber-200 hover:shadow-md"
+                >
+                  <input
+                    type="checkbox"
+                    name="ai_text"
+                    value="1"
+                    checked
+                    class="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500/30"
+                  />
+                  <div>
+                    <span class="text-sm font-semibold text-slate-900">AI captions &amp; strategy</span>
+                    <span class="mt-0.5 block text-xs text-slate-500">7-day plan, captions, hashtags, compliance</span>
+                  </div>
+                </label>
+                <label
+                  class="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition duration-200 hover:border-amber-200 hover:shadow-md"
+                >
+                  <input
+                    type="checkbox"
+                    name="ai_images"
+                    value="1"
+                    checked
+                    class="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500/30"
+                  />
+                  <div>
+                    <span class="text-sm font-semibold text-slate-900">DALL·E images</span>
+                    <span class="mt-0.5 block text-xs text-slate-500">One AI-generated image per post</span>
+                  </div>
+                </label>
+                <label
+                  class="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition duration-200 hover:border-amber-200 hover:shadow-md"
+                >
+                  <input
+                    type="checkbox"
+                    name="video_scripts"
+                    value="1"
+                    checked
+                    class="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500/30"
+                  />
+                  <div>
+                    <span class="text-sm font-semibold text-slate-900">Video scripts</span>
+                    <span class="mt-0.5 block text-xs text-slate-500">Short narration text for Reels / Shorts</span>
+                  </div>
+                </label>
+              </div>
+            </section>
+
+            <button
+              type="submit"
+              id="submit-btn"
+              class="w-full rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 px-8 py-4 text-base font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Generate 7-day campaign
+            </button>
+          </form>
+        </div>
+      </main>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/nav.js"></script>
+    <script>
+      if (!BrokerAI.requireAuth()) {
+        /* redirected */
+      }
+
+      try {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        var sel = document.querySelector('select[name="timezone"]');
+        for (var i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].value === tz) {
+            sel.selectedIndex = i;
+            break;
+          }
+        }
+      } catch (e) {}
+
+      var tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      document.querySelector('input[name="start_date"]').value = tomorrow.toISOString().split("T")[0];
+
+      fetch(BrokerAI.apiUrl("/health"))
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (h) {
+          if (!h.openai_configured) document.getElementById("openai-banner").classList.remove("hidden");
+        })
+        .catch(function () {});
+
+      var stepNames = [
+        "Building strategy…",
+        "Writing captions…",
+        "Generating images…",
+        "Checking compliance…",
+        "Setting schedule…",
+      ];
+      var stepInterval = null;
+      function animateSteps() {
+        var idx = 0;
+        var bar = document.getElementById("loading-bar");
+        var label = document.getElementById("loading-step");
+        stepInterval = setInterval(function () {
+          if (idx >= 5) {
+            clearInterval(stepInterval);
+            return;
+          }
+          label.textContent = stepNames[idx];
+          bar.style.width = 15 + idx * 18 + "%";
+          document.getElementById("step-dot-" + idx).className =
+            "mx-auto h-2 w-2 rounded-full bg-amber-500 animate-pulse";
+          if (idx > 0) {
+            document.getElementById("step-dot-" + (idx - 1)).className =
+              "mx-auto h-2 w-2 rounded-full bg-emerald-500";
+          }
+          idx++;
+        }, 4000);
+      }
+
+      function optionalHttpUrl(raw) {
+        var s = String(raw || "").trim();
+        if (!s) return { ok: true, value: null };
+        if (!/^https?:\/\//i.test(s)) {
+          return { ok: false, message: "Must start with http:// or https://" };
+        }
+        if (s.length > 2048) {
+          return { ok: false, message: "URL is too long (max 2048 characters)" };
+        }
+        try {
+          new URL(s);
+          return { ok: true, value: s };
+        } catch (e) {
+          return { ok: false, message: "Enter a valid URL" };
+        }
+      }
+
+      function showSocialUrlError(msg) {
+        var el = document.getElementById("social-url-error");
+        if (!el) return;
+        if (msg) {
+          el.textContent = msg;
+          el.classList.remove("hidden");
+        } else {
+          el.textContent = "";
+          el.classList.add("hidden");
+        }
+      }
+
+      document.getElementById("wizard-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        showSocialUrlError("");
+        var fd = new FormData(e.target);
+        var socialLabels = {
+          facebook_url: "Facebook URL",
+          instagram_url: "Instagram URL",
+          linkedin_url: "LinkedIn URL",
+        };
+        var socialKeys = ["facebook_url", "instagram_url", "linkedin_url"];
+        var social = {};
+        for (var si = 0; si < socialKeys.length; si++) {
+          var sk = socialKeys[si];
+          var chk = optionalHttpUrl(fd.get(sk));
+          if (!chk.ok) {
+            var line = socialLabels[sk] + ": " + chk.message;
+            showSocialUrlError(line);
+            BrokerAI.showToast(line, "error");
+            return;
+          }
+          social[sk] = chk.value;
+        }
+        var platformSelections = fd.getAll("platform");
+        if (!platformSelections || !platformSelections.length) {
+          BrokerAI.showToast("Select at least one platform to publish to.", "error");
+          return;
+        }
+        var body = {
+          business_type: fd.get("business_type") || "Real Estate Agent",
+          goal: fd.get("goal"),
+          location: fd.get("location"),
+          audience: fd.get("audience") || null,
+          start_date: fd.get("start_date") || null,
+          timezone: fd.get("timezone") || "America/New_York",
+          post_hour: parseInt(fd.get("post_hour") || "10", 10),
+          platforms: platformSelections,
+          frequency: fd.get("frequency") || "3 per week",
+          ai_text_enabled: fd.get("ai_text") === "1",
+          ai_images_enabled: fd.get("ai_images") === "1",
+          video_scripts_enabled: fd.get("video_scripts") === "1",
+          facebook_url: social.facebook_url,
+          instagram_url: social.instagram_url,
+          linkedin_url: social.linkedin_url,
+        };
+        document.getElementById("submit-btn").disabled = true;
+        BrokerAI.setLoading(true);
+        animateSteps();
+        try {
+          var res = await BrokerAI.apiJson("/generate-campaign", {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          document.getElementById("loading-bar").style.width = "100%";
+          document.getElementById("loading-step").textContent = "Campaign ready!";
+          for (var j = 0; j < 5; j++) {
+            document.getElementById("step-dot-" + j).className = "mx-auto h-2 w-2 rounded-full bg-emerald-500";
+          }
+          sessionStorage.setItem("brokerai_campaign_id", String(res.campaign_id));
+          BrokerAI.showToast("Campaign ready for review!", "success");
+          setTimeout(function () {
+            window.location.href = "/review.html?campaign=" + encodeURIComponent(res.campaign_id);
+          }, 600);
+        } catch (err) {
+          BrokerAI.showToast(err.message || "Generation failed", "error");
+          document.getElementById("submit-btn").disabled = false;
+        } finally {
+          clearInterval(stepInterval);
+          BrokerAI.setLoading(false);
+        }
+      });
+    </script>
+  </body>
+</html>

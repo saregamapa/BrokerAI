@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign up — BrokerAI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body class="brokerai-app min-h-screen bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/30 text-slate-900 antialiased">
+    <div
+      id="brokerai-loading"
+      class="hidden fixed inset-0 z-40 flex items-center justify-center bg-white/70 backdrop-blur-sm"
+    >
+      <div class="brokerai-spinner" aria-label="Loading"></div>
+    </div>
+    <div class="brokerai-page mx-auto flex min-h-screen max-w-md flex-col justify-center px-4 py-12">
+      <a href="/" class="text-center text-xl font-bold tracking-tight"
+        >Broker<span class="text-amber-500">AI</span></a
+      >
+      <h1 class="mt-8 text-center text-2xl font-bold text-slate-900">Create account</h1>
+      <p class="mt-2 text-center text-sm text-slate-600">
+        Already have an account?
+        <a href="/login.html" class="font-semibold text-amber-600 hover:underline">Log in</a>
+      </p>
+      <form
+        id="signup-form"
+        class="mt-8 space-y-5 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-xl backdrop-blur-md"
+      >
+        <div>
+          <label class="block text-sm font-medium text-slate-700">Email</label>
+          <input
+            name="email"
+            type="email"
+            required
+            autocomplete="email"
+            class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-inner transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700">Password (min 6 characters)</label>
+          <input
+            name="password"
+            type="password"
+            required
+            minlength="6"
+            autocomplete="new-password"
+            class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-inner transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+          />
+        </div>
+        <button
+          type="submit"
+          class="w-full rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 py-3 text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-[1.02] active:scale-[0.98]"
+        >
+          Sign up
+        </button>
+      </form>
+    </div>
+    <script src="/static/js/app.js"></script>
+    <script>
+      if (BrokerAI.getToken()) {
+        window.location.href = "/dashboard.html";
+      }
+      document.getElementById("signup-form").addEventListener("submit", async function (e) {
+        e.preventDefault();
+        var fd = new FormData(e.target);
+        BrokerAI.setLoading(true);
+        try {
+          var res = await BrokerAI.apiJson("/signup", {
+            method: "POST",
+            body: JSON.stringify({
+              email: fd.get("email"),
+              password: fd.get("password"),
+            }),
+          });
+          BrokerAI.setToken(res.access_token);
+          BrokerAI.showToast("Account created.", "success");
+          window.location.href = "/dashboard.html";
+        } catch (err) {
+          BrokerAI.showToast(err.message || "Sign up failed", "error");
+        } finally {
+          BrokerAI.setLoading(false);
+        }
+      });
+    </script>
+  </body>
+</html>

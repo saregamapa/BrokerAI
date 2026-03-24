@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="BrokerAI — Automate real estate social marketing with AI. Generate, approve, and publish campaigns in minutes."
+    />
+    <title>BrokerAI — AI Marketing for Real Estate</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body class="brokerai-app bg-white text-slate-900 antialiased">
+    <!-- Sticky navbar -->
+    <header
+      class="sticky top-0 z-50 border-b border-slate-200/90 bg-white/90 shadow-sm backdrop-blur-md"
+    >
+      <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+        <a href="/" class="text-lg font-bold tracking-tight text-[#0f172a] transition hover:opacity-90">
+          Broker<span class="text-amber-500">AI</span>
+        </a>
+        <nav class="flex items-center gap-2 sm:gap-3">
+          <a
+            href="/login.html"
+            class="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+            >Login</a
+          >
+          <a
+            href="/signup.html"
+            class="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition duration-200 hover:scale-105 hover:shadow-lg active:scale-95 sm:px-5"
+            >Get Started Free</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <!-- 1. Hero -->
+      <section class="border-b border-slate-100 bg-gradient-to-b from-[#f9fafb] to-white py-16 md:py-24" id="top">
+        <div class="mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-2 lg:gap-16">
+          <div class="brokerai-page max-w-xl">
+            <p class="text-xs font-bold uppercase tracking-wider text-amber-600">AI for real estate pros</p>
+            <h1 class="mt-4 text-4xl font-bold leading-tight tracking-tight text-[#0f172a] md:text-5xl lg:text-[2.75rem] lg:leading-[1.1]">
+              Automate Your Real Estate Marketing with AI
+            </h1>
+            <p class="mt-6 text-lg leading-relaxed text-slate-600">
+              Generate, schedule, and publish high-converting social media content in minutes — powered by AI agents.
+            </p>
+            <div class="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <a
+                href="/signup.html"
+                class="inline-flex items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-8 py-4 text-center text-base font-bold text-white shadow-lg shadow-amber-500/30 transition duration-200 hover:scale-[1.03] hover:shadow-xl active:scale-[0.98]"
+                >Get Started Free</a
+              >
+              <a
+                href="/login.html"
+                class="inline-flex items-center justify-center rounded-xl border-2 border-slate-200 bg-white px-8 py-4 text-center text-base font-bold text-[#0f172a] shadow-sm transition duration-200 hover:border-slate-300 hover:shadow-md active:scale-[0.98]"
+                >Login</a
+              >
+            </div>
+            <p class="mt-6 text-sm text-slate-500">
+              No credit card required to create an account · Built for busy agents and teams
+            </p>
+          </div>
+
+          <!-- Mock dashboard preview (CSS-only, lightweight) -->
+          <div class="brokerai-page relative lg:justify-self-end">
+            <div
+              class="rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10 ring-1 ring-slate-900/5 transition duration-300 hover:shadow-slate-900/15"
+              aria-hidden="true"
+            >
+              <div class="flex h-9 items-center gap-2 border-b border-slate-100 bg-[#0f172a] px-3">
+                <span class="h-2.5 w-2.5 rounded-full bg-red-400/90"></span>
+                <span class="h-2.5 w-2.5 rounded-full bg-amber-400/90"></span>
+                <span class="h-2.5 w-2.5 rounded-full bg-emerald-400/90"></span>
+                <span class="ml-2 text-[10px] font-medium text-slate-400">brokerai.app / calendar</span>
+              </div>
+              <div class="flex min-h-[280px] md:min-h-[320px]">
+                <div class="hidden w-14 shrink-0 border-r border-slate-100 bg-[#0f172a] sm:block">
+                  <div class="mt-3 space-y-2 px-2">
+                    <div class="h-2 rounded bg-white/20"></div>
+                    <div class="h-2 rounded bg-white/10"></div>
+                    <div class="h-2 rounded bg-white/10"></div>
+                    <div class="mt-4 h-2 rounded bg-amber-500/40"></div>
+                    <div class="h-2 rounded bg-white/10"></div>
+                  </div>
+                </div>
+                <div class="flex-1 p-4 md:p-5">
+                  <div class="flex items-center justify-between">
+                    <div class="h-3 w-28 rounded bg-slate-200"></div>
+                    <div class="h-7 w-24 rounded-lg bg-amber-100"></div>
+                  </div>
+                  <div class="mt-4 grid grid-cols-7 gap-1.5 text-center text-[9px] font-semibold uppercase text-slate-400">
+                    <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+                  </div>
+                  <div class="mt-2 grid grid-cols-7 gap-1.5">
+                    <div class="aspect-square rounded-lg bg-slate-50"></div>
+                    <div class="aspect-square rounded-lg bg-slate-50"></div>
+                    <div class="relative aspect-square rounded-lg border border-amber-200 bg-amber-50 shadow-sm">
+                      <span class="absolute left-1 top-1 text-[10px] font-bold text-amber-800">12</span>
+                      <span class="absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                    </div>
+                    <div class="aspect-square rounded-lg bg-slate-50"></div>
+                    <div class="relative aspect-square rounded-lg bg-white shadow-md ring-1 ring-amber-400/40">
+                      <span class="absolute left-1 top-1 text-[10px] font-bold text-slate-700">14</span>
+                      <span class="absolute bottom-1 left-1 flex gap-0.5">
+                        <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                      </span>
+                    </div>
+                    <div class="aspect-square rounded-lg bg-slate-50"></div>
+                    <div class="aspect-square rounded-lg bg-slate-50"></div>
+                  </div>
+                  <div class="mt-4 flex gap-2">
+                    <div class="h-16 flex-1 rounded-xl bg-slate-100"></div>
+                    <div class="h-16 flex-1 rounded-xl bg-slate-100"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p class="mt-3 text-center text-xs text-slate-400">Product preview — not live data</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Trust strip -->
+      <section class="border-b border-slate-100 bg-white py-8">
+        <div class="mx-auto max-w-6xl px-6">
+          <p
+            class="text-center text-sm font-semibold text-slate-700 md:text-base"
+          >
+            Built for Real Estate Agents, Brokers, and Loan Officers
+          </p>
+          <div class="mt-6 flex flex-wrap items-center justify-center gap-3 md:gap-4">
+            <span
+              class="rounded-full border border-slate-200 bg-[#f9fafb] px-4 py-2 text-xs font-medium text-slate-600 shadow-sm"
+              >Social content</span
+            >
+            <span
+              class="rounded-full border border-slate-200 bg-[#f9fafb] px-4 py-2 text-xs font-medium text-slate-600 shadow-sm"
+              >Scheduling</span
+            >
+            <span
+              class="rounded-full border border-slate-200 bg-[#f9fafb] px-4 py-2 text-xs font-medium text-slate-600 shadow-sm"
+              >Compliance-aware</span
+            >
+            <span
+              class="rounded-full border border-slate-200 bg-[#f9fafb] px-4 py-2 text-xs font-medium text-slate-600 shadow-sm"
+              >Multi-platform</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Features -->
+      <section class="bg-[#f9fafb] py-16 md:py-20" id="features">
+        <div class="mx-auto max-w-6xl px-6">
+          <div class="mx-auto max-w-2xl text-center">
+            <h2 class="text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">Everything you need to stay visible</h2>
+            <p class="mt-4 text-slate-600">
+              One workflow from idea to scheduled posts — so you spend less time writing and more time closing.
+            </p>
+          </div>
+          <ul class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <li
+              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <span class="text-2xl" aria-hidden="true">✨</span>
+              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">AI Campaign Generation</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                Turn your market, goal, and audience into a full week of post ideas, captions, and hashtags.
+              </p>
+            </li>
+            <li
+              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <span class="text-2xl" aria-hidden="true">✅</span>
+              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">One-Click Approval Workflow</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                Review everything in one place, edit if needed, then approve once to unlock publishing.
+              </p>
+            </li>
+            <li
+              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <span class="text-2xl" aria-hidden="true">📅</span>
+              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">Calendar-Based Scheduling</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                See what goes live and when — aligned to your timezone and posting cadence.
+              </p>
+            </li>
+            <li
+              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <span class="text-2xl" aria-hidden="true">🚀</span>
+              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">Auto Social Media Publishing</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                Connect your stack and push approved posts to the networks you use (via integrated publishing).
+              </p>
+            </li>
+            <li
+              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <span class="text-2xl" aria-hidden="true">🛡️</span>
+              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">Compliance Checks (Fair Housing)</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                Automated checks flag risky language so you can fix issues before anything goes live.
+              </p>
+            </li>
+            <li
+              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <span class="text-2xl" aria-hidden="true">🎬</span>
+              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">Image + Video Content Generation</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">
+                AI-generated visuals plus short video scripts for Reels-style content — ready to record or adapt.
+              </p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 4. How it works -->
+      <section class="border-y border-slate-100 bg-white py-16 md:py-20" id="how-it-works">
+        <div class="mx-auto max-w-6xl px-6">
+          <h2 class="text-center text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">How it works</h2>
+          <p class="mx-auto mt-4 max-w-2xl text-center text-slate-600">
+            Three steps from blank page to scheduled social posts.
+          </p>
+          <div class="mt-14 grid gap-8 md:grid-cols-3 md:gap-6">
+            <div
+              class="relative rounded-2xl border border-slate-200 bg-[#f9fafb] p-8 text-center shadow-md transition duration-300 hover:shadow-lg"
+            >
+              <span
+                class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#0f172a] text-lg font-bold text-amber-400"
+                >1</span
+              >
+              <h3 class="mt-5 text-lg font-bold text-[#0f172a]">Generate Campaign</h3>
+              <p class="mt-2 text-sm text-slate-600">
+                Answer a few prompts — BrokerAI builds a week of posts tailored to your market.
+              </p>
+            </div>
+            <div
+              class="relative rounded-2xl border border-slate-200 bg-[#f9fafb] p-8 text-center shadow-md transition duration-300 hover:shadow-lg"
+            >
+              <span
+                class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#0f172a] text-lg font-bold text-amber-400"
+                >2</span
+              >
+              <h3 class="mt-5 text-lg font-bold text-[#0f172a]">Review &amp; Approve</h3>
+              <p class="mt-2 text-sm text-slate-600">
+                Scan captions, images, and compliance flags. Edit lines, then approve when it sounds like you.
+              </p>
+            </div>
+            <div
+              class="relative rounded-2xl border border-slate-200 bg-[#f9fafb] p-8 text-center shadow-md transition duration-300 hover:shadow-lg"
+            >
+              <span
+                class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#0f172a] text-lg font-bold text-amber-400"
+                >3</span
+              >
+              <h3 class="mt-5 text-lg font-bold text-[#0f172a]">Auto Publish Everywhere</h3>
+              <p class="mt-2 text-sm text-slate-600">
+                Approved posts go out on schedule across your connected channels — hands off after approval.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Dashboard preview -->
+      <section class="bg-[#f9fafb] py-16 md:py-20" id="dashboard-preview">
+        <div class="mx-auto max-w-6xl px-6">
+          <div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
+            <div>
+              <h2 class="text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">
+                Your content calendar, finally in one view
+              </h2>
+              <p class="mt-4 text-lg text-slate-600">
+                See all your content in one place with a smart calendar dashboard.
+              </p>
+              <ul class="mt-6 space-y-3 text-sm text-slate-600">
+                <li class="flex items-start gap-2">
+                  <span class="mt-0.5 text-amber-500" aria-hidden="true">●</span>
+                  Spot what’s scheduled, live, or needs attention at a glance.
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="mt-0.5 text-amber-500" aria-hidden="true">●</span>
+                  Drill into each day without digging through spreadsheets or DMs.
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="mt-0.5 text-amber-500" aria-hidden="true">●</span>
+                  Built for teams who post consistently but hate busywork.
+                </li>
+              </ul>
+              <a
+                href="/signup.html"
+                class="mt-8 inline-flex rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition duration-200 hover:scale-105 active:scale-95"
+                >Try the calendar free</a
+              >
+            </div>
+            <div
+              class="rounded-2xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-slate-900/5 transition duration-300 hover:shadow-2xl"
+              aria-hidden="true"
+            >
+              <div
+                class="flex aspect-[4/3] flex-col overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50"
+              >
+                <div class="flex border-b border-slate-200/80 bg-white px-4 py-3">
+                  <div class="h-3 w-32 rounded bg-slate-200"></div>
+                  <div class="ml-auto flex gap-2">
+                    <div class="h-8 w-8 rounded-lg bg-amber-100"></div>
+                    <div class="h-8 w-20 rounded-lg bg-slate-100"></div>
+                  </div>
+                </div>
+                <div class="grid flex-1 grid-cols-7 gap-px bg-slate-200 p-px">
+                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
+                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
+                  <div class="bg-amber-50 p-2"><div class="h-2 w-6 rounded bg-amber-200"></div></div>
+                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
+                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
+                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
+                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
+                  <div class="col-span-7 grid grid-cols-7 gap-px bg-slate-100 p-2">
+                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
+                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
+                    <div class="aspect-square rounded-md border-2 border-amber-400 bg-amber-50 shadow-md"></div>
+                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
+                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
+                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
+                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
+                  </div>
+                </div>
+              </div>
+              <p class="px-3 py-2 text-center text-xs text-slate-400">Illustrative calendar UI — not live data</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. CTA -->
+      <section class="py-16 md:py-20" id="cta">
+        <div class="mx-auto max-w-6xl px-6">
+          <div
+            class="rounded-2xl bg-gradient-to-br from-[#0f172a] via-[#0f172a] to-slate-900 px-8 py-14 text-center shadow-xl md:px-16 md:py-16"
+          >
+            <h2 class="text-3xl font-bold text-white md:text-4xl">Start Your First AI Campaign Today</h2>
+            <p class="mx-auto mt-4 max-w-xl text-slate-300">
+              Join agents and brokers who want consistent, compliant social presence without living in Canva.
+            </p>
+            <a
+              href="/signup.html"
+              class="mt-10 inline-flex rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-10 py-4 text-base font-bold text-white shadow-lg shadow-amber-500/30 transition duration-200 hover:scale-105 hover:shadow-xl active:scale-95"
+              >Create Free Account</a
+            >
+            <p class="mt-4 text-sm text-slate-400">Already registered? <a href="/login.html" class="font-semibold text-amber-400 underline-offset-2 hover:underline">Login</a></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Legal stubs (footer links target) -->
+      <div class="mx-auto max-w-6xl px-6 pb-8">
+        <details id="privacy-policy" class="rounded-xl border border-slate-200 bg-[#f9fafb] p-4 text-sm text-slate-600">
+          <summary class="cursor-pointer font-semibold text-[#0f172a]">Privacy Policy (summary)</summary>
+          <p class="mt-2">
+            We collect only what’s needed to run your account and improve the product. Do not share passwords or API
+            keys in support tickets. Replace this stub with your full policy before production.
+          </p>
+        </details>
+        <details id="terms-of-service" class="mt-3 rounded-xl border border-slate-200 bg-[#f9fafb] p-4 text-sm text-slate-600">
+          <summary class="cursor-pointer font-semibold text-[#0f172a]">Terms of Service (summary)</summary>
+          <p class="mt-2">
+            BrokerAI is provided as-is for your business use. You are responsible for content you publish and for
+            complying with platform rules and fair housing law. Replace this stub with your full terms before production.
+          </p>
+        </details>
+      </div>
+    </main>
+
+    <!-- 7. Footer -->
+    <footer class="border-t border-slate-200 bg-white py-12">
+      <div class="mx-auto flex max-w-6xl flex-col gap-8 px-6 md:flex-row md:items-center md:justify-between">
+        <div class="text-lg font-bold text-[#0f172a]">
+          Broker<span class="text-amber-500">AI</span>
+        </div>
+        <nav class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium text-slate-600">
+          <a href="/" class="transition hover:text-amber-600">Home</a>
+          <a href="/dashboard.html" class="transition hover:text-amber-600">Dashboard</a>
+          <a href="/login.html" class="transition hover:text-amber-600">Login</a>
+          <a href="/signup.html" class="transition hover:text-amber-600">Signup</a>
+        </nav>
+        <div class="text-center text-sm text-slate-500 md:text-right">
+          <p>© 2026 BrokerAI</p>
+          <p class="mt-0.5">All rights reserved</p>
+          <div class="mt-3 flex justify-center gap-4 md:justify-end">
+            <a href="#privacy-policy" class="transition hover:text-amber-600">Privacy Policy</a>
+            <a href="#terms-of-service" class="transition hover:text-amber-600">Terms of Service</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>
