@@ -38,14 +38,24 @@
           </p>
 
           <div
-            class="mt-6 rounded-2xl border border-slate-200/90 bg-white/80 p-4 text-sm text-slate-700 shadow-sm md:p-5"
+            class="mt-6 rounded-2xl border border-amber-200/90 bg-amber-50/90 p-4 text-sm text-amber-950 shadow-sm md:p-5"
           >
-            <p class="font-semibold text-slate-900">Before you use the Campaign Wizard</p>
-            <p class="mt-2 leading-relaxed">
-              You must connect <span class="font-medium">all three</span> networks here first. The wizard no longer asks
-              for profile links — optional Facebook, Instagram, and LinkedIn URLs for AI personalization are saved in the
-              section below once your accounts are linked.
-            </p>
+            <p class="font-semibold text-amber-900">How linking works (read this)</p>
+            <ol class="mt-2 list-decimal space-y-2 pl-5 leading-relaxed">
+              <li>
+                Tap <span class="font-semibold">Connect Accounts</span> (yellow). You will sign in at Ayrshare and
+                authorize <span class="font-medium">Facebook, Instagram, and LinkedIn</span> for posting.
+              </li>
+              <li>
+                When you are done at Ayrshare, come back here and tap
+                <span class="font-semibold">I finished linking — refresh status</span>.
+              </li>
+              <li>
+                The <span class="font-semibold">Optional profile URLs</span> section below is only for AI tone — it does
+                <span class="font-semibold">not</span> connect OAuth and will <span class="font-semibold">not</span> change
+                your status.
+              </li>
+            </ol>
           </div>
 
           <div class="mt-8 flex justify-center gap-6 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-lg">
@@ -116,15 +126,16 @@
           </div>
 
           <section
-            class="mt-10 rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-lg"
+            class="mt-10 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-6 shadow-sm"
             aria-labelledby="profile-urls-heading"
           >
             <h2 id="profile-urls-heading" class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Optional profile URLs
+              Optional profile URLs (AI only — not OAuth)
             </h2>
             <p class="mt-2 text-sm text-slate-600">
-              Page or profile links help tailor tone and references in generated copy. All fields are optional; use
-              <span class="font-medium">https://</span> links only.
+              Saving these does <span class="font-semibold">not</span> link your accounts and does
+              <span class="font-semibold">not</span> update the status above. They only help the AI reference your pages;
+              use <span class="font-medium">https://</span> links.
             </p>
             <div class="mt-5 grid gap-4">
               <div>
@@ -183,32 +194,48 @@
         var statusLine = document.getElementById("connect-status-line");
         var statusHint = document.getElementById("connect-status-hint");
 
-        function setStatus(connected, detail, missing) {
+        function setStatus(connected, detail, missing, hasProfile, syncOk) {
           if (!statusLine) return;
           if (connected) {
-            statusLine.textContent = "✅ All networks linked";
+            statusLine.textContent = "✅ Ready to publish";
             statusLine.className = "mt-2 text-lg font-semibold text-emerald-600";
             statusHint.textContent =
               detail ||
-              "Facebook, Instagram, and LinkedIn are connected. You can create campaigns from the Wizard.";
+              "Enough social accounts are linked for campaigns. You can use the Wizard.";
           } else {
             statusLine.textContent = "❌ Not fully connected";
             statusLine.className = "mt-2 text-lg font-semibold text-red-600";
-            var miss =
-              missing && missing.length
-                ? " Still missing: " + missing.join(", ") + "."
-                : " Link all three in Ayrshare, then tap refresh.";
-            statusHint.textContent =
-              (detail || "Open Connect Accounts, complete SSO in Ayrshare, and link each network.") + miss;
+            var parts = [];
+            if (detail) parts.push(detail);
+            if (syncOk === false) {
+              parts.push(
+                "BrokerAI could not reach Ayrshare to read your links. Check AYRSHARE_API_KEY on the server or try again in a few minutes."
+              );
+            } else if (!hasProfile) {
+              parts.push('Tap "Connect Accounts" first to create your Ayrshare profile, then link networks there.');
+            } else {
+              if (missing && missing.length) {
+                parts.push("Still missing OAuth links: " + missing.join(", ") + ".");
+              } else {
+                parts.push("Link the required networks in Ayrshare, then tap refresh status.");
+              }
+            }
+            statusHint.textContent = parts.join(" ");
           }
         }
 
         async function refreshStatus() {
           try {
             var s = await BrokerAI.apiJson("/social-status", { method: "GET" });
-            setStatus(s.connected, null, s.missing_platforms || []);
+            setStatus(
+              s.connected,
+              null,
+              s.missing_platforms || [],
+              s.has_social_profile,
+              s.ayrshare_sync_ok
+            );
           } catch (e) {
-            setStatus(false, (e && e.message) || "Could not load status.", []);
+            setStatus(false, (e && e.message) || "Could not load status.", [], false, true);
           }
         }
 
@@ -279,6 +306,7 @@
               }),
             });
             BrokerAI.showToast("Profile URLs saved", "success");
+            await refreshStatus();
           } catch (e) {
             BrokerAI.showToast((e && e.message) || "Save failed", "error");
           } finally {
@@ -314,6 +342,14 @@
         });
 
         refreshStatus();
+
+        try {
+          if (window.location.search.indexOf("returned=1") !== -1) {
+            refreshStatus().then(function () {
+              BrokerAI.showToast("Back from Ayrshare — status refreshed", "info");
+            });
+          }
+        } catch (e) {}
       })();
     </script>
   </body>

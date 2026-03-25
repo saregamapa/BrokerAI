@@ -34,7 +34,6 @@ from backend.db import create_db_and_tables, engine, get_session
 from backend.integrations.ayrshare import (
     coerce_ayrshare_platforms,
     platform_response_json,
-    slug_from_ayrshare_account_label,
 )
 from backend.services.publish_service import (
     _lock_expired,
@@ -84,7 +83,8 @@ from backend.services.ayrshare_service import (
     create_ayrshare_profile,
     fetch_active_social_accounts,
     generate_social_connect_url,
-    has_all_target_platforms_linked,
+    is_social_connection_satisfied,
+    linked_social_slugs,
 )
 from backend.services.ai_analytics_service import analyze_performance
 from backend.services.analytics import (
@@ -123,25 +123,39 @@ def _connect_redirect_url() -> Optional[str]:
     return f"{base}/connect.html?returned=1"
 
 
-def _sync_user_social_from_ayrshare(session: Session, user: User) -> None:
-    """Refresh social_connected from Ayrshare GET /user (Profile-Key)."""
+def _sync_user_social_from_ayrshare(session: Session, user: User) -> Tuple[List[str], bool]:
+    """
+    Refresh social_connected from Ayrshare GET /user (Profile-Key).
+
+    Returns (active_account_labels, ayrshare_api_ok). When profile key exists but GET /user
+    fails, returns ([], False) and does not change social_connected.
+    """
     pk = (user.ayrshare_profile_key or "").strip()
     if not pk:
-        return
+        return [], True
     active = fetch_active_social_accounts(pk)
     if active is None:
-        return
-    user.social_connected = has_all_target_platforms_linked(active)
+        return [], False
+    user.social_connected = is_social_connection_satisfied(active)
     session.add(user)
     session.commit()
+    return active, True
 
 
 def _require_social_ready(session: Session, user_id: int) -> None:
     u = session.get(User, user_id)
     if not u:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    _sync_user_social_from_ayrshare(session, u)
+    _active, sync_ok = _sync_user_social_from_ayrshare(session, u)
     session.refresh(u)
+    if not sync_ok and not u.social_connected:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Could not verify social accounts with Ayrshare. Check AYRSHARE_API_KEY and "
+                "try Connect Accounts again in a few minutes."
+            ),
+        )
     if not u.social_connected:
         raise HTTPException(
             status_code=403,
@@ -266,27 +280,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="BrokerAI", lifespan=lifespan)
 
-
-def _cors_allow_origins() -> List[str]:
-    """
-    Browser calls use Authorization (credentialed fetches). Starlette rejects preflight when the
-    Origin is not in this list. On Render, an empty ALLOWED_ORIGINS env often becomes '' (not
-    the default '*'), which blocks every API call. We also merge BROKERAI_PUBLIC_ORIGIN so the
-    live app works if only that variable is set correctly.
-    """
-    raw = (os.environ.get("ALLOWED_ORIGINS") or "*").strip()
-    if not raw or raw == "*":
-        return ["*"]
-    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
-    pub = _public_app_origin()
-    if pub and pub not in origins:
-        origins.append(pub)
-    return origins if origins else ["*"]
-
-
+# CORS: Allow all origins in dev, restrict in production via ALLOWED_ORIGINS env var
+_allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_allow_origins(),
+    allow_origins=[o.strip() for o in _allowed_origins],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -377,24 +375,22 @@ def social_status(
     user = session.get(User, current_user.id)
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    _sync_user_social_from_ayrshare(session, user)
+    active, sync_ok = _sync_user_social_from_ayrshare(session, user)
     session.refresh(user)
-    active: List[str] = []
     pk = (user.ayrshare_profile_key or "").strip()
-    if pk:
-        active = fetch_active_social_accounts(pk) or []
-    linked_slugs: set[str] = set()
-    for x in active:
-        slug = slug_from_ayrshare_account_label(str(x))
-        if slug:
-            linked_slugs.add(slug)
-    linked_required = sorted(linked_slugs & REQUIRED_LINKED_SOCIAL_PLATFORMS)
-    missing = sorted(REQUIRED_LINKED_SOCIAL_PLATFORMS - linked_slugs)
+    has_profile = bool(pk)
+    if not sync_ok:
+        active = []
+    linked_slugs_set = linked_social_slugs(active) & REQUIRED_LINKED_SOCIAL_PLATFORMS
+    linked_required = sorted(linked_slugs_set)
+    missing = sorted(REQUIRED_LINKED_SOCIAL_PLATFORMS - linked_slugs_set)
     return SocialStatusResponse(
         connected=bool(user.social_connected),
         profile_key=user.ayrshare_profile_key or None,
         linked_platforms=linked_required,
         missing_platforms=missing,
+        has_social_profile=has_profile,
+        ayrshare_sync_ok=sync_ok,
     )
 
 
@@ -407,10 +403,10 @@ def social_connected_callback(
     user = session.get(User, current_user.id)
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    _sync_user_social_from_ayrshare(session, user)
+    _active, sync_ok = _sync_user_social_from_ayrshare(session, user)
     session.refresh(user)
     return SocialConnectedCallbackResponse(
-        ok=True,
+        ok=bool(sync_ok),
         connected=bool(user.social_connected),
     )
 

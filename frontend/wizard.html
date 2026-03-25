@@ -131,8 +131,8 @@
           >
             <p class="font-semibold text-amber-900">Connect your accounts first</p>
             <p class="mt-2 text-amber-900/90">
-              Link <span class="font-medium">Facebook, Instagram, and LinkedIn</span> on Connect Accounts before you can
-              create a campaign. Optional profile URLs for personalization are saved there too.
+              Use the yellow <span class="font-medium">Connect Accounts</span> button on Connect Accounts (Ayrshare OAuth).
+              Typing profile URLs does not count as linked. When the server shows you are connected, this gate clears.
             </p>
             <p id="wizard-connect-gate-detail" class="mt-1 text-xs text-amber-800/90"></p>
             <a
@@ -443,16 +443,26 @@
           var s = await BrokerAI.apiJson("/social-status", { method: "GET" });
           if (!s.connected) {
             gate.classList.remove("hidden");
-            if (fields) fields.disabled = true;
-            var miss = s.missing_platforms && s.missing_platforms.length;
-            detailEl.textContent = miss
-              ? "Still need to link: " + s.missing_platforms.join(", ") + "."
-              : "";
+            var disable = s.ayrshare_sync_ok !== false;
+            if (fields) fields.disabled = disable;
+            var parts = [];
+            if (s.ayrshare_sync_ok === false) {
+              parts.push(
+                "Could not reach Ayrshare to verify your links (check server API key). The form stays enabled so you can try anyway."
+              );
+            } else if (!s.has_social_profile) {
+              parts.push('Open Connect Accounts and tap "Connect Accounts" before using the wizard.');
+            } else if (s.missing_platforms && s.missing_platforms.length) {
+              parts.push("Still need OAuth links for: " + s.missing_platforms.join(", ") + ".");
+            }
+            detailEl.textContent = parts.join(" ");
           }
         } catch (e) {
           gate.classList.remove("hidden");
-          if (fields) fields.disabled = true;
-          detailEl.textContent = (e && e.message) || "Could not verify social connection.";
+          if (fields) fields.disabled = false;
+          detailEl.textContent =
+            (e && e.message) ||
+            "Could not load social status — form is enabled; try generating or sign in again.";
         }
       })();
 

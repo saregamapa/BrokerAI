@@ -404,13 +404,35 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
     return [str(x).strip().lower() for x in raw if x]
 
 
-def has_all_target_platforms_linked(active_accounts: Optional[List[str]]) -> bool:
-    """True when Facebook, Instagram, and LinkedIn are all linked on the Ayrshare profile."""
-    if not active_accounts:
-        return False
+def linked_social_slugs(active_accounts: Optional[List[str]]) -> set[str]:
+    """Canonical slugs for FB / IG / LI found in Ayrshare activeSocialAccounts."""
     slugs: set[str] = set()
+    if not active_accounts:
+        return slugs
     for x in active_accounts:
         slug = slug_from_ayrshare_account_label(str(x))
         if slug:
             slugs.add(slug)
-    return REQUIRED_LINKED_SOCIAL_PLATFORMS.issubset(slugs)
+    return slugs
+
+
+def is_social_connection_satisfied(active_accounts: Optional[List[str]]) -> bool:
+    """
+    True when enough of Facebook / Instagram / LinkedIn are linked for this app.
+
+    Default requires all three. Set AYRSHARE_MIN_LINKED_PLATFORMS=1 or 2 on Render if you want
+    a softer gate while onboarding (wizard + publish still use whatever platforms are linked).
+    """
+    linked = linked_social_slugs(active_accounts) & REQUIRED_LINKED_SOCIAL_PLATFORMS
+    raw = (os.getenv("AYRSHARE_MIN_LINKED_PLATFORMS") or "3").strip()
+    try:
+        need = int(raw)
+    except ValueError:
+        need = 3
+    need = max(1, min(3, need))
+    return len(linked) >= need
+
+
+def has_all_target_platforms_linked(active_accounts: Optional[List[str]]) -> bool:
+    """Backward-compatible name: satisfied when MIN_LINKED_PLATFORMS threshold is met (default 3)."""
+    return is_social_connection_satisfied(active_accounts)
