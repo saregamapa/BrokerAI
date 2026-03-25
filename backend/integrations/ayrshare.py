@@ -134,10 +134,44 @@ async def publish_post(
 
     ok = 200 <= resp.status_code < 300
     if isinstance(data, dict):
-        errs = data.get("errors") or data.get("error")
-        posts = data.get("posts")
-        if errs and not posts:
+        st = str(data.get("status") or "").lower()
+        if st == "error":
             ok = False
+        elif st == "success" or st == "scheduled":
+            # Partial platform failures may still return 200 with errors[]
+            errs = data.get("errors")
+            if isinstance(errs, list) and errs:
+                post_ids = data.get("postIds")
+                nested = data.get("posts")
+                has_ok = isinstance(post_ids, list) and len(post_ids) > 0
+                if isinstance(nested, list) and nested:
+                    for block in nested:
+                        if not isinstance(block, dict):
+                            continue
+                        if str(block.get("status") or "").lower() in (
+                            "success",
+                            "scheduled",
+                        ):
+                            has_ok = True
+                            break
+                        pids = block.get("postIds")
+                        if isinstance(pids, list) and len(pids) > 0:
+                            has_ok = True
+                            break
+                if not has_ok:
+                    ok = False
+        posts = data.get("posts")
+        if isinstance(posts, list) and posts:
+            first = posts[0]
+            if isinstance(first, dict) and str(first.get("status") or "").lower() == "error":
+                inner_errs = first.get("errors")
+                inner_pids = first.get("postIds")
+                if (
+                    isinstance(inner_errs, list)
+                    and inner_errs
+                    and not (isinstance(inner_pids, list) and len(inner_pids) > 0)
+                ):
+                    ok = False
 
     return {"ok": ok, "status_code": resp.status_code, "body": data}
 
@@ -146,9 +180,31 @@ def platform_response_json(result: Dict[str, Any]) -> str:
     return json.dumps(result, default=str)
 
 
+def _first_success_platform_from_post_ids(items: Any) -> tuple[str, str]:
+    """From postIds / nested postIds list, return (provider_post_id, platform_slug)."""
+    if not isinstance(items, list):
+        return "", ""
+    for entry in items:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("status") or "").lower() == "error":
+            continue
+        pid = entry.get("id")
+        sid = pid.strip() if isinstance(pid, str) and pid.strip() else ""
+        raw_p = entry.get("platform")
+        if isinstance(raw_p, str) and raw_p.strip():
+            norm = normalize_platforms([raw_p.strip()])
+            if norm:
+                return sid, norm[0]
+        if sid:
+            return sid, "facebook"
+    return "", ""
+
+
 def extract_ayrshare_publish_metadata(body: Any) -> tuple[str, str]:
     """
-    From a successful Ayrshare publish JSON body, return (social_post_id, primary_platform_slug).
+    From a successful Ayrshare publish JSON body, return (ayrshare_or_provider_post_id, primary_platform_slug).
+    Prefer top-level `id` (Ayrshare post id) when present; else first successful platform post id.
     """
     if not isinstance(body, dict):
         return "", ""
@@ -157,19 +213,33 @@ def extract_ayrshare_publish_metadata(body: Any) -> tuple[str, str]:
     top_id = body.get("id")
     if isinstance(top_id, str) and top_id.strip():
         social_id = top_id.strip()
+
+    post_ids = body.get("postIds")
+    sid2, plat2 = _first_success_platform_from_post_ids(post_ids)
+    if plat2:
+        plat = plat2
+    if sid2 and not social_id:
+        social_id = sid2
+
     posts = body.get("posts")
     if isinstance(posts, list) and posts:
         first = posts[0]
         if isinstance(first, dict):
-            if not social_id:
-                pid = first.get("id")
-                if isinstance(pid, str) and pid.strip():
-                    social_id = pid.strip()
-            raw_p = first.get("platform")
-            if isinstance(raw_p, str) and raw_p.strip():
-                norm = normalize_platforms([raw_p.strip()])
-                if norm:
-                    plat = norm[0]
+            inner_id = first.get("id")
+            if isinstance(inner_id, str) and inner_id.strip():
+                social_id = inner_id.strip()
+            inner_pids = first.get("postIds")
+            sid3, plat3 = _first_success_platform_from_post_ids(inner_pids)
+            if plat3:
+                plat = plat3
+            if sid3 and not social_id:
+                social_id = sid3
+            if not plat:
+                raw_p = first.get("platform")
+                if isinstance(raw_p, str) and raw_p.strip():
+                    norm = normalize_platforms([raw_p.strip()])
+                    if norm:
+                        plat = norm[0]
     if not plat:
         for key in ("facebook", "instagram", "linkedin", "twitter", "tiktok", "youtube"):
             block = body.get(key)

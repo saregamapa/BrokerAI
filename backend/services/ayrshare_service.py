@@ -5,9 +5,10 @@ Official API hosts use https://api.ayrshare.com (not app.ayrshare.com for REST).
 """
 from __future__ import annotations
 
+import base64
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
@@ -37,18 +38,49 @@ def _api_key() -> str:
     return os.getenv("AYRSHARE_API_KEY", "").strip()
 
 
-def _load_private_key_pem() -> str:
-    """RSA private key PEM for POST /profiles/generateJWT (Business Plan)."""
+def _normalize_private_key_pem(pem: str) -> str:
+    """
+    Ayrshare rejects PEMs with stray whitespace (see JWT error code 189).
+    Preserve inner newlines; trim outer space and unify line endings.
+    """
+    s = pem.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not s:
+        return ""
+    # Strip BOM / invisible chars at start of first line
+    s = s.lstrip("\ufeff")
+    return s + ("\n" if not s.endswith("\n") else "")
+
+
+def _load_private_key_for_jwt() -> Tuple[str, bool]:
+    """
+    Returns (private_key_string, use_base64_flag) for generateJWT body.
+    If use_base64_flag is True, send as base64-encoded PEM with privateKeyBase64: true (Ayrshare docs).
+    """
+    b64_flag = os.getenv("AYRSHARE_PRIVATE_KEY_BASE64", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    b64_val = os.getenv("AYRSHARE_PRIVATE_KEY_BASE64_VALUE", "").strip()
+    if b64_val:
+        return b64_val.replace("\n", "").replace(" ", ""), True
+
     raw = os.getenv("AYRSHARE_PRIVATE_KEY", "").strip()
     if raw:
-        # Allow single-line .env with literal \n
-        return raw.replace("\\n", "\n").strip()
+        pem = _normalize_private_key_pem(raw.replace("\\n", "\n"))
+        if b64_flag:
+            return base64.b64encode(pem.encode("utf-8")).decode("ascii"), True
+        return pem, False
+
     key_path = os.getenv("AYRSHARE_PRIVATE_KEY_PATH", "").strip()
     if key_path:
         p = Path(key_path).expanduser()
         if p.is_file():
-            return p.read_text(encoding="utf-8").strip()
-    return ""
+            pem = _normalize_private_key_pem(p.read_text(encoding="utf-8"))
+            if b64_flag:
+                return base64.b64encode(pem.encode("utf-8")).decode("ascii"), True
+            return pem, False
+    return "", False
 
 
 def _sso_domain() -> str:
@@ -130,17 +162,84 @@ def create_ayrshare_profile(user_id: int, _email: str) -> str:
     return profile_key.strip()
 
 
+def _generate_jwt_request_json(
+    client: httpx.Client,
+    api_key: str,
+    domain: str,
+    private_key: str,
+    profile_key: str,
+    *,
+    private_key_is_b64: bool,
+    redirect_after_connect: Optional[str],
+) -> httpx.Response:
+    body: Dict[str, Any] = {
+        "domain": domain,
+        "privateKey": private_key,
+        "profileKey": profile_key.strip(),
+        "allowedSocial": ["facebook", "instagram", "linkedin"],
+    }
+    if private_key_is_b64:
+        body["privateKeyBase64"] = True
+    if redirect_after_connect and redirect_after_connect.strip():
+        body["redirect"] = redirect_after_connect.strip()
+    return client.post(
+        AYRSHARE_API_GENERATE_JWT,
+        json=body,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+    )
+
+
+def _generate_jwt_request_form(
+    client: httpx.Client,
+    api_key: str,
+    domain: str,
+    private_key: str,
+    profile_key: str,
+    *,
+    redirect_after_connect: Optional[str],
+) -> httpx.Response:
+    """Postman-style application/x-www-form-urlencoded (some dashboards use this)."""
+    form: List[Tuple[str, str]] = [
+        ("domain", domain),
+        ("privateKey", private_key),
+        ("profileKey", profile_key.strip()),
+    ]
+    if redirect_after_connect and redirect_after_connect.strip():
+        form.append(("redirect", redirect_after_connect.strip()))
+    # Optional; Postman samples often omit this — dashboard “Social Networks” applies if unset.
+    if os.getenv("AYRSHARE_JWT_FORM_INCLUDE_ALLOWED_SOCIAL", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        for plat in ("facebook", "instagram", "linkedin"):
+            form.append(("allowedSocial[]", plat))
+    return client.post(
+        AYRSHARE_API_GENERATE_JWT,
+        data=form,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+
+
 def generate_social_connect_url(
     profile_key: str,
     redirect_after_connect: Optional[str] = None,
 ) -> str:
     """
     Returns the JWT SSO URL from Ayrshare (opens profile.ayrshare.com with signed jwt).
-    Requires AYRSHARE_SSO_DOMAIN and private key (PEM) from your Business integration package.
+    Requires AYRSHARE_SSO_DOMAIN (exact string from onboarding, e.g. id-xxxxx) and private key PEM.
+
+    AYRSHARE_GENERATE_JWT_MODE=json|form — default json per Ayrshare docs; use `form` to match Postman.
     """
     key = _api_key()
     domain = _sso_domain()
-    private_key = _load_private_key_pem()
+    private_key, pk_is_b64 = _load_private_key_for_jwt()
     if not key:
         raise AyrshareServiceError("AYRSHARE_API_KEY is not configured", status_code=503)
     if not domain or not private_key:
@@ -151,25 +250,49 @@ def generate_social_connect_url(
             status_code=503,
         )
 
-    body: Dict[str, Any] = {
-        "domain": domain,
-        "privateKey": private_key,
-        "profileKey": profile_key.strip(),
-        "allowedSocial": ["facebook", "instagram", "linkedin"],
-    }
-    if redirect_after_connect and redirect_after_connect.strip():
-        body["redirect"] = redirect_after_connect.strip()
+    mode = os.getenv("AYRSHARE_GENERATE_JWT_MODE", "json").strip().lower()
+    if mode not in ("json", "form"):
+        mode = "json"
+
+    last_resp: Optional[httpx.Response] = None
+    last_data: Any = None
 
     try:
         with httpx.Client(timeout=45.0) as client:
-            resp = client.post(
-                AYRSHARE_API_GENERATE_JWT,
-                json=body,
-                headers={
-                    "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json",
-                },
-            )
+            if mode == "form":
+                if pk_is_b64:
+                    log.warning(
+                        "AYRSHARE_GENERATE_JWT_MODE=form with base64 key: "
+                        "using JSON body instead (form + base64 not supported)."
+                    )
+                    last_resp = _generate_jwt_request_json(
+                        client,
+                        key,
+                        domain,
+                        private_key,
+                        profile_key,
+                        private_key_is_b64=pk_is_b64,
+                        redirect_after_connect=redirect_after_connect,
+                    )
+                else:
+                    last_resp = _generate_jwt_request_form(
+                        client,
+                        key,
+                        domain,
+                        private_key,
+                        profile_key,
+                        redirect_after_connect=redirect_after_connect,
+                    )
+            else:
+                last_resp = _generate_jwt_request_json(
+                    client,
+                    key,
+                    domain,
+                    private_key,
+                    profile_key,
+                    private_key_is_b64=pk_is_b64,
+                    redirect_after_connect=redirect_after_connect,
+                )
     except httpx.RequestError as e:
         log.exception("Ayrshare generateJWT request failed")
         raise AyrshareServiceError(
@@ -177,34 +300,64 @@ def generate_social_connect_url(
         ) from e
 
     try:
-        data = resp.json()
+        last_data = last_resp.json() if last_resp is not None else None
     except Exception:
-        data = {"raw": resp.text}
+        last_data = {"raw": last_resp.text if last_resp else ""}
 
-    if resp.status_code >= 400 or not isinstance(data, dict):
-        log.error("Ayrshare generateJWT HTTP %s body=%s", resp.status_code, data)
-        raise AyrshareServiceError(
-            "Could not generate social connect URL from Ayrshare", status_code=502
-        )
+    def _parse_response(resp: Optional[httpx.Response], data: Any) -> Optional[str]:
+        if resp is None or not isinstance(data, dict):
+            return None
+        if resp.status_code >= 400:
+            return None
+        if data.get("status") == "error":
+            return None
+        url = data.get("url")
+        if isinstance(url, str) and url.strip():
+            return url.strip()
+        return None
 
-    if data.get("status") == "error":
-        log.error(
-            "Ayrshare generateJWT error code=%s message=%s",
-            data.get("code"),
-            data.get("message"),
-        )
+    url = _parse_response(last_resp, last_data)
+    if url:
+        return url
+
+    # Fallback: if JSON failed but form not tried yet, retry with form (raw PEM only).
+    if mode == "json" and not pk_is_b64:
+        try:
+            with httpx.Client(timeout=45.0) as client:
+                last_resp = _generate_jwt_request_form(
+                    client,
+                    key,
+                    domain,
+                    private_key,
+                    profile_key,
+                    redirect_after_connect=redirect_after_connect,
+                )
+            try:
+                last_data = last_resp.json()
+            except Exception:
+                last_data = {"raw": last_resp.text}
+            url = _parse_response(last_resp, last_data)
+            if url:
+                log.info("Ayrshare generateJWT succeeded via form fallback after JSON attempt")
+                return url
+        except httpx.RequestError as e:
+            log.warning("Ayrshare generateJWT form fallback failed: %s", e)
+
+    if not isinstance(last_data, dict):
+        last_data = {}
+    log.error(
+        "Ayrshare generateJWT HTTP %s body=%s",
+        last_resp.status_code if last_resp else 0,
+        last_data,
+    )
+    if last_data.get("status") == "error":
         raise AyrshareServiceError(
-            str(data.get("message") or "Ayrshare JWT generation failed"),
+            str(last_data.get("message") or "Ayrshare JWT generation failed"),
             status_code=502,
         )
-
-    url = data.get("url")
-    if not isinstance(url, str) or not url.strip():
-        log.error("Ayrshare generateJWT missing url in response: %s", data)
-        raise AyrshareServiceError(
-            "Ayrshare did not return a connect URL", status_code=502
-        )
-    return url.strip()
+    raise AyrshareServiceError(
+        "Could not generate social connect URL from Ayrshare", status_code=502
+    )
 
 
 def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
