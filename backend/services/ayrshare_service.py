@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from backend.core.logger import get_logger
+from backend.integrations.ayrshare import slug_from_ayrshare_account_label
 
 log = get_logger("brokerai.ayrshare_service")
 
@@ -19,8 +20,8 @@ AYRSHARE_API_CREATE_PROFILE = "https://api.ayrshare.com/api/profiles"
 AYRSHARE_API_GENERATE_JWT = "https://api.ayrshare.com/api/profiles/generateJWT"
 AYRSHARE_API_USER = "https://api.ayrshare.com/api/user"
 
-# Platforms we require for "connected" status (subset of networks users may link)
-_TARGET_PLATFORMS = frozenset({"facebook", "instagram", "linkedin"})
+# All three must be linked before campaign creation / publishing.
+REQUIRED_LINKED_SOCIAL_PLATFORMS = frozenset({"facebook", "instagram", "linkedin"})
 
 
 class AyrshareServiceError(Exception):
@@ -250,8 +251,13 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
     return [str(x).strip().lower() for x in raw if x]
 
 
-def has_linked_target_platform(active_accounts: Optional[List[str]]) -> bool:
+def has_all_target_platforms_linked(active_accounts: Optional[List[str]]) -> bool:
+    """True when Facebook, Instagram, and LinkedIn are all linked on the Ayrshare profile."""
     if not active_accounts:
         return False
-    linked = {a.lower() for a in active_accounts}
-    return bool(linked & _TARGET_PLATFORMS)
+    slugs: set[str] = set()
+    for x in active_accounts:
+        slug = slug_from_ayrshare_account_label(str(x))
+        if slug:
+            slugs.add(slug)
+    return REQUIRED_LINKED_SOCIAL_PLATFORMS.issubset(slugs)

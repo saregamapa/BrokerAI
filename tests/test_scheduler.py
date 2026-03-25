@@ -6,9 +6,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-import backend.main as main
 from backend.db import engine
 from backend.models import Post
+from backend.services import publish_service as publish_svc
+from backend.services import scheduler as scheduler_mod
 from tests.helpers import mark_user_social_connected
 
 
@@ -38,9 +39,9 @@ def test_publish_due_posts_marks_published(monkeypatch: pytest.MonkeyPatch, clie
     async def fake_publish(*args, **kwargs):
         return {"ok": True, "body": "mock"}
 
-    monkeypatch.setattr(main, "publish_post", fake_publish)
+    monkeypatch.setattr(publish_svc, "publish_post", fake_publish)
 
-    asyncio.run(main._publish_due_posts())
+    asyncio.run(scheduler_mod.publish_due_posts())
 
     with Session(engine) as s:
         row = s.get(Post, pid)

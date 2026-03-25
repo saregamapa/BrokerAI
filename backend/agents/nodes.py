@@ -1,8 +1,7 @@
 import json
 import os
-import re
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import backend.env_loader  # noqa: F401 — ensure project root .env loaded if agents imported first
@@ -12,11 +11,19 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
+from backend.agents.errors import CampaignPipelineError, OpenAINotConfiguredError
 from backend.agents.state import AgentState
 from backend.core.logger import get_logger
+from backend.services.ai_media_service import (
+    build_image_prompt,
+    generate_image,
+    generate_video_script,
+    video_script_to_storage_value,
+)
 from backend.db import engine
 from backend.integrations.ayrshare import coerce_ayrshare_platforms, normalize_platforms
 from backend.models import Campaign, Post
+from backend.workflow.post_state import POST_APPROVED, POST_REVIEW, transition_post_status
 
 log = get_logger("brokerai.agents")
 
@@ -29,6 +36,9 @@ DAYS = [
     "Saturday",
     "Sunday",
 ]
+
+# One post per calendar day in the generated week (LangGraph pipeline contract).
+CAMPAIGN_POST_COUNT = 7
 
 _BAD_PLACEHOLDER_KEYS = frozenset(
     {"your_key_here", "sk-your-key-here", "sk-proj-replace-me", "replace_me"}
@@ -135,113 +145,6 @@ def _schedule_offsets(freq: str) -> List[int]:
     return [0, 2, 4, 7, 9, 11, 14]
 
 
-def _placeholder_image(i: int) -> str:
-    return f"https://placehold.co/800x450/1e293b/94a3b8?text=Post+{i + 1}"
-
-
-def _fallback_strategy_days(data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    return [
-        {
-            "day": d,
-            "theme": f"{data.get('goal', 'engagement')} — {data.get('location')}",
-            "angle": "value + trust",
-        }
-        for d in DAYS
-    ]
-
-
-def _fallback_posts(data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    posts = []
-    for i, d in enumerate(DAYS):
-        posts.append(
-            {
-                "day": d,
-                "caption": (
-                    f"{data.get('goal', 'Real estate')} in {data.get('location')}? "
-                    f"I'm here to help — no pressure, local expertise."
-                ),
-                "hashtags": [
-                    "#realestate",
-                    f"#{str(data.get('location', '')).replace(' ', '')}",
-                    "#home",
-                ],
-                "image_prompt": f"Bright listing exterior in {data.get('location')}",
-                "video_script": (
-                    f"Hi, quick tip for {data.get('location')} — reach out to learn more."
-                ),
-            }
-        )
-    return posts
-
-
-def _strip_json_fence(text: str) -> str:
-    t = text.strip()
-    m = re.match(r"^```(?:json)?\s*([\s\S]*?)\s*```$", t)
-    if m:
-        return m.group(1).strip()
-    return t
-
-
-def _content_from_json_llm(
-    key: str, data: dict, day_rows: list, want_video: bool
-) -> Optional[List[Dict[str, Any]]]:
-    """Fallback when structured output fails: raw JSON from model."""
-    try:
-        llm = _llm(key).bind(response_format={"type": "json_object"})
-    except (TypeError, AttributeError):
-        llm = _llm(key)
-    vnote = (
-        'Use empty string "" for video_script on every post.'
-        if not want_video
-        else "Include a short 30–45s voiceover script per post in video_script."
-    )
-    location = data.get("location", "the local area")
-    social_block = _social_presence_prompt_block(data)
-    ctx = json.dumps({"campaign": data, "strategy_days": day_rows[:7]})
-    msg = (
-        "Write exactly 7 social posts as JSON. Shape: "
-        '{"posts":[{"day":"Monday","caption":"...","hashtags":["#a","#b"],"image_prompt":"...","video_script":"..."}, ...]}. '
-        f"\n\n{social_block}\n\n"
-        f"RULES:\n"
-        f"- Every caption must reference {location} specifically\n"
-        "- Start each caption with a hook (question, bold stat, or pattern interrupt)\n"
-        "- 5-8 hashtags per post, mix of broad + local + niche\n"
-        "- Image prompts should be 15-25 words, detailed for DALL·E\n"
-        "- Fair Housing compliant, no discrimination\n"
-        f"- {vnote}\n\n{ctx}"
-    )
-    raw = llm.invoke(
-        [
-            SystemMessage(content="You output only valid JSON, no markdown. "
-                          "You are an expert real estate social media copywriter."),
-            HumanMessage(content=msg),
-        ]
-    )
-    text = raw.content if hasattr(raw, "content") else str(raw)
-    try:
-        obj = json.loads(_strip_json_fence(text))
-        arr = obj.get("posts") or []
-        out = []
-        for i, item in enumerate(arr[:7]):
-            if not isinstance(item, dict):
-                continue
-            out.append(
-                {
-                    "day": str(item.get("day") or DAYS[i % 7]),
-                    "caption": str(item.get("caption") or ""),
-                    "hashtags": item.get("hashtags") if isinstance(item.get("hashtags"), list) else [],
-                    "image_prompt": str(item.get("image_prompt") or ""),
-                    "video_script": str(item.get("video_script") or ""),
-                }
-            )
-        while len(out) < 7:
-            out.append(_fallback_posts(data)[len(out)])
-        return out[:7]
-    except Exception as e:
-        log.warning("[agent:content] JSON parse fallback failed: %s", e)
-        return None
-
-
 _STRATEGY_SYSTEM = """\
 You are a senior real estate social media strategist who has managed accounts \
 for top-producing brokers and teams. You understand what content drives \
@@ -267,47 +170,54 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
         _ai_text_on(state),
         bool(key),
     )
-    if _ai_text_on(state) and key:
-        try:
-            llm = _llm(key).with_structured_output(StrategyPlan)
-            location = data.get("location", "the local area")
-            audience = data.get("audience") or "local buyers and sellers"
-            goal = data.get("goal", "generate leads")
-            biz = data.get("business_type", "real estate agent")
-            msg = (
-                f"Build a 7-day social media content plan for a {biz} in {location}.\n\n"
-                f"PRIMARY GOAL: {goal}\n"
-                f"TARGET AUDIENCE: {audience}\n\n"
-                "Requirements:\n"
-                "- Output exactly 7 days (Monday through Sunday)\n"
-                "- Each day needs: theme (2-4 words) and angle (one sentence describing the specific post idea)\n"
-                "- Vary content types across the week: market insight, social proof/testimonial, "
-                "community spotlight, educational tip, behind-the-scenes, listing highlight, personal/lifestyle\n"
-                f"- Make angles SPECIFIC to {location} — reference neighborhoods, local landmarks, "
-                "market conditions, or seasonal relevance when possible\n"
-                "- Weekend posts should feel lighter and more personal\n"
-                "- At least one day should include a clear call-to-action\n"
-                "- All content must be Fair Housing compliant and inclusive"
-            )
-            plan: StrategyPlan = llm.invoke(
-                [
-                    SystemMessage(content=_STRATEGY_SYSTEM),
-                    HumanMessage(content=msg),
-                ]
-            )
-            return {
-                "strategy_plan": plan.model_dump(),
-                "step_log": [f"strategy: OpenAI plan ({len(plan.days)} days)"],
-            }
-        except Exception:
-            log.exception("[agent:strategy] OpenAI structured output failed — using template plan")
-    elif _ai_text_on(state) and not key:
-        log.warning(
-            "[agent:strategy] ai_text_enabled but OPENAI_API_KEY is missing — using template plan"
+    if not _ai_text_on(state):
+        raise CampaignPipelineError(
+            "AI strategy is disabled. Enable AI captions & strategy in the wizard."
+        )
+    if not key:
+        raise OpenAINotConfiguredError(
+            "OPENAI_API_KEY is required for strategy generation."
+        )
+    try:
+        llm = _llm(key).with_structured_output(StrategyPlan)
+        location = data.get("location", "the local area")
+        audience = data.get("audience") or "local buyers and sellers"
+        goal = data.get("goal", "generate leads")
+        biz = data.get("business_type", "real estate agent")
+        msg = (
+            f"Build a {CAMPAIGN_POST_COUNT}-day social media content plan for a {biz} in {location}.\n\n"
+            f"PRIMARY GOAL: {goal}\n"
+            f"TARGET AUDIENCE: {audience}\n\n"
+            "Requirements:\n"
+            f"- Output exactly {CAMPAIGN_POST_COUNT} days (Monday through Sunday)\n"
+            "- Each day needs: theme (2-4 words) and angle (one sentence describing the specific post idea)\n"
+            "- Vary content types across the week: market insight, social proof/testimonial, "
+            "community spotlight, educational tip, behind-the-scenes, listing highlight, personal/lifestyle\n"
+            f"- Make angles SPECIFIC to {location} — reference neighborhoods, local landmarks, "
+            "market conditions, or seasonal relevance when possible\n"
+            "- Weekend posts should feel lighter and more personal\n"
+            "- At least one day should include a clear call-to-action\n"
+            "- All content must be Fair Housing compliant and inclusive"
+        )
+        plan: StrategyPlan = llm.invoke(
+            [
+                SystemMessage(content=_STRATEGY_SYSTEM),
+                HumanMessage(content=msg),
+            ]
+        )
+    except CampaignPipelineError:
+        raise
+    except Exception as e:
+        log.exception("[agent:strategy] OpenAI structured output failed")
+        raise CampaignPipelineError(f"Strategy generation failed: {e}") from e
+
+    if len(plan.days) != CAMPAIGN_POST_COUNT:
+        raise CampaignPipelineError(
+            f"Strategy must return exactly {CAMPAIGN_POST_COUNT} days; got {len(plan.days)}."
         )
     return {
-        "strategy_plan": {"days": _fallback_strategy_days(data)},
-        "step_log": ["strategy: template plan (no AI or AI failed)"],
+        "strategy_plan": plan.model_dump(),
+        "step_log": [f"strategy: OpenAI plan ({len(plan.days)} days)"],
     }
 
 
@@ -338,11 +248,14 @@ HASHTAG RULES:
 - Never use banned/spammy hashtags (#followforfollow, #like4like)
 
 IMAGE PROMPT RULES:
-- Write detailed DALL·E prompts (15-25 words)
+- Write detailed DALL·E-oriented visual prompts (15-25 words) for downstream image generation.
 - Specify: subject, setting, lighting, mood, style
 - Real estate focused: exteriors, interiors, neighborhoods, lifestyle scenes
 - Example: "Modern craftsman home exterior at golden hour, manicured lawn, warm porch lights, \
 suburban neighborhood, photorealistic"
+
+VIDEO:
+- Always set video_script to empty string "". Short-form video scripts are generated later in the media step.
 
 FAIR HOUSING:
 - Never reference race, color, religion, sex, disability, familial status, or national origin
@@ -396,143 +309,191 @@ def _score_content_quality(posts: List[Dict[str, Any]], location: str) -> int:
 def content_node(state: AgentState) -> Dict[str, Any]:
     data = _campaign_data(state)
     strat = state.get("strategy_plan") or {}
-    day_rows = strat.get("days") or _fallback_strategy_days(data)
+    day_rows = strat.get("days") or []
+    if len(day_rows) < CAMPAIGN_POST_COUNT:
+        raise CampaignPipelineError(
+            f"Content step requires a full strategy ({CAMPAIGN_POST_COUNT} days); got {len(day_rows)}."
+        )
     key = _openai_api_key()
-    want_video = _video_scripts_on(state)
     location = data.get("location", "the local area")
     log.info(
-        "[agent:content] ai_text=%s key_present=%s video_scripts=%s",
+        "[agent:content] ai_text=%s key_present=%s",
         _ai_text_on(state),
         bool(key),
-        want_video,
+    )
+
+    if not _ai_text_on(state):
+        raise CampaignPipelineError(
+            "AI content is disabled. Enable AI captions & strategy in the wizard."
+        )
+    if not key:
+        raise OpenAINotConfiguredError(
+            "OPENAI_API_KEY is required for caption and hashtag generation."
+        )
+
+    platforms = data.get("platforms") or ["facebook"]
+    platform_str = ", ".join(platforms)
+    audience = data.get("audience") or "local buyers and sellers"
+    goal = data.get("goal", "generate leads")
+    biz = data.get("business_type", "real estate agent")
+    social_block = _social_presence_prompt_block(data)
+    ctx = json.dumps({"campaign": data, "strategy_days": day_rows[:CAMPAIGN_POST_COUNT]})
+
+    msg = (
+        f"Write exactly {CAMPAIGN_POST_COUNT} social media posts for a {biz} in {location}.\n\n"
+        f"GOAL: {goal}\n"
+        f"AUDIENCE: {audience}\n"
+        f"PLATFORMS: {platform_str}\n\n"
+        f"{social_block}\n\n"
+        "For each post, provide: day (matching strategy), caption, hashtags (array), "
+        'image_prompt (detailed DALL·E-oriented prompt), video_script (always "").\n\n'
+        "IMPORTANT: Make every caption feel like it was written by someone who LIVES in "
+        f"{location} and knows the market inside out. Reference specific neighborhoods, "
+        "streets, local businesses, parks, or market stats when possible.\n\n"
+        f"Strategy context:\n{ctx}"
     )
 
     posts: List[Dict[str, Any]] = []
-
-    if _ai_text_on(state) and key:
-        vline = (
-            "\nVIDEO SCRIPT RULES:\n"
-            "- Write a 30-45 second voiceover script for each post\n"
-            "- Structure: Hook (5s) → Key point (15-20s) → CTA (5-10s)\n"
-            "- Write for spoken delivery — short sentences, conversational tone\n"
-            "- Start with a question or bold statement to grab attention\n"
-            if want_video
-            else 'Set video_script to empty string "" for every post.'
-        )
-        platforms = data.get("platforms") or ["facebook"]
-        platform_str = ", ".join(platforms)
-        audience = data.get("audience") or "local buyers and sellers"
-        goal = data.get("goal", "generate leads")
-        biz = data.get("business_type", "real estate agent")
-        social_block = _social_presence_prompt_block(data)
-        ctx = json.dumps({"campaign": data, "strategy_days": day_rows[:7]})
-
-        msg = (
-            f"Write exactly 7 social media posts for a {biz} in {location}.\n\n"
-            f"GOAL: {goal}\n"
-            f"AUDIENCE: {audience}\n"
-            f"PLATFORMS: {platform_str}\n\n"
-            f"{social_block}\n\n"
-            "For each post, provide: day (matching strategy), caption, hashtags (array), "
-            "image_prompt (detailed DALL·E prompt), video_script.\n\n"
-            f"{vline}\n\n"
-            "IMPORTANT: Make every caption feel like it was written by someone who LIVES in "
-            f"{location} and knows the market inside out. Reference specific neighborhoods, "
-            "streets, local businesses, parks, or market stats when possible.\n\n"
-            f"Strategy context:\n{ctx}"
-        )
-
-        max_attempts = 2
-        for attempt in range(max_attempts):
-            try:
-                llm = _llm(key).with_structured_output(ContentPack)
-                pack: ContentPack = llm.invoke(
-                    [
-                        SystemMessage(content=_CONTENT_SYSTEM),
-                        HumanMessage(content=msg),
-                    ]
+    max_attempts = 2
+    last_err: Optional[Exception] = None
+    for attempt in range(max_attempts):
+        try:
+            llm = _llm(key).with_structured_output(ContentPack)
+            pack: ContentPack = llm.invoke(
+                [
+                    SystemMessage(content=_CONTENT_SYSTEM),
+                    HumanMessage(content=msg),
+                ]
+            )
+            candidate = [p.model_dump() for p in pack.posts[:CAMPAIGN_POST_COUNT]]
+            if len(candidate) != CAMPAIGN_POST_COUNT:
+                raise CampaignPipelineError(
+                    f"Content model returned {len(candidate)} posts; need {CAMPAIGN_POST_COUNT}."
                 )
-                candidate = [p.model_dump() for p in pack.posts[:7]]
-                quality = _score_content_quality(candidate, location)
-                log.info(
-                    "[agent:content] attempt=%s quality=%s posts=%s",
-                    attempt + 1, quality, len(candidate),
+            for c in candidate:
+                if not str(c.get("caption") or "").strip():
+                    raise CampaignPipelineError("Content generation produced an empty caption.")
+                if not str(c.get("image_prompt") or "").strip():
+                    raise CampaignPipelineError(
+                        "Content generation produced an empty image_prompt (required for image generation)."
+                    )
+            quality = _score_content_quality(candidate, location)
+            log.info(
+                "[agent:content] attempt=%s quality=%s posts=%s",
+                attempt + 1,
+                quality,
+                len(candidate),
+            )
+            if quality >= 50:
+                posts = candidate
+                break
+            if attempt == max_attempts - 1:
+                raise CampaignPipelineError(
+                    f"Generated captions did not meet quality bar after retries (score={quality})."
                 )
-                if quality >= 50 or attempt == max_attempts - 1:
-                    posts = candidate
-                    break
-                log.info("[agent:content] quality too low (%s), retrying", quality)
-            except Exception:
-                log.exception("[agent:content] structured output attempt %s failed", attempt + 1)
-                if attempt == max_attempts - 1:
-                    posts = _content_from_json_llm(key, data, day_rows, want_video) or []
+            log.info("[agent:content] quality too low (%s), retrying", quality)
+        except CampaignPipelineError:
+            raise
+        except Exception as e:
+            last_err = e
+            log.exception("[agent:content] structured output attempt %s failed", attempt + 1)
+            if attempt == max_attempts - 1:
+                raise CampaignPipelineError(
+                    f"OpenAI content generation failed: {last_err}"
+                ) from last_err
 
-    if len(posts) < 7:
-        fb = _fallback_posts(data)
-        for i in range(7):
-            if i >= len(posts):
-                posts.append(fb[i])
-            else:
-                for k2 in ("caption", "hashtags", "image_prompt", "video_script", "day"):
-                    if k2 == "hashtags" and not posts[i].get("hashtags"):
-                        posts[i]["hashtags"] = fb[i]["hashtags"]
-                    elif k2 != "hashtags" and not posts[i].get(k2):
-                        posts[i][k2] = fb[i].get(k2, "")
-        posts = posts[:7]
-
-    if not want_video:
-        for p in posts:
-            p["video_script"] = ""
+    if len(posts) != CAMPAIGN_POST_COUNT:
+        raise CampaignPipelineError(
+            f"Content step must produce {CAMPAIGN_POST_COUNT} posts; got {len(posts)}."
+        )
+    for p in posts:
+        p["video_script"] = ""
 
     return {"posts": posts, "step_log": ["content: posts ready"]}
 
 
 def media_node(state: AgentState) -> Dict[str, Any]:
     posts = list(state.get("posts") or [])
-    key = _openai_api_key()
-    images_on = _ai_images_on(state)
-    log.info(
-        "[agent:media] posts=%s ai_images=%s key_present=%s",
-        len(posts),
-        images_on,
-        bool(key),
-    )
-    out = []
-    for i, p in enumerate(posts):
-        prompt = (p.get("image_prompt") or p.get("caption") or "real estate")[:900]
-        url = _placeholder_image(i)
-        if images_on and key:
-            try:
-                from openai import OpenAI
+    data = _campaign_data(state)
+    strat = state.get("strategy_plan") or {}
+    day_rows = strat.get("days") or []
 
-                client = OpenAI(api_key=key)
-                r = client.images.generate(
-                    model="dall-e-3",
-                    prompt=prompt,
-                    size="1024x1024",
-                    quality="standard",
-                    n=1,
-                )
-                u = r.data[0].url
-                if u:
-                    url = u
-                    log.info("[agent:media] DALL·E image %s ok", i)
-            except Exception as e:
-                log.warning("[agent:media] DALL·E %s failed, placeholder: %s", i, e)
-        elif images_on and not key:
-            if i == 0:
-                log.warning(
-                    "[agent:media] ai_images_enabled but OPENAI_API_KEY missing — placeholders only"
-                )
+    log.info(
+        "[agent:media] posts=%s ai_images=%s video_scripts=%s",
+        len(posts),
+        _ai_images_on(state),
+        _video_scripts_on(state),
+    )
+
+    if len(posts) != CAMPAIGN_POST_COUNT:
+        raise CampaignPipelineError(
+            f"Media step expected {CAMPAIGN_POST_COUNT} posts; got {len(posts)}."
+        )
+    if not _ai_images_on(state):
+        raise CampaignPipelineError(
+            "AI images are required. Enable AI images in the campaign wizard."
+        )
+    if not _openai_api_key():
+        raise OpenAINotConfiguredError(
+            "OPENAI_API_KEY is required for DALL·E image generation."
+        )
+
+    theme_for_day: Dict[str, str] = {}
+    for d in day_rows:
+        if isinstance(d, dict) and d.get("day"):
+            theme_for_day[str(d["day"])] = f"{d.get('theme', '')} — {d.get('angle', '')}"
+
+    out: List[Dict[str, Any]] = []
+    for i, p in enumerate(posts):
+        cap = str(p.get("caption") or "").strip()
+        if not cap:
+            raise CampaignPipelineError(
+                f"Post index {i}: empty caption before media generation."
+            )
+        day_key = str(p.get("day") or DAYS[i % CAMPAIGN_POST_COUNT])
+        theme = theme_for_day.get(day_key, "")
+        full_prompt = build_image_prompt(
+            cap,
+            campaign_theme=theme,
+            content_image_prompt=str(p.get("image_prompt") or ""),
+            location=str(data.get("location") or ""),
+            goal=str(data.get("goal") or ""),
+        )
+        url = generate_image(full_prompt)
+        u = str(url).strip()
+        if not u.lower().startswith("https://"):
+            raise CampaignPipelineError(
+                f"Post index {i}: image generation returned a non-https URL."
+            )
+
         np = dict(p)
-        np["image_url"] = url
+        np["image_url"] = u
+        if _video_scripts_on(state):
+            script = generate_video_script(
+                topic=cap[:800],
+                audience=str(data.get("audience") or "local buyers and sellers"),
+                location=str(data.get("location") or ""),
+                goal=str(data.get("goal") or ""),
+            )
+            np["video_script"] = video_script_to_storage_value(script)
+        else:
+            np["video_script"] = ""
         out.append(np)
-    return {"posts": out, "step_log": ["media: image URLs set"]}
+        log.info("[agent:media] post %s OpenAI image + script ok", i)
+
+    return {
+        "posts": out,
+        "step_log": ["media: OpenAI images and video scripts applied"],
+    }
 
 
 def _compliance_one(caption: str, *, use_llm: bool) -> ComplianceLLM:
     key = _openai_api_key()
-    if use_llm and key:
+    if use_llm:
+        if not key:
+            raise OpenAINotConfiguredError(
+                "OPENAI_API_KEY is required for AI compliance review."
+            )
         try:
             llm = _llm(key).with_structured_output(ComplianceLLM)
             msg = (
@@ -548,22 +509,12 @@ def _compliance_one(caption: str, *, use_llm: bool) -> ComplianceLLM:
                     HumanMessage(content=msg),
                 ]
             )
+        except CampaignPipelineError:
+            raise
         except Exception as e:
-            log.warning("compliance LLM failed: %s", e)
-    low = caption.lower()
-    issues = []
-    for bad, note in [
-        ("families only", "familial status"),
-        ("no children", "familial status"),
-        ("christian only", "religion"),
-        ("exclusive neighborhood", "steering"),
-    ]:
-        if bad in low:
-            issues.append(note)
-    fixed = caption
-    if issues:
-        fixed = (caption + "\n\nEqual Housing Opportunity.").strip()
-    return ComplianceLLM(passed=len(issues) == 0, issues=issues, fixed_caption=fixed)
+            log.exception("compliance LLM failed")
+            raise CampaignPipelineError(f"Compliance AI review failed: {e}") from e
+    raise CampaignPipelineError("AI compliance review is required for this pipeline.")
 
 
 def compliance_node(state: AgentState) -> Dict[str, Any]:
@@ -593,32 +544,39 @@ def scheduling_node(state: AgentState) -> Dict[str, Any]:
     start = _parse_start(data.get("start_date"))
     offsets = _schedule_offsets(data.get("frequency", "3 per week"))
 
-    # Timezone-aware scheduling: convert user's local time to UTC
+    # Timezone-aware scheduling: user's local wall time → naive UTC in DB
     from zoneinfo import ZoneInfo
 
-    user_tz_name = data.get("timezone") or "America/New_York"
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    user_tz_name = data.get("timezone") or "UTC"
     post_hour = int(data.get("post_hour", 10))  # Default 10 AM local
     post_hour = max(0, min(23, post_hour))
 
     try:
         user_tz = ZoneInfo(user_tz_name)
     except Exception:
-        log.warning("[agent:scheduling] invalid timezone %s, using America/New_York", user_tz_name)
-        user_tz = ZoneInfo("America/New_York")
+        log.warning("[agent:scheduling] invalid timezone %s, using UTC", user_tz_name)
+        user_tz = ZoneInfo("UTC")
+        user_tz_name = "UTC"
 
     utc_tz = ZoneInfo("UTC")
+    time_part = datetime.min.time().replace(hour=post_hour, minute=0)
     log.info("[agent:scheduling] start=%s tz=%s hour=%s", start, user_tz_name, post_hour)
     out = []
     for i, p in enumerate(posts):
         off = offsets[i] if i < len(offsets) else i * 2
-        # Build a timezone-aware datetime in the user's local time
-        local_dt = datetime.combine(
-            start + timedelta(days=off),
-            datetime.min.time().replace(hour=post_hour, minute=0),
-        )
-        local_aware = local_dt.replace(tzinfo=user_tz)
-        # Convert to UTC for storage (scheduler compares against utcnow)
-        utc_dt = local_aware.astimezone(utc_tz).replace(tzinfo=None)
+        day_cursor = start + timedelta(days=off)
+        utc_dt = None
+        for _ in range(370):
+            local_dt = datetime.combine(day_cursor, time_part)
+            local_aware = local_dt.replace(tzinfo=user_tz)
+            cand = local_aware.astimezone(utc_tz).replace(tzinfo=None)
+            if cand > now_naive:
+                utc_dt = cand
+                break
+            day_cursor += timedelta(days=1)
+        if utc_dt is None:
+            utc_dt = now_naive + timedelta(minutes=1)
         np = dict(p)
         np["scheduled_at"] = utc_dt
         if not np.get("day"):
@@ -639,38 +597,64 @@ def persist_posts_node(state: AgentState) -> Dict[str, Any]:
     if not plats:
         plats = ["facebook"]
     log.info("[agent:persist] campaign_id=%s rows=%s platforms=%s", cid, len(posts), plats)
+    if len(posts) != CAMPAIGN_POST_COUNT:
+        raise CampaignPipelineError(
+            f"Persist expected {CAMPAIGN_POST_COUNT} posts; got {len(posts)}."
+        )
     with Session(engine) as session:
         camp = session.get(Campaign, cid)
         if camp:
             camp.status = "pending_approval"
             camp.updated_at = datetime.utcnow()
             session.add(camp)
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
         for i, p in enumerate(posts):
             sched = p.get("scheduled_at")
             if isinstance(sched, str):
                 try:
                     sched = datetime.fromisoformat(sched.replace("Z", "+00:00"))
                 except Exception:
-                    sched = datetime.utcnow()
+                    sched = None
+            if isinstance(sched, datetime) and sched.tzinfo is not None:
+                sched = sched.astimezone(timezone.utc).replace(tzinfo=None)
             if sched is None:
-                sched = datetime.utcnow()
+                raise CampaignPipelineError(
+                    f"Cannot persist post {i + 1}: missing scheduled_at after scheduling."
+                )
+            if sched <= now_utc:
+                raise CampaignPipelineError(
+                    f"Cannot persist post {i + 1}: scheduled_at must be in the future (UTC)."
+                )
+            cap = str(p.get("caption") or "").strip()
+            if not cap:
+                raise CampaignPipelineError(
+                    f"Cannot persist post {i + 1}: caption is empty."
+                )
+            img = str(p.get("image_url") or "").strip()
+            if not img or not img.lower().startswith("https://"):
+                raise CampaignPipelineError(
+                    f"Cannot persist post {i + 1}: image_url must be a non-empty https URL."
+                )
+            primary_plat = plats[0] if plats else "facebook"
             row = Post(
                 user_id=uid,
                 campaign_id=cid,
-                caption=str(p.get("caption") or ""),
+                caption=cap,
+                content=cap,
+                platform=primary_plat,
                 hashtags=json.dumps([str(x) for x in (p.get("hashtags") or [])]),
-                image_url=str(p.get("image_url") or ""),
+                image_url=img,
                 video_script=str(p.get("video_script") or ""),
                 day_label=str(p.get("day") or ""),
                 publish_platforms=list(plats),
-                status="pending_approval",
+                status=POST_REVIEW,
                 scheduled_at=sched,
                 compliance_passed=p.get("compliance_passed"),
                 compliance_checked_at=datetime.utcnow(),
                 compliance_issues=json.dumps(p.get("compliance_issues") or []),
                 platform_response="{}",
                 publish_attempts=0,
-                idempotency_key=f"camp-{cid}-post-{i}-{uuid.uuid4().hex[:8]}",
+                max_attempts=3,
             )
             session.add(row)
         session.commit()
@@ -704,15 +688,29 @@ def publishing_node(state: AgentState) -> Dict[str, Any]:
             "true",
             "yes",
         )
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         stmt = select(Post).where(Post.campaign_id == cid)
         for row in session.exec(stmt).all():
-            if row.status == "pending_approval":
-                row.status = "approved"
+            if row.status == POST_REVIEW:
+                try:
+                    transition_post_status(
+                        session,
+                        row,
+                        POST_APPROVED,
+                        actor="publishing_node",
+                        reason="campaign_approved",
+                    )
+                except ValueError:
+                    row.status = POST_APPROVED
             if immediate:
                 row.scheduled_at = now
-            elif row.scheduled_at is not None and row.scheduled_at < now:
-                row.scheduled_at = now
+            elif row.scheduled_at is not None:
+                s = row.scheduled_at
+                if isinstance(s, datetime) and s.tzinfo is not None:
+                    s = s.astimezone(timezone.utc).replace(tzinfo=None)
+                    row.scheduled_at = s
+                if s < now:
+                    row.scheduled_at = now
             session.add(row)
         camp.status = "completed"
         camp.updated_at = datetime.utcnow()

@@ -15,6 +15,7 @@
       { href: "/wizard.html", label: "Wizard", key: "wizard" },
       { href: "/review.html", label: "Review", key: "review" },
       { href: "/dashboard.html", label: "Calendar", key: "dashboard" },
+      { href: "/analytics.html", label: "Performance", key: "analytics" },
       { href: "/connect.html", label: "Connect Accounts", key: "connect" },
     ];
 
@@ -63,7 +64,8 @@
       "</button>" +
       '<span class="hidden text-sm font-medium text-slate-500 sm:inline">Campaign workspace</span>' +
       "</div>" +
-      '<div class="flex items-center gap-2 sm:gap-3">' +
+      '<div class="flex flex-col items-end gap-0.5 sm:flex-row sm:items-center sm:gap-3">' +
+      '<span id="nav-user-tz" class="hidden max-w-[14rem] truncate text-[11px] text-slate-400 sm:inline" title="Schedule timezone"></span>' +
       '<span id="nav-user-email" class="hidden max-w-[12rem] truncate text-sm text-slate-600 sm:inline"></span>' +
       '<button type="button" id="nav-logout" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition duration-200 hover:border-slate-300 hover:shadow-md hover:scale-105 active:scale-95">Log out</button>' +
       "</div>" +
@@ -105,6 +107,12 @@
     if (window.BrokerAI && BrokerAI.apiJson && BrokerAI.getToken && BrokerAI.getToken()) {
       BrokerAI.apiJson("/me", { method: "GET" })
         .then(function (u) {
+          window.__brokerUserTimezone = (u && u.timezone) || "UTC";
+          var tzEl = document.getElementById("nav-user-tz");
+          if (tzEl && u.timezone) {
+            tzEl.textContent = "TZ · " + u.timezone;
+            tzEl.classList.remove("hidden");
+          }
           var el = document.getElementById("nav-user-email");
           if (el && u.email) el.textContent = u.email;
           var ban = document.getElementById("brokerai-social-banner");

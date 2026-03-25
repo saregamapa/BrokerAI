@@ -71,6 +71,13 @@
             body: JSON.stringify({
               email: fd.get("email"),
               password: fd.get("password"),
+              timezone: (function () {
+                try {
+                  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+                } catch (e) {
+                  return "UTC";
+                }
+              })(),
             }),
           });
           BrokerAI.setToken(res.access_token);

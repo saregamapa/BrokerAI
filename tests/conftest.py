@@ -15,7 +15,11 @@ except OSError:
 os.environ["DATABASE_URL"] = f"sqlite:///{_test_db.as_posix()}"
 os.environ["JWT_SECRET_KEY"] = "test-jwt-secret-key-32-characters-minimum"
 os.environ["BROKERAI_DISABLE_SCHEDULER"] = "1"
-os.environ.setdefault("OPENAI_API_KEY", "")
+# Required by API guard; LangGraph is mocked in most tests via stub_run_campaign_phase1.
+os.environ.setdefault(
+    "OPENAI_API_KEY",
+    "sk-test-openai-key-for-pytest-only-not-a-real-secret-0001",
+)
 
 import pytest
 from fastapi.testclient import TestClient

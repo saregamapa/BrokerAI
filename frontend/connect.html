@@ -37,6 +37,17 @@
             <span class="font-medium text-slate-800">your</span> profiles.
           </p>
 
+          <div
+            class="mt-6 rounded-2xl border border-slate-200/90 bg-white/80 p-4 text-sm text-slate-700 shadow-sm md:p-5"
+          >
+            <p class="font-semibold text-slate-900">Before you use the Campaign Wizard</p>
+            <p class="mt-2 leading-relaxed">
+              You must connect <span class="font-medium">all three</span> networks here first. The wizard no longer asks
+              for profile links — optional Facebook, Instagram, and LinkedIn URLs for AI personalization are saved in the
+              section below once your accounts are linked.
+            </p>
+          </div>
+
           <div class="mt-8 flex justify-center gap-6 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-lg">
             <div class="flex flex-col items-center gap-2" title="Facebook">
               <span
@@ -103,6 +114,62 @@
               I finished linking — refresh status
             </button>
           </div>
+
+          <section
+            class="mt-10 rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-lg"
+            aria-labelledby="profile-urls-heading"
+          >
+            <h2 id="profile-urls-heading" class="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Optional profile URLs
+            </h2>
+            <p class="mt-2 text-sm text-slate-600">
+              Page or profile links help tailor tone and references in generated copy. All fields are optional; use
+              <span class="font-medium">https://</span> links only.
+            </p>
+            <div class="mt-5 grid gap-4">
+              <div>
+                <label class="block text-xs font-medium text-slate-600" for="prof-fb">Facebook</label>
+                <input
+                  id="prof-fb"
+                  type="url"
+                  inputmode="url"
+                  autocomplete="url"
+                  placeholder="https://facebook.com/yourpage"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600" for="prof-ig">Instagram</label>
+                <input
+                  id="prof-ig"
+                  type="url"
+                  inputmode="url"
+                  autocomplete="url"
+                  placeholder="https://instagram.com/yourhandle"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600" for="prof-li">LinkedIn</label>
+                <input
+                  id="prof-li"
+                  type="url"
+                  inputmode="url"
+                  autocomplete="url"
+                  placeholder="https://linkedin.com/in/yourprofile"
+                  class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+            </div>
+            <p id="profile-url-error" class="mt-2 hidden text-xs font-medium text-red-600"></p>
+            <button
+              type="button"
+              id="btn-save-profile-urls"
+              class="mt-5 w-full rounded-xl border border-slate-200 bg-slate-50 px-6 py-3 text-sm font-semibold text-slate-800 shadow-sm transition duration-200 hover:border-amber-300 hover:bg-amber-50/80 sm:w-auto"
+            >
+              Save profile URLs
+            </button>
+          </section>
         </div>
       </main>
     </div>
@@ -116,31 +183,108 @@
         var statusLine = document.getElementById("connect-status-line");
         var statusHint = document.getElementById("connect-status-hint");
 
-        function setStatus(connected, detail) {
+        function setStatus(connected, detail, missing) {
           if (!statusLine) return;
           if (connected) {
-            statusLine.textContent = "✅ Connected";
+            statusLine.textContent = "✅ All networks linked";
             statusLine.className = "mt-2 text-lg font-semibold text-emerald-600";
             statusHint.textContent =
               detail ||
-              "Facebook, Instagram, or LinkedIn is linked. You can create campaigns and publish.";
+              "Facebook, Instagram, and LinkedIn are connected. You can create campaigns from the Wizard.";
           } else {
-            statusLine.textContent = "❌ Not connected";
+            statusLine.textContent = "❌ Not fully connected";
             statusLine.className = "mt-2 text-lg font-semibold text-red-600";
+            var miss =
+              missing && missing.length
+                ? " Still missing: " + missing.join(", ") + "."
+                : " Link all three in Ayrshare, then tap refresh.";
             statusHint.textContent =
-              detail ||
-              "Use Connect Accounts to open Ayrshare, then link at least one network. Come back and tap refresh.";
+              (detail || "Open Connect Accounts, complete SSO in Ayrshare, and link each network.") + miss;
           }
         }
 
         async function refreshStatus() {
           try {
             var s = await BrokerAI.apiJson("/social-status", { method: "GET" });
-            setStatus(s.connected, s.connected ? "" : null);
+            setStatus(s.connected, null, s.missing_platforms || []);
           } catch (e) {
-            setStatus(false, (e && e.message) || "Could not load status.");
+            setStatus(false, (e && e.message) || "Could not load status.", []);
           }
         }
+
+        function optionalHttpUrl(raw) {
+          var str = String(raw || "").trim();
+          if (!str) return { ok: true, value: null };
+          if (!/^https?:\/\//i.test(str)) {
+            return { ok: false, message: "Must start with http:// or https://" };
+          }
+          if (str.length > 2048) return { ok: false, message: "URL is too long (max 2048 characters)" };
+          try {
+            new URL(str);
+            return { ok: true, value: str };
+          } catch (err) {
+            return { ok: false, message: "Enter a valid URL" };
+          }
+        }
+
+        function showProfileUrlError(msg) {
+          var el = document.getElementById("profile-url-error");
+          if (!el) return;
+          if (msg) {
+            el.textContent = msg;
+            el.classList.remove("hidden");
+          } else {
+            el.textContent = "";
+            el.classList.add("hidden");
+          }
+        }
+
+        BrokerAI.apiJson("/me", { method: "GET" })
+          .then(function (m) {
+            document.getElementById("prof-fb").value = (m.facebook_url || "").trim();
+            document.getElementById("prof-ig").value = (m.instagram_url || "").trim();
+            document.getElementById("prof-li").value = (m.linkedin_url || "").trim();
+          })
+          .catch(function () {});
+
+        document.getElementById("btn-save-profile-urls").addEventListener("click", async function () {
+          showProfileUrlError("");
+          var labels = { fb: "Facebook URL", ig: "Instagram URL", li: "LinkedIn URL" };
+          var fb = optionalHttpUrl(document.getElementById("prof-fb").value);
+          if (!fb.ok) {
+            showProfileUrlError(labels.fb + ": " + fb.message);
+            BrokerAI.showToast(labels.fb + ": " + fb.message, "error");
+            return;
+          }
+          var ig = optionalHttpUrl(document.getElementById("prof-ig").value);
+          if (!ig.ok) {
+            showProfileUrlError(labels.ig + ": " + ig.message);
+            BrokerAI.showToast(labels.ig + ": " + ig.message, "error");
+            return;
+          }
+          var li = optionalHttpUrl(document.getElementById("prof-li").value);
+          if (!li.ok) {
+            showProfileUrlError(labels.li + ": " + li.message);
+            BrokerAI.showToast(labels.li + ": " + li.message, "error");
+            return;
+          }
+          try {
+            BrokerAI.setLoading(true);
+            await BrokerAI.apiJson("/me/profile-urls", {
+              method: "PATCH",
+              body: JSON.stringify({
+                facebook_url: fb.value,
+                instagram_url: ig.value,
+                linkedin_url: li.value,
+              }),
+            });
+            BrokerAI.showToast("Profile URLs saved", "success");
+          } catch (e) {
+            BrokerAI.showToast((e && e.message) || "Save failed", "error");
+          } finally {
+            BrokerAI.setLoading(false);
+          }
+        });
 
         document.getElementById("btn-connect-accounts").addEventListener("click", async function () {
           try {

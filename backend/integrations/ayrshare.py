@@ -24,6 +24,15 @@ _PLATFORM_ALIASES: Dict[str, str] = {
 }
 
 
+def slug_from_ayrshare_account_label(raw: str) -> Optional[str]:
+    """Map Ayrshare `activeSocialAccounts` entry to a canonical platform slug, or None if unknown."""
+    key = str(raw).strip().lower().replace(" ", "").replace("_", "")
+    slug = _PLATFORM_ALIASES.get(key)
+    if slug is None and key in ("linkedin", "facebook", "instagram"):
+        slug = key
+    return slug
+
+
 def normalize_platforms(platforms: List[str]) -> List[str]:
     """Map UI labels to Ayrshare platform ids. Never returns an empty list."""
     out: List[str] = []
@@ -135,6 +144,46 @@ async def publish_post(
 
 def platform_response_json(result: Dict[str, Any]) -> str:
     return json.dumps(result, default=str)
+
+
+def extract_ayrshare_publish_metadata(body: Any) -> tuple[str, str]:
+    """
+    From a successful Ayrshare publish JSON body, return (social_post_id, primary_platform_slug).
+    """
+    if not isinstance(body, dict):
+        return "", ""
+    social_id = ""
+    plat = ""
+    top_id = body.get("id")
+    if isinstance(top_id, str) and top_id.strip():
+        social_id = top_id.strip()
+    posts = body.get("posts")
+    if isinstance(posts, list) and posts:
+        first = posts[0]
+        if isinstance(first, dict):
+            if not social_id:
+                pid = first.get("id")
+                if isinstance(pid, str) and pid.strip():
+                    social_id = pid.strip()
+            raw_p = first.get("platform")
+            if isinstance(raw_p, str) and raw_p.strip():
+                norm = normalize_platforms([raw_p.strip()])
+                if norm:
+                    plat = norm[0]
+    if not plat:
+        for key in ("facebook", "instagram", "linkedin", "twitter", "tiktok", "youtube"):
+            block = body.get(key)
+            if isinstance(block, dict) and block.get("status") not in ("error", "failed"):
+                norm = normalize_platforms([key])
+                plat = norm[0] if norm else key
+                if not social_id:
+                    pid = block.get("id") or block.get("postId")
+                    if isinstance(pid, str) and pid.strip():
+                        social_id = pid.strip()
+                break
+    if not plat:
+        plat = "facebook"
+    return social_id, plat
 
 
 def extract_ayrshare_post_id(stored: Any) -> Optional[str]:

@@ -231,6 +231,7 @@
 
       var allPosts = [];
       var viewYear, viewMonth;
+      var userTimeZone = "UTC";
 
       function pad(n) {
         return n < 10 ? "0" + n : "" + n;
@@ -261,15 +262,17 @@
 
       function dotColor(st) {
         if (st === "published") return "bg-emerald-500";
-        if (st === "publish_failed") return "bg-red-500";
+        if (st === "failed" || st === "publish_failed") return "bg-red-500";
         if (st === "approved" || st === "publishing") return "bg-amber-400";
+        if (st === "review" || st === "pending_approval") return "bg-amber-300";
         return "bg-slate-400";
       }
 
       function dotTitle(st) {
         if (st === "published") return "Published";
-        if (st === "publish_failed") return "Publish failed";
+        if (st === "failed" || st === "publish_failed") return "Publish failed";
         if (st === "approved" || st === "publishing") return "Approved / publishing";
+        if (st === "review" || st === "pending_approval") return "In review";
         return "Pending";
       }
 
@@ -279,9 +282,18 @@
           var cid = p.campaign_id;
           if (cid == null || cid === undefined) return;
           var t = 0;
-          if (p.published_at) t = Math.max(t, new Date(p.published_at).getTime());
-          if (p.scheduled_at) t = Math.max(t, new Date(p.scheduled_at).getTime());
-          if (p.created_at) t = Math.max(t, new Date(p.created_at).getTime());
+          if (p.published_at) {
+            var pa = BrokerAI.parseUtcIso(p.published_at);
+            if (pa) t = Math.max(t, pa.getTime());
+          }
+          if (p.scheduled_at) {
+            var sa = BrokerAI.parseUtcIso(p.scheduled_at);
+            if (sa) t = Math.max(t, sa.getTime());
+          }
+          if (p.created_at) {
+            var ca = BrokerAI.parseUtcIso(p.created_at);
+            if (ca) t = Math.max(t, ca.getTime());
+          }
           if (!byCamp[cid] || t > byCamp[cid]) byCamp[cid] = t;
         });
         var best = null;
@@ -352,7 +364,7 @@
         var attempted =
           published +
           allPosts.filter(function (p) {
-            return p.status === "publish_failed";
+            return p.status === "failed" || p.status === "publish_failed";
           }).length;
         var rate = attempted > 0 ? Math.round((published / attempted) * 100) + "%" : "N/A";
         document.getElementById("dash-total").textContent = total;
@@ -441,7 +453,7 @@
             row.setAttribute("tabindex", "0");
             row.setAttribute("aria-label", "Post details and insights");
             var imgHtml = "";
-            if (p.image_url && p.image_url.length > 5 && !p.image_url.includes("placehold")) {
+            if (p.image_url && p.image_url.length > 5 && /^https?:\/\//i.test(p.image_url)) {
               imgHtml =
                 '<img src="' +
                 p.image_url +
@@ -450,7 +462,10 @@
             var statusColors = {
               published: "bg-emerald-100 text-emerald-800",
               approved: "bg-amber-100 text-amber-900",
+              review: "bg-amber-50 text-amber-900",
+              draft: "bg-slate-100 text-slate-700",
               pending_approval: "bg-slate-100 text-slate-700",
+              failed: "bg-red-100 text-red-800",
               publish_failed: "bg-red-100 text-red-800",
               publishing: "bg-sky-100 text-sky-800",
             };
@@ -589,22 +604,28 @@
 
       function fmtAnalyticsDate(iso) {
         if (!iso) return "—";
-        var d = new Date(iso);
-        if (isNaN(d.getTime())) return iso;
+        var d = BrokerAI.parseUtcIso(iso);
+        if (!d) return String(iso);
+        var tz = userTimeZone && String(userTimeZone).trim() ? userTimeZone : undefined;
         return d.toLocaleString(undefined, {
           month: "short",
           day: "numeric",
           year: "numeric",
           hour: "numeric",
           minute: "2-digit",
+          timeZone: tz,
         });
       }
 
       async function load() {
         BrokerAI.setLoading(true);
         try {
+          var meP = BrokerAI.apiJson("/me", { method: "GET" });
           var postsP = BrokerAI.apiJson("/posts", { method: "GET" });
           var anP = BrokerAI.apiJson("/analytics", { method: "GET" });
+          var me = await meP;
+          userTimeZone = (me && me.timezone) || "UTC";
+          window.__brokerUserTimezone = userTimeZone;
           allPosts = await postsP;
           var an = await anP;
           document.getElementById("an-campaigns").textContent = String(an.total_campaigns ?? 0);

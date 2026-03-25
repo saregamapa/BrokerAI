@@ -3,6 +3,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from backend.timeutil import is_valid_iana_timezone
+
 
 class GenerateCampaignRequest(BaseModel):
     business_type: str = "Real Estate Agent"
@@ -21,31 +23,6 @@ class GenerateCampaignRequest(BaseModel):
     ai_text_enabled: bool = True
     ai_images_enabled: bool = True
     video_scripts_enabled: bool = True
-    # Optional social profile URLs (personalization / analytics context)
-    facebook_url: Optional[str] = None
-    instagram_url: Optional[str] = None
-    linkedin_url: Optional[str] = None
-
-    @field_validator("facebook_url", "instagram_url", "linkedin_url", mode="before")
-    @classmethod
-    def _empty_url_to_none(cls, v: object) -> Optional[str]:
-        if v is None:
-            return None
-        if isinstance(v, str):
-            s = v.strip()
-            return s if s else None
-        return str(v).strip() or None
-
-    @field_validator("facebook_url", "instagram_url", "linkedin_url")
-    @classmethod
-    def _basic_http_url(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        if not (v.startswith("http://") or v.startswith("https://")):
-            raise ValueError("URL must start with http:// or https://")
-        if len(v) > 2048:
-            raise ValueError("URL is too long (max 2048 characters)")
-        return v
 
     @field_validator("platforms")
     @classmethod
@@ -54,6 +31,18 @@ class GenerateCampaignRequest(BaseModel):
         if not cleaned:
             raise ValueError("Select at least one publish platform")
         return cleaned
+
+    @field_validator("timezone")
+    @classmethod
+    def _timezone_optional_iana(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        if not str(v).strip():
+            return None
+        s = str(v).strip()
+        if not is_valid_iana_timezone(s):
+            raise ValueError(f"Invalid IANA timezone: {s!r}")
+        return s
 
 
 class PostOut(BaseModel):
@@ -74,6 +63,56 @@ class PostOut(BaseModel):
     platform_response: Optional[Dict[str, Any]] = None
     compliance_passed: Optional[bool] = None
     compliance_issues: List[str] = Field(default_factory=list)
+    last_error: Optional[str] = None
+    is_locked: bool = False
+    next_publish_attempt_at: Optional[datetime] = None
+    platform: str = ""
+    post_id: str = ""  # Ayrshare / provider id (maps from social_post_id)
+    content: str = ""
+    likes: int = 0
+    comments: int = 0
+    shares: int = 0
+    impressions: int = 0
+    engagement_rate: float = 0.0
+
+
+class AnalyticsPostRow(BaseModel):
+    """Single row for the performance dashboard table."""
+
+    id: int
+    post_id: str = ""
+    platform: str = ""
+    content: str = ""
+    created_at: Optional[datetime] = None
+    likes: int = 0
+    comments: int = 0
+    impressions: int = 0
+    engagement_rate: float = 0.0
+    status: str = ""
+    performance_tier: str = "pending"  # top | low | mid | pending
+
+
+class AnalyticsSummaryOut(BaseModel):
+    avg_engagement_rate: float
+    total_impressions: int
+    total_likes: int
+    total_comments: int
+    best_post_id: Optional[int] = None
+    worst_post_id: Optional[int] = None
+    published_count: int = 0
+
+
+class PerformanceAnalyticsAIOut(BaseModel):
+    insights: List[str] = Field(default_factory=list)
+    mistakes: List[str] = Field(default_factory=list)
+    recommendations: List[str] = Field(default_factory=list)
+    next_post_ideas: List[str] = Field(default_factory=list)
+
+
+class AnalyticsBulkUpdateOut(BaseModel):
+    updated: int
+    failed: int
+    total: int
 
 
 class CampaignOut(BaseModel):
@@ -122,6 +161,17 @@ class UpdatePostRequest(BaseModel):
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6, max_length=128)
+    timezone: Optional[str] = None
+
+    @field_validator("timezone")
+    @classmethod
+    def _signup_timezone_optional(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not str(v).strip():
+            return None
+        s = str(v).strip()
+        if not is_valid_iana_timezone(s):
+            return None
+        return s
 
 
 class LoginRequest(BaseModel):
@@ -140,6 +190,39 @@ class UserOut(BaseModel):
     id: int
     email: str
     social_connected: bool = False
+    timezone: str = "UTC"
+    facebook_url: str = ""
+    instagram_url: str = ""
+    linkedin_url: str = ""
+
+
+class UpdateProfileUrlsRequest(BaseModel):
+    """Optional profile/page URLs for AI context (saved from Connect Accounts)."""
+
+    facebook_url: Optional[str] = None
+    instagram_url: Optional[str] = None
+    linkedin_url: Optional[str] = None
+
+    @field_validator("facebook_url", "instagram_url", "linkedin_url", mode="before")
+    @classmethod
+    def _empty_url_to_none(cls, v: object) -> Optional[str]:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            s = v.strip()
+            return s if s else None
+        return str(v).strip() or None
+
+    @field_validator("facebook_url", "instagram_url", "linkedin_url")
+    @classmethod
+    def _basic_http_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        if not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("URL must start with http:// or https://")
+        if len(v) > 2048:
+            raise ValueError("URL is too long (max 2048 characters)")
+        return v
 
 
 class ConnectSocialResponse(BaseModel):
@@ -149,6 +232,8 @@ class ConnectSocialResponse(BaseModel):
 class SocialStatusResponse(BaseModel):
     connected: bool
     profile_key: Optional[str] = None
+    linked_platforms: List[str] = Field(default_factory=list)
+    missing_platforms: List[str] = Field(default_factory=list)
 
 
 class SocialConnectedCallbackResponse(BaseModel):

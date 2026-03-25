@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Performance analytics — BrokerAI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body
+    class="brokerai-app min-h-screen bg-[#f9fafb] text-slate-900 antialiased"
+    data-page="analytics"
+  >
+    <div
+      id="brokerai-loading"
+      class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-white/70 backdrop-blur-sm"
+    >
+      <div class="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-xl">
+        <div class="brokerai-spinner" aria-label="Loading"></div>
+        <p class="text-sm font-medium text-slate-700">Loading analytics…</p>
+      </div>
+    </div>
+
+    <div
+      id="app-sidebar-overlay"
+      class="fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur-sm md:hidden"
+      aria-hidden="true"
+    ></div>
+    <aside
+      id="app-sidebar"
+      class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl md:block"
+    ></aside>
+
+    <div class="flex min-h-screen flex-col md:pl-64">
+      <header
+        id="app-topnav"
+        class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"
+      ></header>
+
+      <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-violet-50/20 px-4 py-8 md:px-8">
+        <div class="mx-auto max-w-7xl">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Content performance</h1>
+              <p class="mt-1 text-sm text-slate-600">
+                Intelligence across every post — Ayrshare when connected, smart simulation otherwise.
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                type="button"
+                id="btn-refresh-analytics"
+                class="rounded-xl bg-gradient-to-br from-violet-600 to-violet-700 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition duration-200 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                Refresh analytics
+              </button>
+              <a
+                href="/wizard.html"
+                class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-violet-200 hover:shadow-md"
+              >
+                + New campaign
+              </a>
+            </div>
+          </div>
+
+          <div id="kpi-row" class="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div
+              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-lg backdrop-blur-md transition hover:shadow-xl"
+            >
+              <div id="kpi-eng" class="text-2xl font-bold text-violet-700">—</div>
+              <div class="text-xs font-medium text-slate-500">Avg engagement rate</div>
+            </div>
+            <div
+              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-lg backdrop-blur-md transition hover:shadow-xl"
+            >
+              <div id="kpi-imp" class="text-2xl font-bold text-slate-900">—</div>
+              <div class="text-xs font-medium text-slate-500">Total impressions</div>
+            </div>
+            <div
+              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-lg backdrop-blur-md transition hover:shadow-xl"
+            >
+              <div id="kpi-likes" class="text-2xl font-bold text-pink-600">—</div>
+              <div class="text-xs font-medium text-slate-500">Total likes</div>
+            </div>
+            <div
+              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-lg backdrop-blur-md transition hover:shadow-xl"
+            >
+              <div id="kpi-comments" class="text-2xl font-bold text-sky-600">—</div>
+              <div class="text-xs font-medium text-slate-500">Total comments</div>
+            </div>
+          </div>
+
+          <p id="summary-best" class="mt-4 text-xs text-slate-500"></p>
+
+          <div class="mt-10 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/90 shadow-lg backdrop-blur-md">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+              <thead class="bg-slate-50/90 text-xs font-bold uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th class="px-4 py-3">Post</th>
+                  <th class="px-4 py-3">Platform</th>
+                  <th class="px-4 py-3 text-right">Likes</th>
+                  <th class="px-4 py-3 text-right">Comments</th>
+                  <th class="px-4 py-3 text-right">Impressions</th>
+                  <th class="px-4 py-3 text-right">Eng. rate</th>
+                  <th class="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody id="posts-tbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+            <p id="posts-empty" class="hidden px-4 py-8 text-center text-sm text-slate-500">No posts yet.</p>
+          </div>
+
+          <div class="mt-10">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">AI performance analyzer</h2>
+              <button
+                type="button"
+                id="btn-reload-ai"
+                class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+              >
+                Regenerate insights
+              </button>
+            </div>
+            <p class="mt-1 text-xs text-slate-500">OpenAI analyzes your metrics and copy when configured.</p>
+            <div id="ai-panel" class="mt-4 grid gap-4 lg:grid-cols-2">
+              <div class="rounded-2xl border border-sky-200/60 bg-gradient-to-br from-sky-50/40 to-white p-5 shadow-lg">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-sky-800">Insights</h3>
+                <ul id="ai-insights" class="mt-3 list-disc space-y-2 pl-4 text-sm text-slate-700"></ul>
+              </div>
+              <div class="rounded-2xl border border-rose-200/60 bg-gradient-to-br from-rose-50/40 to-white p-5 shadow-lg">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-rose-900">Learnings</h3>
+                <ul id="ai-mistakes" class="mt-3 list-disc space-y-2 pl-4 text-sm text-slate-700"></ul>
+              </div>
+              <div class="rounded-2xl border border-amber-200/60 bg-gradient-to-br from-amber-50/50 to-white p-5 shadow-lg">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-amber-900">Recommendations</h3>
+                <ul id="ai-recs" class="mt-3 list-disc space-y-2 pl-4 text-sm text-slate-700"></ul>
+              </div>
+              <div class="rounded-2xl border border-violet-200/60 bg-gradient-to-br from-violet-50/40 to-white p-5 shadow-lg">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-violet-900">Next post ideas</h3>
+                <ul id="ai-ideas" class="mt-3 list-disc space-y-2 pl-4 text-sm text-slate-700"></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/nav.js"></script>
+    <script>
+      if (!BrokerAI.requireAuth()) {
+        /* redirected */
+      }
+
+      function tierBadge(tier) {
+        if (tier === "top")
+          return '<span class="ml-2 shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase text-emerald-800">Top</span>';
+        if (tier === "low")
+          return '<span class="ml-2 shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase text-red-800">Low</span>';
+        if (tier === "mid")
+          return '<span class="ml-2 shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">Mid</span>';
+        return '<span class="ml-2 shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800">Pending</span>';
+      }
+
+      function renderPosts(rows) {
+        var tb = document.getElementById("posts-tbody");
+        var empty = document.getElementById("posts-empty");
+        tb.innerHTML = "";
+        if (!rows || !rows.length) {
+          empty.classList.remove("hidden");
+          return;
+        }
+        empty.classList.add("hidden");
+        rows.forEach(function (p) {
+          var tr = document.createElement("tr");
+          tr.className = "align-top hover:bg-slate-50/80";
+          var esc = (p.content || "").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+          tr.innerHTML =
+            '<td class="max-w-xs px-4 py-3 text-slate-800">' +
+            '<div class="flex flex-wrap items-start gap-1">' +
+            '<span class="line-clamp-3 text-xs leading-relaxed">' +
+            esc +
+            "</span>" +
+            tierBadge(p.performance_tier || "") +
+            "</div></td>" +
+            '<td class="px-4 py-3 text-xs font-medium capitalize text-slate-600">' +
+            (p.platform || "—") +
+            "</td>" +
+            '<td class="px-4 py-3 text-right tabular-nums text-slate-800">' +
+            (p.likes ?? 0) +
+            "</td>" +
+            '<td class="px-4 py-3 text-right tabular-nums text-slate-800">' +
+            (p.comments ?? 0) +
+            "</td>" +
+            '<td class="px-4 py-3 text-right tabular-nums text-slate-800">' +
+            (p.impressions ?? 0) +
+            "</td>" +
+            '<td class="px-4 py-3 text-right font-semibold text-violet-700">' +
+            (p.engagement_rate != null ? Number(p.engagement_rate).toFixed(2) + "%" : "—") +
+            "</td>" +
+            '<td class="px-4 py-3 text-xs text-slate-500">' +
+            String(p.status || "").replace(/_/g, " ") +
+            "</td>";
+          tb.appendChild(tr);
+        });
+      }
+
+      function renderList(elId, items) {
+        var el = document.getElementById(elId);
+        el.innerHTML = "";
+        (items || []).forEach(function (line) {
+          var li = document.createElement("li");
+          li.textContent = line;
+          el.appendChild(li);
+        });
+        if (!items || !items.length) {
+          var li = document.createElement("li");
+          li.className = "text-slate-400";
+          li.textContent = "—";
+          el.appendChild(li);
+        }
+      }
+
+      async function loadSummary() {
+        var s = await BrokerAI.apiJson("/analytics/summary", { method: "GET" });
+        document.getElementById("kpi-eng").textContent =
+          s.avg_engagement_rate != null ? Number(s.avg_engagement_rate).toFixed(2) + "%" : "0%";
+        document.getElementById("kpi-imp").textContent = (s.total_impressions ?? 0).toLocaleString();
+        document.getElementById("kpi-likes").textContent = (s.total_likes ?? 0).toLocaleString();
+        document.getElementById("kpi-comments").textContent = (s.total_comments ?? 0).toLocaleString();
+        var bits = [];
+        if (s.best_post_id != null) bits.push("Best post id: #" + s.best_post_id);
+        if (s.worst_post_id != null) bits.push("Needs attention: #" + s.worst_post_id);
+        document.getElementById("summary-best").textContent = bits.join(" · ") || "";
+      }
+
+      async function loadPosts() {
+        var rows = await BrokerAI.apiJson("/analytics/posts", { method: "GET" });
+        renderPosts(rows);
+      }
+
+      async function loadAI() {
+        renderList("ai-insights", ["Loading…"]);
+        renderList("ai-mistakes", ["Loading…"]);
+        renderList("ai-recs", ["Loading…"]);
+        renderList("ai-ideas", ["Loading…"]);
+        try {
+          var ai = await BrokerAI.apiJson("/analytics/insights", { method: "GET" });
+          renderList("ai-insights", ai.insights);
+          renderList("ai-mistakes", ai.mistakes);
+          renderList("ai-recs", ai.recommendations);
+          renderList("ai-ideas", ai.next_post_ideas);
+        } catch (e) {
+          renderList("ai-insights", [e.message || "Could not load AI insights"]);
+          renderList("ai-mistakes", []);
+          renderList("ai-recs", []);
+          renderList("ai-ideas", []);
+        }
+      }
+
+      async function loadAll() {
+        BrokerAI.setLoading(true);
+        try {
+          await loadSummary();
+          await loadPosts();
+        } catch (err) {
+          BrokerAI.showToast(err.message || "Load failed", "error");
+        } finally {
+          BrokerAI.setLoading(false);
+        }
+      }
+
+      document.getElementById("btn-refresh-analytics").addEventListener("click", async function () {
+        var btn = this;
+        btn.disabled = true;
+        BrokerAI.setLoading(true);
+        try {
+          var r = await BrokerAI.apiJson("/analytics/update", { method: "POST", body: "{}" });
+          BrokerAI.showToast("Updated " + r.updated + " of " + r.total + " posts", "success");
+          await loadSummary();
+          await loadPosts();
+        } catch (err) {
+          BrokerAI.showToast(err.message || "Update failed", "error");
+        } finally {
+          BrokerAI.setLoading(false);
+          btn.disabled = false;
+        }
+      });
+
+      document.getElementById("btn-reload-ai").addEventListener("click", async function () {
+        BrokerAI.setLoading(true);
+        try {
+          await loadAI();
+        } finally {
+          BrokerAI.setLoading(false);
+        }
+      });
+
+      loadAll();
+      loadAI();
+    </script>
+  </body>
+</html>

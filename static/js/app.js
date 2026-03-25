@@ -125,6 +125,75 @@
     if (typeof window !== "undefined") window.location.href = "/login.html";
   }
 
+  /**
+   * Parse API datetime as UTC: naive ISO strings from the backend are treated as Zulu.
+   * @param {string|null|undefined} iso
+   * @returns {Date|null}
+   */
+  function parseUtcIso(iso) {
+    if (iso == null || iso === "") return null;
+    var s = String(iso).trim();
+    if (
+      /^\d{4}-\d{2}-\d{2}T[\d:.]+/.test(s) &&
+      !/[zZ]$/.test(s) &&
+      !/[+-]\d{2}:?\d{2}$/.test(s)
+    ) {
+      s += "Z";
+    }
+    var d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  /**
+   * Format a UTC instant in the user's IANA timezone (or browser default if omitted).
+   * @param {string|null|undefined} iso
+   * @param {string|null|undefined} timeZone IANA e.g. America/New_York
+   */
+  function formatScheduleInUserTz(iso, timeZone) {
+    var d = parseUtcIso(iso);
+    if (!d) return "";
+    var tz = timeZone && String(timeZone).trim() ? String(timeZone).trim() : undefined;
+    var dopts = { weekday: "short", month: "short", day: "numeric", timeZone: tz };
+    var topts = { hour: "numeric", minute: "2-digit", timeZone: tz };
+    return (
+      d.toLocaleDateString(undefined, dopts) + " · " + d.toLocaleTimeString(undefined, topts)
+    );
+  }
+
+  /**
+   * Calendar key YYYY-MM-DD for an instant in the given IANA zone.
+   * @param {string|null|undefined} iso
+   * @param {string|null|undefined} timeZone
+   * @returns {string|null}
+   */
+  function dateKeyFromUtcInTz(iso, timeZone) {
+    var d = parseUtcIso(iso);
+    if (!d) return null;
+    var tz = timeZone && String(timeZone).trim() ? String(timeZone).trim() : undefined;
+    try {
+      var fmt = new Intl.DateTimeFormat("en-CA", {
+        timeZone: tz,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      var parts = fmt.formatToParts(d);
+      var y = "";
+      var m = "";
+      var day = "";
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        if (p.type === "year") y = p.value;
+        if (p.type === "month") m = p.value;
+        if (p.type === "day") day = p.value;
+      }
+      if (!y || !m || !day) return null;
+      return y + "-" + m + "-" + day;
+    } catch (e) {
+      return null;
+    }
+  }
+
   window.BrokerAI = {
     apiUrl: apiUrl,
     apiJson: apiJson,
@@ -135,5 +204,8 @@
     clearToken: clearToken,
     requireAuth: requireAuth,
     logout: logout,
+    parseUtcIso: parseUtcIso,
+    formatScheduleInUserTz: formatScheduleInUserTz,
+    dateKeyFromUtcInTz: dateKeyFromUtcInTz,
   };
 })();

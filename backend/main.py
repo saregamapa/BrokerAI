@@ -19,6 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from backend.agents.analytics_insights import run_campaign_insights
+from backend.agents.errors import CampaignPipelineError, OpenAINotConfiguredError
 from backend.agents.graph import resume_campaign_publishing, run_campaign_phase1
 from backend.agents.nodes import _openai_api_key
 from backend.ai.compliance import check_caption_compliance
@@ -33,11 +34,29 @@ from backend.db import create_db_and_tables, engine, get_session
 from backend.integrations.ayrshare import (
     coerce_ayrshare_platforms,
     platform_response_json,
-    publish_post,
+    slug_from_ayrshare_account_label,
 )
+from backend.services.publish_service import (
+    _lock_expired,
+    _utc_now_naive,
+    safe_publish_post,
+)
+from backend.services.scheduler import publish_due_posts
+from backend.workflow.post_state import (
+    POST_APPROVED,
+    POST_FAILED,
+    POST_PUBLISHED,
+    POST_PUBLISHING,
+    POST_REVIEW,
+    transition_post_status,
+)
+from backend.timeutil import is_valid_iana_timezone, normalize_iana_timezone
 from backend.models import Campaign, Post, User
 from backend.schemas import (
+    AnalyticsBulkUpdateOut,
     AnalyticsOut,
+    AnalyticsPostRow,
+    AnalyticsSummaryOut,
     ApproveCampaignRequest,
     CampaignInsightsOut,
     CampaignDetailOut,
@@ -48,6 +67,7 @@ from backend.schemas import (
     GenerateCampaignRequest,
     GenerateCampaignResponse,
     LoginRequest,
+    PerformanceAnalyticsAIOut,
     PostAnalyticsOut,
     PostOut,
     SignupRequest,
@@ -55,16 +75,29 @@ from backend.schemas import (
     SocialStatusResponse,
     TokenResponse,
     UpdatePostRequest,
+    UpdateProfileUrlsRequest,
     UserOut,
 )
 from backend.services.ayrshare_service import (
     AyrshareServiceError,
+    REQUIRED_LINKED_SOCIAL_PLATFORMS,
     create_ayrshare_profile,
     fetch_active_social_accounts,
     generate_social_connect_url,
-    has_linked_target_platform,
+    has_all_target_platforms_linked,
 )
-from backend.services.analytics import fetch_post_analytics, get_analytics_payload
+from backend.services.ai_analytics_service import analyze_performance
+from backend.services.analytics import (
+    fetch_post_analytics,
+    get_analytics_payload,
+    update_post_analytics,
+)
+from backend.services.analytics_service import (
+    build_analytics_summary,
+    list_user_posts_for_analytics,
+    performance_tier,
+    posts_as_ai_payload,
+)
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")  # refresh if needed
 
@@ -98,7 +131,7 @@ def _sync_user_social_from_ayrshare(session: Session, user: User) -> None:
     active = fetch_active_social_accounts(pk)
     if active is None:
         return
-    user.social_connected = has_linked_target_platform(active)
+    user.social_connected = has_all_target_platforms_linked(active)
     session.add(user)
     session.commit()
 
@@ -112,7 +145,10 @@ def _require_social_ready(session: Session, user_id: int) -> None:
     if not u.social_connected:
         raise HTTPException(
             status_code=403,
-            detail="Please connect your social accounts first",
+            detail=(
+                "Connect Facebook, Instagram, and LinkedIn on Connect Accounts before "
+                "creating or publishing campaigns."
+            ),
         )
 
 
@@ -152,7 +188,16 @@ def _publish_platforms_list(raw: Any) -> list:
     return coerce_ayrshare_platforms(raw)
 
 
+def _primary_platform_for_post(row: Post) -> str:
+    px = (getattr(row, "platform", None) or "").strip()
+    if px:
+        return px
+    pl = _publish_platforms_list(row.publish_platforms)
+    return pl[0] if pl else ""
+
+
 def _post_to_out(row: Post, day: Optional[str] = None) -> PostOut:
+    body = (getattr(row, "content", None) or row.caption or "").strip()
     return PostOut(
         id=row.id,
         campaign_id=row.campaign_id,
@@ -169,87 +214,24 @@ def _post_to_out(row: Post, day: Optional[str] = None) -> PostOut:
         platform_response=_platform_response_dict(row.platform_response),
         compliance_passed=row.compliance_passed,
         compliance_issues=_compliance_issues_list(row.compliance_issues),
+        last_error=(getattr(row, "last_error", None) or "").strip() or None,
+        is_locked=bool(getattr(row, "is_locked", False)),
+        next_publish_attempt_at=getattr(row, "next_publish_attempt_at", None),
+        platform=_primary_platform_for_post(row),
+        post_id=(getattr(row, "social_post_id", None) or "").strip(),
+        content=body,
+        likes=int(row.likes or 0),
+        comments=int(row.comments or 0),
+        shares=int(row.shares or 0),
+        impressions=int(row.impressions or 0),
+        engagement_rate=float(row.engagement_rate or 0),
     )
-
-
-async def _publish_due_posts() -> None:
-    now = datetime.utcnow()
-    with Session(engine) as session:
-        # Only pick up "approved" posts — not "publishing" (avoids double-publish)
-        stmt = select(Post).where(
-            Post.status == "approved",
-            Post.scheduled_at <= now,
-            Post.publish_attempts < 3,
-        )
-        rows = session.exec(stmt).all()
-        for row in rows:
-            if row.user_id is None:
-                continue
-
-            # Atomically mark as "publishing" to prevent concurrent scheduler
-            # ticks from picking up the same post
-            row.status = "publishing"
-            row.publish_attempts = (row.publish_attempts or 0) + 1
-            session.add(row)
-            session.commit()
-
-            tags = _hashtags_to_list(row.hashtags)
-            tail = " ".join(tags)
-            full_caption = row.caption if not tail else f"{row.caption}\n\n{tail}"
-            pl = coerce_ayrshare_platforms(row.publish_platforms)
-            image_url = (row.image_url or "").strip()
-            media_urls = (
-                [image_url]
-                if image_url.lower().startswith(("http://", "https://"))
-                else None
-            )
-
-            owner = session.get(User, row.user_id)
-            profile_key = (
-                (owner.ayrshare_profile_key or "").strip() if owner is not None else ""
-            )
-            last_result = await publish_post(
-                full_caption,
-                pl,
-                media_urls=media_urls,
-                profile_key=profile_key or None,
-            )
-            row.platform_response = platform_response_json(last_result or {})
-
-            if last_result.get("ok"):
-                row.status = "published"
-                row.published_at = datetime.utcnow()
-                log.info("Published post %s for user %s", row.id, row.user_id)
-                try:
-                    await fetch_post_analytics(session, row.id, row.user_id)
-                except Exception:
-                    log.warning(
-                        "post analytics prefetch failed post_id=%s (non-fatal)",
-                        row.id,
-                        exc_info=True,
-                    )
-            elif row.publish_attempts >= 3:
-                row.status = "publish_failed"
-                log.warning(
-                    "Publish failed post %s user %s after %s attempts — %s",
-                    row.id, row.user_id, row.publish_attempts,
-                    (last_result or {}).get("body"),
-                )
-            else:
-                # Put back to approved for retry on next scheduler tick
-                row.status = "approved"
-                log.info(
-                    "Publish attempt %s failed for post %s, will retry",
-                    row.publish_attempts, row.id,
-                )
-            session.add(row)
-            session.commit()
 
 
 async def _scheduler_loop() -> None:
     while True:
         try:
-            await _publish_due_posts()
+            await publish_due_posts()
         except Exception:
             log.exception("scheduler tick failed")
         else:
@@ -317,6 +299,11 @@ async def serve_dashboard():
     return FileResponse(BASE_DIR / "frontend" / "dashboard.html")
 
 
+@app.get("/analytics.html")
+async def serve_analytics_page():
+    return FileResponse(BASE_DIR / "frontend" / "analytics.html")
+
+
 @app.get("/login.html")
 async def serve_login():
     return FileResponse(BASE_DIR / "frontend" / "login.html")
@@ -376,9 +363,22 @@ def social_status(
         raise HTTPException(status_code=401, detail="Not authenticated")
     _sync_user_social_from_ayrshare(session, user)
     session.refresh(user)
+    active: List[str] = []
+    pk = (user.ayrshare_profile_key or "").strip()
+    if pk:
+        active = fetch_active_social_accounts(pk) or []
+    linked_slugs: set[str] = set()
+    for x in active:
+        slug = slug_from_ayrshare_account_label(str(x))
+        if slug:
+            linked_slugs.add(slug)
+    linked_required = sorted(linked_slugs & REQUIRED_LINKED_SOCIAL_PLATFORMS)
+    missing = sorted(REQUIRED_LINKED_SOCIAL_PLATFORMS - linked_slugs)
     return SocialStatusResponse(
         connected=bool(user.social_connected),
         profile_key=user.ayrshare_profile_key or None,
+        linked_platforms=linked_required,
+        missing_platforms=missing,
     )
 
 
@@ -404,7 +404,12 @@ def signup(body: SignupRequest, session: Session = Depends(get_session)):
     email = body.email.strip().lower()
     if get_user_by_email(session, email):
         raise HTTPException(status_code=400, detail="Email already registered")
-    user = User(email=email, password_hash=hash_password(body.password))
+    tz = normalize_iana_timezone(getattr(body, "timezone", None))
+    user = User(
+        email=email,
+        password_hash=hash_password(body.password),
+        timezone=tz,
+    )
     session.add(user)
     try:
         session.commit()
@@ -436,6 +441,40 @@ def me(
         id=u.id,
         email=u.email,
         social_connected=bool(getattr(u, "social_connected", False)),
+        timezone=normalize_iana_timezone(getattr(u, "timezone", None)),
+        facebook_url=getattr(u, "facebook_url", None) or "",
+        instagram_url=getattr(u, "instagram_url", None) or "",
+        linkedin_url=getattr(u, "linkedin_url", None) or "",
+    )
+
+
+@app.patch("/me/profile-urls", response_model=UserOut)
+def update_profile_urls(
+    body: UpdateProfileUrlsRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    u = session.get(User, current_user.id)
+    if u is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    data = body.model_dump(exclude_unset=True)
+    if "facebook_url" in data:
+        u.facebook_url = data["facebook_url"] or ""
+    if "instagram_url" in data:
+        u.instagram_url = data["instagram_url"] or ""
+    if "linkedin_url" in data:
+        u.linkedin_url = data["linkedin_url"] or ""
+    session.add(u)
+    session.commit()
+    session.refresh(u)
+    return UserOut(
+        id=u.id,
+        email=u.email,
+        social_connected=bool(getattr(u, "social_connected", False)),
+        timezone=normalize_iana_timezone(getattr(u, "timezone", None)),
+        facebook_url=u.facebook_url or "",
+        instagram_url=u.instagram_url or "",
+        linkedin_url=u.linkedin_url or "",
     )
 
 
@@ -454,6 +493,25 @@ async def generate_campaign(
 ):
     _require_social_ready(session, current_user.id)
 
+    if not _openai_api_key():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "OpenAI API is not configured. Set OPENAI_API_KEY to generate AI campaigns, "
+                "captions, images, and video scripts."
+            ),
+        )
+    if not body.ai_text_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="AI captions and strategy must be enabled for campaign generation.",
+        )
+    if not body.ai_images_enabled:
+        raise HTTPException(
+            status_code=400,
+            detail="AI images must be enabled for campaign generation.",
+        )
+
     # Usage limit check (plan)
     plan = getattr(current_user, "plan", "free") or "free"
     limit = PLAN_LIMITS.get(plan, 2)
@@ -471,6 +529,23 @@ async def generate_campaign(
             detail=f"Campaign limit reached ({limit} for {plan} plan). Upgrade to create more.",
         )
 
+    db_user = session.get(User, current_user.id)
+    if db_user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if body.timezone is not None and str(body.timezone).strip():
+        if not is_valid_iana_timezone(str(body.timezone).strip()):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid IANA timezone: {body.timezone!r}",
+            )
+        campaign_tz = str(body.timezone).strip()
+    else:
+        campaign_tz = normalize_iana_timezone(db_user.timezone)
+    if db_user.timezone != campaign_tz:
+        db_user.timezone = campaign_tz
+        session.add(db_user)
+        session.commit()
+
     utc_day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     gkey = (current_user.id, utc_day)
     used = _daily_generate_count.get(gkey, 0)
@@ -480,13 +555,16 @@ async def generate_campaign(
             detail=f"Daily campaign generation limit reached ({_MAX_CAMPAIGNS_PER_USER_PER_DAY} per day). Try again tomorrow.",
         )
 
+    fb_u = (getattr(db_user, "facebook_url", None) or "").strip()
+    ig_u = (getattr(db_user, "instagram_url", None) or "").strip()
+    li_u = (getattr(db_user, "linkedin_url", None) or "").strip()
     camp = Campaign(
         user_id=current_user.id,
         status="draft",
         graph_thread_id="",
-        facebook_url=body.facebook_url or "",
-        instagram_url=body.instagram_url or "",
-        linkedin_url=body.linkedin_url or "",
+        facebook_url=fb_u,
+        instagram_url=ig_u,
+        linkedin_url=li_u,
     )
     session.add(camp)
     session.commit()
@@ -497,11 +575,18 @@ async def generate_campaign(
     session.add(camp)
     session.commit()
 
+    campaign_data = {
+        **body.model_dump(),
+        "timezone": campaign_tz,
+        "facebook_url": fb_u,
+        "instagram_url": ig_u,
+        "linkedin_url": li_u,
+    }
     initial = {
         "user_id": current_user.id,
         "campaign_id": camp.id,
         "approved": False,
-        "campaign_data": body.model_dump(),
+        "campaign_data": campaign_data,
         "step_log": [],
     }
     log.info(
@@ -512,6 +597,18 @@ async def generate_campaign(
     )
     try:
         await asyncio.to_thread(run_campaign_phase1, initial, thread_id)
+    except OpenAINotConfiguredError as e:
+        log.warning("LangGraph phase1 missing OpenAI campaign_id=%s: %s", camp.id, e)
+        camp.status = "failed"
+        session.add(camp)
+        session.commit()
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    except CampaignPipelineError as e:
+        log.warning("LangGraph phase1 pipeline error campaign_id=%s: %s", camp.id, e)
+        camp.status = "failed"
+        session.add(camp)
+        session.commit()
+        raise HTTPException(status_code=502, detail=str(e)) from e
     except Exception:
         log.exception("LangGraph phase1 failed campaign_id=%s", camp.id)
         camp.status = "failed"
@@ -697,12 +794,59 @@ async def approve_post(
     row = session.get(Post, post_id)
     if not row or row.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Post not found")
-    row.status = "approved"
-    row.scheduled_at = row.scheduled_at or datetime.utcnow()
+    if row.status != POST_REVIEW:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Post must be in review to approve (current: {row.status})",
+        )
+    row.scheduled_at = row.scheduled_at or datetime.now(timezone.utc).replace(
+        tzinfo=None
+    )
+    try:
+        transition_post_status(
+            session, row, POST_APPROVED, actor="api_approve_post", reason="user"
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     session.add(row)
     session.commit()
     session.refresh(row)
     return _post_to_out(row)
+
+
+@app.post("/publish/{post_id}")
+async def publish_post_now(
+    post_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Idempotent manual publish (bypasses schedule). Double-click safe."""
+    row = session.get(Post, post_id)
+    if not row or row.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Post not found")
+    _require_social_ready(session, current_user.id)
+    if row.status == POST_PUBLISHED:
+        return {"ok": True, "no_op": True, "message": "Already published"}
+    if row.status == POST_PUBLISHING and row.is_locked:
+        if not _lock_expired(row.lock_timestamp, _utc_now_naive()):
+            raise HTTPException(
+                status_code=409,
+                detail="Publish already in progress for this post",
+            )
+    if row.status not in (POST_APPROVED, POST_FAILED):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Post not ready to publish (status={row.status})",
+        )
+    out = await safe_publish_post(post_id, force_immediate=True)
+    if out.get("no_op"):
+        return {"ok": True, "no_op": True, "status": out.get("status")}
+    if not out.get("ok") and out.get("error") == "not_eligible":
+        raise HTTPException(
+            status_code=409,
+            detail="Could not claim post for publish (in progress, max attempts, or not eligible)",
+        )
+    return {"ok": bool(out.get("ok")), "status": out.get("status")}
 
 
 @app.post("/update-post/{post_id}", response_model=PostOut)
@@ -717,6 +861,7 @@ async def update_post(
         raise HTTPException(status_code=404, detail="Post not found")
     if body.caption is not None:
         row.caption = body.caption
+        row.content = body.caption
     if body.hashtags is not None:
         row.hashtags = json.dumps([str(t) for t in body.hashtags])
     session.add(row)
@@ -756,6 +901,79 @@ async def post_analytics(
     )
 
 
+@app.get("/analytics/posts", response_model=List[AnalyticsPostRow])
+def analytics_posts(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """All posts with performance fields, sorted by engagement rate (desc)."""
+    rows = list_user_posts_for_analytics(session, current_user.id)
+    published_rates = [
+        float(r.engagement_rate or 0) for r in rows if r.status == "published"
+    ]
+    out: List[AnalyticsPostRow] = []
+    for r in rows:
+        if r.id is None:
+            continue
+        text = (getattr(r, "content", None) or "").strip() or (r.caption or "")
+        preview = text if len(text) <= 280 else text[:277] + "…"
+        tier = performance_tier(
+            float(r.engagement_rate or 0), r.status or "", published_rates
+        )
+        out.append(
+            AnalyticsPostRow(
+                id=int(r.id),
+                post_id=(getattr(r, "social_post_id", None) or "").strip(),
+                platform=_primary_platform_for_post(r),
+                content=preview,
+                created_at=r.created_at,
+                likes=int(r.likes or 0),
+                comments=int(r.comments or 0),
+                impressions=int(r.impressions or 0),
+                engagement_rate=float(r.engagement_rate or 0),
+                status=r.status or "",
+                performance_tier=tier,
+            )
+        )
+    return out
+
+
+@app.get("/analytics/summary", response_model=AnalyticsSummaryOut)
+def analytics_summary(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    payload = build_analytics_summary(session, current_user.id)
+    return AnalyticsSummaryOut(**payload)
+
+
+@app.post("/analytics/update", response_model=AnalyticsBulkUpdateOut)
+async def analytics_update(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Refresh metrics for all posts (Ayrshare when possible, else simulation)."""
+    data = await update_post_analytics(session, current_user.id)
+    return AnalyticsBulkUpdateOut(**data)
+
+
+@app.get("/analytics/insights", response_model=PerformanceAnalyticsAIOut)
+async def analytics_ai_insights(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """LLM analysis of post performance + copy (OpenAI when configured)."""
+    rows = list(session.exec(select(Post).where(Post.user_id == current_user.id)).all())
+    payload = posts_as_ai_payload(list(rows))
+    result = await asyncio.to_thread(analyze_performance, payload)
+    return PerformanceAnalyticsAIOut(
+        insights=result.insights,
+        mistakes=result.mistakes,
+        recommendations=result.recommendations,
+        next_post_ideas=result.next_post_ideas,
+    )
+
+
 @app.get("/stats")
 async def stats(
     session: Session = Depends(get_session),
@@ -765,8 +983,16 @@ async def stats(
     payload = get_analytics_payload(session, current_user.id)
     stmt = select(Post).where(Post.user_id == current_user.id)
     rows = session.exec(stmt).all()
-    scheduled = sum(1 for r in rows if r.status in ("approved", "publishing"))
-    pending = sum(1 for r in rows if r.status == "pending_approval")
+    scheduled = sum(
+        1
+        for r in rows
+        if r.status in ("approved", "publishing")
+        or (
+            r.status == "failed"
+            and getattr(r, "next_publish_attempt_at", None) is not None
+        )
+    )
+    pending = sum(1 for r in rows if r.status in ("review", "draft"))
     attempted = payload["posts_published"] + payload["posts_failed"]
     success_rate_pct = (
         round((payload["posts_published"] / attempted) * 100, 1) if attempted > 0 else None
@@ -776,7 +1002,7 @@ async def stats(
         "published": payload["posts_published"],
         "failed": payload["posts_failed"],
         "scheduled": scheduled,
-        "pending_approval": pending,
+        "pending_review": pending,
         "success_rate_pct": success_rate_pct,
         "last_published_at": payload["last_published_at"],
         "total_campaigns": payload["total_campaigns"],

@@ -19,7 +19,7 @@ def mark_user_social_connected(
 
 
 def stub_run_campaign_phase1(initial: dict, thread_id: str) -> None:
-    """Minimal LangGraph phase-1 stand-in: mark campaign ready and add sample posts."""
+    """Test stand-in for LangGraph phase-1 (real pipeline requires OpenAI)."""
     uid = initial["user_id"]
     cid = initial["campaign_id"]
     with Session(engine) as s:
@@ -27,14 +27,16 @@ def stub_run_campaign_phase1(initial: dict, thread_id: str) -> None:
         assert camp is not None
         camp.status = "pending_approval"
         s.add(camp)
-        for i in range(3):
+        for i in range(7):
             s.add(
                 Post(
                     user_id=uid,
                     campaign_id=cid,
-                    caption=f"Test caption {i}",
-                    hashtags="[]",
-                    status="pending_approval",
+                    caption=f"Test caption day {i + 1} for pytest.",
+                    hashtags='["#realestate","#test"]',
+                    image_url=f"https://picsum.photos/seed/brokerai{i}/1024/1024",
+                    video_script="{}",
+                    status="review",
                 )
             )
         s.commit()

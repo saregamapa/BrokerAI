@@ -35,7 +35,7 @@ Shared chrome lives in `static/js/nav.js` and `static/css/styles.css`; pages are
 
 In-memory checkpoint pauses **`interrupt_before=["publishing"]`** after posts are persisted with `pending_approval`. **`POST /approve-campaign`** resumes the graph (or, if the process restarted and memory is empty, runs the **publishing node** directly from the DB so approval still works).
 
-Nodes: **strategy** → **content** (structured captions / hashtags / `image_prompt` / `video_script`) → **media** (DALL·E 3 when configured, else placeholders) → **compliance** (LLM JSON + one recheck after `fixed_caption`) → **scheduling** → **persist** → **approval_gate** → **publishing** (marks posts `approved` for the scheduler).
+Nodes: **strategy** → **content** (OpenAI structured captions / hashtags / `image_prompt`; `video_script` left empty) → **media** (OpenAI Images API + optional structured **video scripts**) → **compliance** (OpenAI structured review + one recheck) → **scheduling** → **persist** (rejects empty caption or non-https `image_url`) → **approval_gate** → **publishing**. There is **no** template or placeholder media path — `OPENAI_API_KEY` and enabled AI toggles are required.
 
 ## Project layout
 
@@ -57,7 +57,8 @@ BrokerAI-main/        # project root — .env lives here
 
 | Variable | Purpose |
 |----------|---------|
-| `OPENAI_API_KEY` | **Recommended** for agents (fallback heuristics if unset). |
+| `OPENAI_API_KEY` | **Required** for campaign generation (strategy, content, images, compliance). |
+| `OPENAI_IMAGE_MODEL` | Optional (default `dall-e-3`). Some models return base64-only; the pipeline requires an **https** image URL. |
 | `AYRSHARE_API_KEY` | Real publishing via Ayrshare. |
 | `JWT_SECRET_KEY` | Sign JWTs in production (no hardcoded secrets in code). |
 | `PORT` | Listen port for Docker / Render / `python -m backend.main` (default **8000**). |
@@ -82,7 +83,7 @@ Use **one Uvicorn worker** if you rely on in-process LangGraph `MemorySaver` che
 ## User flow
 
 1. **Sign up / log in**  
-2. **Wizard** → `POST /generate-campaign` runs agents through scheduling and saves **7 posts** + **campaign** (`pending_approval`).  
+2. **Wizard** → `POST /generate-campaign` runs agents through scheduling and saves one week of posts (`CAMPAIGN_POST_COUNT` in `backend/agents/nodes.py`, currently **7**) + **campaign** (`pending_approval`).  
 3. **Review** → inspect captions, images, video scripts, compliance.  
 4. **Approve campaign** → `POST /approve-campaign` resumes publishing; posts become **`approved`** and the **scheduler** sends them to Ayrshare when `scheduled_at` is due.  
 5. **Calendar** dashboard → month grid by `scheduled_at` / `published_at`.

@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -17,7 +17,7 @@ def test_approve_campaign_returns_ok(client: TestClient) -> None:
     with patch("backend.main.run_campaign_phase1", side_effect=stub_run_campaign_phase1):
         cid = client.post("/generate-campaign", json=body, headers=h).json()["campaign_id"]
 
-    with patch("backend.main._background_resume_publish", new=AsyncMock()):
+    with patch("backend.main.resume_campaign_publishing", return_value={}):
         r = client.post("/approve-campaign", json={"campaign_id": cid}, headers=h)
     assert r.status_code == 200
     assert r.json().get("ok") is True

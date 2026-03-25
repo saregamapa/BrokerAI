@@ -134,6 +134,7 @@
 
       var campaignId = null;
       var campaignPending = false;
+      var userTimeZone = "UTC";
 
       function complianceBadgeClass(passed) {
         if (passed === true) return "bg-emerald-100 text-emerald-800 ring-emerald-300";
@@ -149,21 +150,18 @@
         var map = {
           published: "bg-emerald-100 text-emerald-800",
           approved: "bg-blue-100 text-blue-800",
+          review: "bg-amber-100 text-amber-900",
+          draft: "bg-slate-100 text-slate-700",
+          failed: "bg-red-100 text-red-800",
+          publishing: "bg-sky-100 text-sky-800 animate-pulse",
+          pending: "bg-slate-100 text-slate-700",
           pending_approval: "bg-amber-100 text-amber-900",
           publish_failed: "bg-red-100 text-red-800",
-          publishing: "bg-sky-100 text-sky-800",
-          pending: "bg-slate-100 text-slate-700",
         };
         return map[st] || "bg-slate-100 text-slate-700";
       }
       function fmtDate(iso) {
-        if (!iso) return "";
-        var d = new Date(iso);
-        return (
-          d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) +
-          " · " +
-          d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-        );
+        return BrokerAI.formatScheduleInUserTz(iso, userTimeZone);
       }
 
       function render(data) {
@@ -190,7 +188,7 @@
           return p.compliance_passed === true;
         }).length;
         document.getElementById("stat-images").textContent = posts.filter(function (p) {
-          return p.image_url && !p.image_url.includes("placehold");
+          return p.image_url && /^https?:\/\//i.test(p.image_url);
         }).length;
         document.getElementById("stat-platforms").textContent = posts.length ? "Active" : "-";
 
@@ -208,8 +206,22 @@
             "overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-2xl";
           card.id = "post-card-" + p.id;
 
-          var postPending = campaignPending && (p.status === "pending_approval" || p.status === "pending");
-          var postApproved = p.status === "approved" || p.status === "published" || p.status === "publishing";
+          var postPending =
+            campaignPending &&
+            (p.status === "review" ||
+              p.status === "draft" ||
+              p.status === "pending_approval" ||
+              p.status === "pending");
+          var postApproved =
+            p.status === "approved" ||
+            p.status === "published" ||
+            p.status === "publishing" ||
+            p.status === "failed";
+          var publishNowDisabled =
+            p.status === "publishing" ||
+            p.status === "published" ||
+            p.is_locked === true;
+          var showPublishNow = p.status === "approved" || p.status === "failed";
 
           var head =
             '<div class="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white px-5 py-3">' +
@@ -235,6 +247,7 @@
           if (p.image_url && p.image_url.length > 5) {
             body +=
               '<div class="relative aspect-video overflow-hidden bg-slate-100 lg:aspect-auto lg:min-h-[220px]">' +
+              '<span class="absolute left-2 top-2 z-10 rounded-md bg-slate-900/75 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">AI Generated Media</span>' +
               '<img src="' +
               p.image_url +
               '" alt="" class="h-full w-full object-cover" loading="lazy" />' +
@@ -299,14 +312,53 @@
           }
 
           if (p.video_script) {
+            var vsRaw = (p.video_script || "").trim();
+            var vsBlock = "";
+            try {
+              var vsObj = JSON.parse(vsRaw);
+              if (vsObj && typeof vsObj === "object" && !Array.isArray(vsObj)) {
+                vsBlock =
+                  '<div class="space-y-2 text-xs text-slate-700">' +
+                  (vsObj.hook
+                    ? '<p><span class="font-semibold text-slate-900">Hook:</span> ' +
+                      String(vsObj.hook).replace(/</g, "&lt;") +
+                      "</p>"
+                    : "") +
+                  (Array.isArray(vsObj.scenes) && vsObj.scenes.length
+                    ? "<div><span class=\"font-semibold text-slate-900\">Scenes:</span><ol class=\"mt-1 list-decimal pl-4\">" +
+                      vsObj.scenes
+                        .map(function (s) {
+                          return "<li>" + String(s).replace(/</g, "&lt;") + "</li>";
+                        })
+                        .join("") +
+                      "</ol></div>"
+                    : "") +
+                  (vsObj.voiceover
+                    ? '<p><span class="font-semibold text-slate-900">Voiceover:</span> ' +
+                      String(vsObj.voiceover).replace(/</g, "&lt;") +
+                      "</p>"
+                    : "") +
+                  (vsObj.cta
+                    ? '<p><span class="font-semibold text-slate-900">CTA:</span> ' +
+                      String(vsObj.cta).replace(/</g, "&lt;") +
+                      "</p>"
+                    : "") +
+                  "</div>";
+              }
+            } catch (e) {
+              vsBlock = "";
+            }
+            if (!vsBlock) {
+              vsBlock =
+                '<pre class="max-h-48 overflow-auto whitespace-pre-wrap text-xs leading-relaxed text-slate-700">' +
+                vsRaw.replace(/</g, "&lt;") +
+                "</pre>";
+            }
             body +=
               '<details class="group rounded-xl border border-slate-200 bg-slate-50/80 open:bg-white open:shadow-sm">';
             body +=
-              '<summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-amber-700 marker:hidden [&::-webkit-details-marker]:hidden">Video script <span class="text-slate-400 group-open:hidden">· tap to expand</span></summary>';
-            body +=
-              '<pre class="max-h-48 overflow-auto whitespace-pre-wrap border-t border-slate-100 p-3 text-xs leading-relaxed text-slate-700">' +
-              (p.video_script || "").replace(/</g, "&lt;") +
-              "</pre>";
+              '<summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-amber-700 marker:hidden [&::-webkit-details-marker]:hidden">AI video script <span class="text-slate-400 group-open:hidden">· tap to expand</span></summary>';
+            body += '<div class="border-t border-slate-100 p-3">' + vsBlock + "</div>";
             body += "</details>";
           }
 
@@ -326,9 +378,48 @@
             '<span class="text-[11px] text-slate-400">Use per-post approve or the campaign button above.</span>';
           body += "</div>";
 
+          if (showPublishNow) {
+            body += '<div class="mt-4 rounded-xl border border-violet-200/80 bg-violet-50/40 px-4 py-3">';
+            body += '<p class="text-xs font-semibold text-violet-900">Publish to social</p>';
+            body +=
+              '<p class="mt-0.5 text-[11px] text-violet-800/80">Bypass schedule and send now (idempotent).</p>';
+            if (p.status === "publishing") {
+              body +=
+                '<p class="mt-2 flex items-center gap-2 text-xs font-medium text-sky-700"><span class="brokerai-spinner h-4 w-4 shrink-0" aria-hidden="true"></span> Publishing…</p>';
+            }
+            if (p.last_error && p.status === "failed") {
+              body +=
+                '<p class="mt-2 rounded-lg border border-red-200 bg-red-50/90 px-2 py-1.5 text-[11px] text-red-900">' +
+                String(p.last_error).replace(/</g, "&lt;") +
+                "</p>";
+            }
+            body +=
+              '<button type="button" data-publish-now="' +
+              p.id +
+              '" ' +
+              (publishNowDisabled ? "disabled" : "") +
+              ' class="mt-2 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40">Publish now</button>';
+            body += "</div>";
+          }
+
           body += "</div></div>";
           card.innerHTML = head + body;
           root.appendChild(card);
+
+          var pubBtn = card.querySelector('[data-publish-now="' + p.id + '"]');
+          if (pubBtn && !pubBtn.disabled) {
+            pubBtn.addEventListener("click", async function () {
+              pubBtn.disabled = true;
+              try {
+                await BrokerAI.apiJson("/publish/" + p.id, { method: "POST", body: "{}" });
+                BrokerAI.showToast("Publish completed", "success");
+                load();
+              } catch (err) {
+                BrokerAI.showToast(err.message || "Publish failed", "error");
+                pubBtn.disabled = false;
+              }
+            });
+          }
 
           var toggle = card.querySelector('[data-post-approve="' + p.id + '"]');
           if (toggle && !toggle.disabled && postPending) {
@@ -386,6 +477,8 @@
         root.innerHTML = "";
         BrokerAI.setLoading(true);
         try {
+          var me = await BrokerAI.apiJson("/me", { method: "GET" });
+          userTimeZone = (me && me.timezone) || "UTC";
           var data = await BrokerAI.apiJson("/campaign/" + encodeURIComponent(id), { method: "GET" });
           sk.classList.add("hidden");
           render(data);
