@@ -15,6 +15,7 @@
       { href: "/wizard.html", label: "Wizard", key: "wizard" },
       { href: "/review.html", label: "Review", key: "review" },
       { href: "/dashboard.html", label: "Calendar", key: "dashboard" },
+      { href: "/connect.html", label: "Connect Accounts", key: "connect" },
     ];
 
     function active(k) {
@@ -50,6 +51,11 @@
       "</div>";
 
     nav.innerHTML =
+      '<div id="brokerai-social-banner" class="hidden border-b border-amber-200/90 bg-amber-50 px-4 py-2.5 text-center text-sm text-amber-950">' +
+      '<span class="mr-1.5" aria-hidden="true">⚠️</span>' +
+      '<span>Connect your social accounts to enable publishing.</span> ' +
+      '<a href="/connect.html" class="ml-1 font-semibold text-amber-900 underline decoration-amber-600/60 underline-offset-2 hover:text-amber-950">Connect Accounts</a>' +
+      "</div>" +
       '<div class="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">' +
       '<div class="flex min-w-0 items-center gap-3">' +
       '<button type="button" id="brokerai-sidebar-toggle" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:scale-105 active:scale-95 md:hidden" aria-label="Open menu">' +
@@ -62,6 +68,11 @@
       '<button type="button" id="nav-logout" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition duration-200 hover:border-slate-300 hover:shadow-md hover:scale-105 active:scale-95">Log out</button>' +
       "</div>" +
       "</div>";
+
+    if (page === "connect") {
+      var banInit = document.getElementById("brokerai-social-banner");
+      if (banInit) banInit.classList.add("hidden");
+    }
 
     function closeDrawer() {
       side.classList.remove("brokerai-sidebar-open");
@@ -96,6 +107,14 @@
         .then(function (u) {
           var el = document.getElementById("nav-user-email");
           if (el && u.email) el.textContent = u.email;
+          var ban = document.getElementById("brokerai-social-banner");
+          if (ban && page !== "connect") {
+            if (u.social_connected) {
+              ban.classList.add("hidden");
+            } else {
+              ban.classList.remove("hidden");
+            }
+          }
         })
         .catch(function () {});
     }

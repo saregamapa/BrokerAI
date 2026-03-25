@@ -9,6 +9,7 @@ from sqlmodel import Session
 import backend.main as main
 from backend.db import engine
 from backend.models import Post
+from tests.helpers import mark_user_social_connected
 
 
 def test_publish_due_posts_marks_published(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
@@ -17,6 +18,7 @@ def test_publish_due_posts_marks_published(monkeypatch: pytest.MonkeyPatch, clie
         "access_token"
     ]
     uid = client.get("/me", headers={"Authorization": f"Bearer {token}"}).json()["id"]
+    mark_user_social_connected(uid)
 
     with Session(engine) as s:
         p = Post(

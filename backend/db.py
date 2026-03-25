@@ -177,6 +177,21 @@ def _sqlite_migrate() -> None:
                     "UPDATE users SET timezone = 'America/New_York' WHERE timezone IS NULL"
                 )
             )
+            if "ayrshare_profile_key" not in ucols:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN ayrshare_profile_key TEXT")
+                )
+            if "social_connected" not in ucols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN social_connected INTEGER DEFAULT 0"
+                    )
+                )
+            conn.execute(
+                text(
+                    "UPDATE users SET social_connected = 0 WHERE social_connected IS NULL"
+                )
+            )
 
 
 def create_db_and_tables() -> None:

@@ -139,6 +139,21 @@ class UserOut(BaseModel):
 
     id: int
     email: str
+    social_connected: bool = False
+
+
+class ConnectSocialResponse(BaseModel):
+    connect_url: str
+
+
+class SocialStatusResponse(BaseModel):
+    connected: bool
+    profile_key: Optional[str] = None
+
+
+class SocialConnectedCallbackResponse(BaseModel):
+    ok: bool
+    connected: bool
 
 
 class AnalyticsOut(BaseModel):

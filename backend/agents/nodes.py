@@ -283,12 +283,12 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
                 "- Each day needs: theme (2-4 words) and angle (one sentence describing the specific post idea)\n"
                 "- Vary content types across the week: market insight, social proof/testimonial, "
                 "community spotlight, educational tip, behind-the-scenes, listing highlight, personal/lifestyle\n"
-                "- Make angles SPECIFIC to {location} — reference neighborhoods, local landmarks, "
+                f"- Make angles SPECIFIC to {location} — reference neighborhoods, local landmarks, "
                 "market conditions, or seasonal relevance when possible\n"
                 "- Weekend posts should feel lighter and more personal\n"
                 "- At least one day should include a clear call-to-action\n"
                 "- All content must be Fair Housing compliant and inclusive"
-            ).format(location=location)
+            )
             plan: StrategyPlan = llm.invoke(
                 [
                     SystemMessage(content=_STRATEGY_SYSTEM),

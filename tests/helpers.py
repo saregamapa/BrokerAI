@@ -2,7 +2,20 @@
 from sqlmodel import Session
 
 from backend.db import engine
-from backend.models import Campaign, Post
+from backend.models import Campaign, Post, User
+
+
+def mark_user_social_connected(
+    user_id: int, profile_key: str = "pytest-ayrshare-profile-key"
+) -> None:
+    """Tests bypass real Ayrshare SSO; publishing is mocked where needed."""
+    with Session(engine) as s:
+        u = s.get(User, user_id)
+        assert u is not None
+        u.ayrshare_profile_key = profile_key
+        u.social_connected = True
+        s.add(u)
+        s.commit()
 
 
 def stub_run_campaign_phase1(initial: dict, thread_id: str) -> None:

@@ -44,15 +44,25 @@ from backend.schemas import (
     CampaignOut,
     CheckComplianceRequest,
     CheckComplianceResponse,
+    ConnectSocialResponse,
     GenerateCampaignRequest,
     GenerateCampaignResponse,
     LoginRequest,
     PostAnalyticsOut,
     PostOut,
     SignupRequest,
+    SocialConnectedCallbackResponse,
+    SocialStatusResponse,
     TokenResponse,
     UpdatePostRequest,
     UserOut,
+)
+from backend.services.ayrshare_service import (
+    AyrshareServiceError,
+    create_ayrshare_profile,
+    fetch_active_social_accounts,
+    generate_social_connect_url,
+    has_linked_target_platform,
 )
 from backend.services.analytics import fetch_post_analytics, get_analytics_payload
 
@@ -66,6 +76,44 @@ _MAX_CAMPAIGNS_PER_USER_PER_DAY = 10
 _daily_generate_count: Dict[Tuple[int, str], int] = {}
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _public_app_origin() -> str:
+    """HTTPS origin for Ayrshare JWT redirect (e.g. https://app.example.com)."""
+    return (os.getenv("BROKERAI_PUBLIC_ORIGIN") or "").strip().rstrip("/")
+
+
+def _connect_redirect_url() -> Optional[str]:
+    base = _public_app_origin()
+    if not base:
+        return None
+    return f"{base}/connect.html?returned=1"
+
+
+def _sync_user_social_from_ayrshare(session: Session, user: User) -> None:
+    """Refresh social_connected from Ayrshare GET /user (Profile-Key)."""
+    pk = (user.ayrshare_profile_key or "").strip()
+    if not pk:
+        return
+    active = fetch_active_social_accounts(pk)
+    if active is None:
+        return
+    user.social_connected = has_linked_target_platform(active)
+    session.add(user)
+    session.commit()
+
+
+def _require_social_ready(session: Session, user_id: int) -> None:
+    u = session.get(User, user_id)
+    if not u:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    _sync_user_social_from_ayrshare(session, u)
+    session.refresh(u)
+    if not u.social_connected:
+        raise HTTPException(
+            status_code=403,
+            detail="Please connect your social accounts first",
+        )
 
 
 def _hashtags_to_list(raw: str) -> list:
@@ -156,8 +204,15 @@ async def _publish_due_posts() -> None:
                 else None
             )
 
+            owner = session.get(User, row.user_id)
+            profile_key = (
+                (owner.ayrshare_profile_key or "").strip() if owner is not None else ""
+            )
             last_result = await publish_post(
-                full_caption, pl, media_urls=media_urls
+                full_caption,
+                pl,
+                media_urls=media_urls,
+                profile_key=profile_key or None,
             )
             row.platform_response = platform_response_json(last_result or {})
 
@@ -272,6 +327,78 @@ async def serve_signup():
     return FileResponse(BASE_DIR / "frontend" / "signup.html")
 
 
+@app.get("/connect.html")
+async def serve_connect():
+    return FileResponse(BASE_DIR / "frontend" / "connect.html")
+
+
+@app.post("/connect-social", response_model=ConnectSocialResponse)
+async def connect_social(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Ensure an Ayrshare User Profile exists and return JWT SSO URL to link networks."""
+    user = session.get(User, current_user.id)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        if not (user.ayrshare_profile_key or "").strip():
+            pk = await asyncio.to_thread(
+                create_ayrshare_profile, user.id, user.email
+            )
+            user.ayrshare_profile_key = pk
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+        redirect = _connect_redirect_url()
+        url = await asyncio.to_thread(
+            generate_social_connect_url,
+            (user.ayrshare_profile_key or "").strip(),
+            redirect,
+        )
+    except AyrshareServiceError as e:
+        log.warning(
+            "connect-social failed user_id=%s: %s",
+            current_user.id,
+            e.message,
+        )
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    return ConnectSocialResponse(connect_url=url)
+
+
+@app.get("/social-status", response_model=SocialStatusResponse)
+def social_status(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    user = session.get(User, current_user.id)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    _sync_user_social_from_ayrshare(session, user)
+    session.refresh(user)
+    return SocialStatusResponse(
+        connected=bool(user.social_connected),
+        profile_key=user.ayrshare_profile_key or None,
+    )
+
+
+@app.post("/social-connected-callback", response_model=SocialConnectedCallbackResponse)
+def social_connected_callback(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Re-sync linked networks from Ayrshare after the user finishes SSO linking."""
+    user = session.get(User, current_user.id)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    _sync_user_social_from_ayrshare(session, user)
+    session.refresh(user)
+    return SocialConnectedCallbackResponse(
+        ok=True,
+        connected=bool(user.social_connected),
+    )
+
+
 @app.post("/signup", response_model=TokenResponse)
 def signup(body: SignupRequest, session: Session = Depends(get_session)):
     email = body.email.strip().lower()
@@ -298,8 +425,18 @@ def login(body: LoginRequest, session: Session = Depends(get_session)):
 
 
 @app.get("/me", response_model=UserOut)
-def me(user: User = Depends(get_current_user)):
-    return UserOut(id=user.id, email=user.email)
+def me(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    u = session.get(User, user.id)
+    if u is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return UserOut(
+        id=u.id,
+        email=u.email,
+        social_connected=bool(getattr(u, "social_connected", False)),
+    )
 
 
 PLAN_LIMITS = {
@@ -315,6 +452,8 @@ async def generate_campaign(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    _require_social_ready(session, current_user.id)
+
     # Usage limit check (plan)
     plan = getattr(current_user, "plan", "free") or "free"
     limit = PLAN_LIMITS.get(plan, 2)
@@ -480,6 +619,8 @@ async def approve_campaign(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    _require_social_ready(session, current_user.id)
+
     camp = session.get(Campaign, body.campaign_id)
     if not camp or camp.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Campaign not found")

@@ -60,9 +60,11 @@ async def publish_post(
     caption: str,
     platforms: List[str],
     media_urls: Optional[List[str]] = None,
+    profile_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     POST to Ayrshare. Returns a dict with ok (bool), status_code, and body (parsed or raw).
+    User profiles require Profile-Key header (Business Plan).
     """
     api_key = os.getenv("AYRSHARE_API_KEY", "").strip()
     if not api_key:
@@ -70,6 +72,17 @@ async def publish_post(
             "ok": False,
             "status_code": 0,
             "body": {"error": "missing_env", "detail": "AYRSHARE_API_KEY is not set"},
+        }
+
+    pk = (profile_key or "").strip()
+    if not pk:
+        return {
+            "ok": False,
+            "status_code": 0,
+            "body": {
+                "error": "not_connected",
+                "detail": "Social accounts not connected",
+            },
         }
 
     normalized = normalize_platforms(platforms)
@@ -86,15 +99,17 @@ async def publish_post(
     if urls:
         payload["mediaUrls"] = urls
 
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "Profile-Key": pk,
+    }
     try:
         async with httpx.AsyncClient(timeout=45.0) as client:
             resp = await client.post(
                 AYRSHARE_POST_URL,
                 json=payload,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
+                headers=headers,
             )
     except httpx.RequestError as e:
         return {
@@ -155,6 +170,7 @@ def extract_ayrshare_post_id(stored: Any) -> Optional[str]:
 async def fetch_ayrshare_post_analytics(
     ayrshare_post_id: str,
     platforms: Optional[List[str]] = None,
+    profile_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     POST https://api.ayrshare.com/api/analytics/post
@@ -174,15 +190,19 @@ async def fetch_ayrshare_post_analytics(
         if norm:
             payload["platforms"] = norm
 
+    headers: Dict[str, str] = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    pk = (profile_key or "").strip()
+    if pk:
+        headers["Profile-Key"] = pk
     try:
         async with httpx.AsyncClient(timeout=45.0) as client:
             resp = await client.post(
                 AYRSHARE_ANALYTICS_POST_URL,
                 json=payload,
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
+                headers=headers,
             )
     except httpx.RequestError as e:
         return {

@@ -7,7 +7,9 @@ def test_signup_login_and_me(client: TestClient) -> None:
     token = r.json()["access_token"]
     r2 = client.get("/me", headers={"Authorization": f"Bearer {token}"})
     assert r2.status_code == 200
-    assert r2.json()["email"] == "auth1@example.com"
+    j = r2.json()
+    assert j["email"] == "auth1@example.com"
+    assert j.get("social_connected") is False
 
 
 def test_protected_route_without_token(client: TestClient) -> None:

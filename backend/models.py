@@ -13,6 +13,9 @@ class User(SQLModel, table=True):
     password_hash: str
     timezone: str = "America/New_York"  # IANA timezone, default Eastern
     plan: str = "free"  # free | pro | agency (SaaS readiness placeholder)
+    # Ayrshare Business: per-user profile for SSO linking + publishing (Profile-Key header)
+    ayrshare_profile_key: Optional[str] = Field(default=None)
+    social_connected: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

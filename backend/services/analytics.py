@@ -12,7 +12,7 @@ from backend.integrations.ayrshare import (
     fetch_ayrshare_post_analytics,
     normalize_platforms,
 )
-from backend.models import Campaign, Post
+from backend.models import Campaign, Post, User
 
 
 def get_user_stats(session: Session, user_id: int) -> Dict[str, Any]:
@@ -173,7 +173,9 @@ async def fetch_post_analytics(session: Session, post_id: int, user_id: int) -> 
 
     source = "placeholder"
     if ayr_id:
-        result = await fetch_ayrshare_post_analytics(ayr_id, plat_list or None)
+        result = await fetch_ayrshare_post_analytics(
+            ayr_id, plat_list or None, profile_key=profile_key or None
+        )
         if result.get("ok") and isinstance(result.get("body"), dict):
             likes, comments, shares, impressions, engagement_rate = _aggregate_ayrshare_analytics_body(
                 result["body"]
