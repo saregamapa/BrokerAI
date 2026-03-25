@@ -266,11 +266,27 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="BrokerAI", lifespan=lifespan)
 
-# CORS: Allow all origins in dev, restrict in production via ALLOWED_ORIGINS env var
-_allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+
+def _cors_allow_origins() -> List[str]:
+    """
+    Browser calls use Authorization (credentialed fetches). Starlette rejects preflight when the
+    Origin is not in this list. On Render, an empty ALLOWED_ORIGINS env often becomes '' (not
+    the default '*'), which blocks every API call. We also merge BROKERAI_PUBLIC_ORIGIN so the
+    live app works if only that variable is set correctly.
+    """
+    raw = (os.environ.get("ALLOWED_ORIGINS") or "*").strip()
+    if not raw or raw == "*":
+        return ["*"]
+    origins = [o.strip().rstrip("/") for o in raw.split(",") if o.strip()]
+    pub = _public_app_origin()
+    if pub and pub not in origins:
+        origins.append(pub)
+    return origins if origins else ["*"]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _allowed_origins],
+    allow_origins=_cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
