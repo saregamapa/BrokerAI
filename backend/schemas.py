@@ -231,7 +231,10 @@ class ConnectSocialResponse(BaseModel):
 
 class SocialStatusResponse(BaseModel):
     connected: bool
-    profile_key: Optional[str] = None
+    state: Literal["connected", "not_connected", "verify_failed_temp", "pending_oauth"] = "not_connected"
+    profile_key_present: bool = False
+    can_create_campaign: bool = False
+    last_verified_at: Optional[datetime] = None
     ayrshare_sync_ok: bool = True
     """False if Ayrshare GET /profiles verification failed."""
 
@@ -239,6 +242,8 @@ class SocialStatusResponse(BaseModel):
 class SocialConnectedCallbackResponse(BaseModel):
     ok: bool
     connected: bool
+    state: Literal["connected", "not_connected", "verify_failed_temp", "pending_oauth"] = "not_connected"
+    message: Optional[str] = None
 
 
 class AnalyticsOut(BaseModel):

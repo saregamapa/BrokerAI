@@ -154,6 +154,27 @@ def _upsert_social_account(
     return row
 
 
+def _get_social_account(session: Session, user_id: int, platform: str = "ayrshare_profile") -> Optional[SocialAccount]:
+    return session.exec(
+        select(SocialAccount).where(
+            SocialAccount.user_id == user_id,
+            SocialAccount.platform == platform,
+        )
+    ).first()
+
+
+def _social_state_from_row(row: Optional[SocialAccount], *, sync_ok: bool) -> str:
+    if not sync_ok:
+        return "verify_failed_temp"
+    if row is None:
+        return "not_connected"
+    if row.is_connected:
+        return "connected"
+    if (row.profile_key or "").strip():
+        return "pending_oauth"
+    return "not_connected"
+
+
 def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, bool]:
     """
     Verify against Ayrshare GET /profiles.
@@ -165,12 +186,7 @@ def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, 
     ref_id = f"brokerai_user_{uid}"
     profiles = fetch_profiles_by_ref_id(ref_id)
     if profiles is None:
-        row = session.exec(
-            select(SocialAccount).where(
-                SocialAccount.user_id == uid,
-                SocialAccount.platform == "ayrshare_profile",
-            )
-        ).first()
+        row = _get_social_account(session, uid)
         if row is not None:
             user.social_connected = bool(row.is_connected and (row.profile_key or "").strip())
             session.add(user)
@@ -400,7 +416,33 @@ async def connect_social(
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
+        existing_row = _get_social_account(session, int(user.id or 0))
+        if not (user.ayrshare_profile_key or "").strip() and existing_row is not None:
+            cached_pk = (existing_row.profile_key or "").strip()
+            if cached_pk:
+                user.ayrshare_profile_key = cached_pk
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+                log.info(
+                    "connect-social reused cached profile key from social_accounts user_id=%s pk_prefix=%s",
+                    current_user.id,
+                    cached_pk[:8],
+                )
+
         if not (user.ayrshare_profile_key or "").strip():
+            # Before creating a new profile, check if this refId already exists in Ayrshare.
+            ref_id = f"brokerai_user_{int(user.id or 0)}"
+            existing_profiles = await asyncio.to_thread(fetch_profiles_by_ref_id, ref_id)
+            if existing_profiles:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Ayrshare profile already exists for this user but profile key is unavailable "
+                        "to restore automatically. Reconnect using the same app database/user record "
+                        "or set the existing profile key from Ayrshare dashboard."
+                    ),
+                )
             pk = await asyncio.to_thread(
                 create_ayrshare_profile, user.id, user.email
             )
@@ -422,6 +464,28 @@ async def connect_social(
             redirect,
         )
     except AyrshareServiceError as e:
+        # Duplicate title fallback: try to recover with an existing cached profile key.
+        msg = str(e.message or "")
+        if "Profile title already exists" in msg:
+            row = _get_social_account(session, int(user.id or 0))
+            cached_pk = (row.profile_key if row else "") or (user.ayrshare_profile_key or "")
+            if str(cached_pk).strip():
+                user.ayrshare_profile_key = str(cached_pk).strip()
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+                redirect = _connect_redirect_url()
+                url = await asyncio.to_thread(
+                    generate_social_connect_url,
+                    (user.ayrshare_profile_key or "").strip(),
+                    redirect,
+                )
+                log.info(
+                    "connect-social duplicate-title recovered via cached key user_id=%s pk_prefix=%s",
+                    current_user.id,
+                    (user.ayrshare_profile_key or "")[:8],
+                )
+                return ConnectSocialResponse(connect_url=url)
         log.warning(
             "connect-social failed user_id=%s: %s",
             current_user.id,
@@ -442,17 +506,23 @@ def social_status(
         raise HTTPException(status_code=401, detail="Not authenticated")
     connected, sync_ok = _verify_user_social_connection(session, user)
     session.refresh(user)
+    row = _get_social_account(session, int(user.id or 0))
+    state = _social_state_from_row(row, sync_ok=sync_ok)
     resp = SocialStatusResponse(
         connected=bool(connected),
-        profile_key=user.ayrshare_profile_key or None,
+        state=state,  # type: ignore[arg-type]
+        profile_key_present=bool((user.ayrshare_profile_key or "").strip()),
+        can_create_campaign=bool(connected),
+        last_verified_at=(row.updated_at if row is not None else None),
         ayrshare_sync_ok=sync_ok,
     )
     log.info(
-        "social-status user_id=%s connected=%s sync_ok=%s profile_key_present=%s",
+        "social-status user_id=%s connected=%s state=%s sync_ok=%s profile_key_present=%s",
         current_user.id,
         resp.connected,
+        resp.state,
         resp.ayrshare_sync_ok,
-        bool(resp.profile_key),
+        resp.profile_key_present,
     )
     return resp
 
@@ -468,15 +538,25 @@ def social_connected_callback(
         raise HTTPException(status_code=401, detail="Not authenticated")
     connected, sync_ok = _verify_user_social_connection(session, user)
     session.refresh(user)
+    row = _get_social_account(session, int(user.id or 0))
+    state = _social_state_from_row(row, sync_ok=sync_ok)
+    msg = None
+    if not sync_ok:
+        msg = "Could not verify with Ayrshare right now. Please retry."
+    elif not connected:
+        msg = "Authorization not completed yet. Finish in Ayrshare and retry."
     log.info(
-        "social-connected-callback user_id=%s sync_ok=%s connected=%s",
+        "social-connected-callback user_id=%s sync_ok=%s connected=%s state=%s",
         current_user.id,
         sync_ok,
         connected,
+        state,
     )
     return SocialConnectedCallbackResponse(
         ok=bool(sync_ok),
         connected=bool(connected),
+        state=state,  # type: ignore[arg-type]
+        message=msg,
     )
 
 

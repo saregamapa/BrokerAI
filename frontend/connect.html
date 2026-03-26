@@ -189,9 +189,13 @@
         document.getElementById("btn-sync-callback").addEventListener("click", async function () {
           try {
             BrokerAI.setLoading(true);
-            await BrokerAI.apiJson("/social-connected-callback", { method: "POST", body: "{}" });
+            var cb = await BrokerAI.apiJson("/social-connected-callback", { method: "POST", body: "{}" });
             await refreshStatus();
-            BrokerAI.showToast("Status updated", "success");
+            if (cb && cb.connected) {
+              BrokerAI.showToast("Connected", "success");
+            } else {
+              BrokerAI.showToast((cb && cb.message) || "Not connected yet", "info");
+            }
           } catch (e) {
             BrokerAI.showToast(e.message || "Sync failed", "error");
           } finally {
@@ -204,9 +208,13 @@
           (async function () {
             try {
               BrokerAI.setLoading(true);
-              await BrokerAI.apiJson("/social-connected-callback", { method: "POST", body: "{}" });
+              var cb = await BrokerAI.apiJson("/social-connected-callback", { method: "POST", body: "{}" });
               await refreshStatus();
-              BrokerAI.showToast("Back from Ayrshare — status refreshed", "info");
+              if (cb && cb.connected) {
+                BrokerAI.showToast("Back from Ayrshare — connected", "success");
+              } else {
+                BrokerAI.showToast((cb && cb.message) || "Back from Ayrshare — not connected yet", "info");
+              }
             } catch (e) {
               console.warn("[connect] returned=1 callback/refresh failed:", e);
               await refreshStatus();

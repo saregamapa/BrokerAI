@@ -43,6 +43,7 @@ def client() -> TestClient:
 def _stub_ayrshare_profile_sync(monkeypatch: pytest.MonkeyPatch) -> None:
     """Avoid real Ayrshare calls during tests."""
     from backend.services import ayrshare_service
+    import backend.main as main_mod
 
     real_fetch = ayrshare_service.fetch_active_social_accounts
     real_profiles = ayrshare_service.fetch_profiles_by_ref_id
@@ -59,3 +60,5 @@ def _stub_ayrshare_profile_sync(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(ayrshare_service, "fetch_active_social_accounts", _fetch)
     monkeypatch.setattr(ayrshare_service, "fetch_profiles_by_ref_id", _profiles)
+    # backend.main imports service functions directly; patch bound reference too.
+    monkeypatch.setattr(main_mod, "fetch_profiles_by_ref_id", _profiles)
