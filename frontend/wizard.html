@@ -441,14 +441,19 @@
         var detailEl = document.getElementById("wizard-connect-gate-detail");
         try {
           var s = await BrokerAI.apiJson("/social-status", { method: "GET" });
+          console.log("[wizard] social-status response:", JSON.stringify(s));
           if (s.connected) {
             gate.classList.add("hidden");
             if (fields) fields.disabled = false;
             if (detailEl) detailEl.textContent = "";
+            console.log("[wizard] gate CLEARED — fields enabled");
           } else {
             gate.classList.remove("hidden");
             var disable = s.ayrshare_sync_ok !== false;
             if (fields) fields.disabled = disable;
+            console.log("[wizard] gate ACTIVE — fields.disabled=%s sync_ok=%s has_profile=%s missing=%s",
+              disable, s.ayrshare_sync_ok, s.has_social_profile,
+              s.missing_platforms ? s.missing_platforms.join(",") : "none");
             var parts = [];
             if (s.ayrshare_sync_ok === false) {
               parts.push(
@@ -462,6 +467,7 @@
             detailEl.textContent = parts.join(" ");
           }
         } catch (e) {
+          console.warn("[wizard] social-status fetch error:", e);
           gate.classList.remove("hidden");
           if (fields) fields.disabled = false;
           detailEl.textContent =

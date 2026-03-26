@@ -132,13 +132,21 @@ def _sync_user_social_from_ayrshare(session: Session, user: User) -> Tuple[List[
     """
     pk = (user.ayrshare_profile_key or "").strip()
     if not pk:
+        log.debug("_sync_user_social: user_id=%s has no ayrshare_profile_key, skipping", user.id)
         return [], True
     active = fetch_active_social_accounts(pk)
     if active is None:
+        log.warning("_sync_user_social: Ayrshare API returned None for user_id=%s pk_prefix=%s", user.id, pk[:8])
         return [], False
+    was_connected = user.social_connected
     user.social_connected = is_social_connection_satisfied(active)
     session.add(user)
     session.commit()
+    if user.social_connected != was_connected:
+        log.info(
+            "_sync_user_social: user_id=%s social_connected changed %s→%s active=%s",
+            user.id, was_connected, user.social_connected, active,
+        )
     return active, True
 
 
@@ -280,11 +288,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="BrokerAI", lifespan=lifespan)
 
-# CORS: Allow all origins in dev, restrict in production via ALLOWED_ORIGINS env var
-_allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+# CORS: Allow all origins in dev, restrict in production via ALLOWED_ORIGINS env var.
+# Merge BROKERAI_PUBLIC_ORIGIN so the app's own frontend is always permitted.
+def _build_cors_origins() -> list[str]:
+    raw = os.environ.get("ALLOWED_ORIGINS", "").strip()
+    origins = [o.strip() for o in raw.split(",") if o.strip()] if raw else ["*"]
+    pub = _public_app_origin()
+    if pub and pub not in origins and "*" not in origins:
+        origins.append(pub)
+    return origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _allowed_origins],
+    allow_origins=_build_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -364,6 +380,7 @@ async def connect_social(
             e.message,
         )
         raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    log.info("connect-social success user_id=%s pk_prefix=%s", current_user.id, (user.ayrshare_profile_key or "")[:8])
     return ConnectSocialResponse(connect_url=url)
 
 
@@ -384,7 +401,7 @@ def social_status(
     linked_slugs_set = linked_social_slugs(active) & REQUIRED_LINKED_SOCIAL_PLATFORMS
     linked_required = sorted(linked_slugs_set)
     missing = sorted(REQUIRED_LINKED_SOCIAL_PLATFORMS - linked_slugs_set)
-    return SocialStatusResponse(
+    resp = SocialStatusResponse(
         connected=bool(user.social_connected),
         profile_key=user.ayrshare_profile_key or None,
         linked_platforms=linked_required,
@@ -392,6 +409,12 @@ def social_status(
         has_social_profile=has_profile,
         ayrshare_sync_ok=sync_ok,
     )
+    log.info(
+        "social-status user_id=%s connected=%s sync_ok=%s linked=%s missing=%s has_profile=%s",
+        current_user.id, resp.connected, resp.ayrshare_sync_ok,
+        resp.linked_platforms, resp.missing_platforms, resp.has_social_profile,
+    )
+    return resp
 
 
 @app.post("/social-connected-callback", response_model=SocialConnectedCallbackResponse)
@@ -405,6 +428,10 @@ def social_connected_callback(
         raise HTTPException(status_code=401, detail="Not authenticated")
     _active, sync_ok = _sync_user_social_from_ayrshare(session, user)
     session.refresh(user)
+    log.info(
+        "social-connected-callback user_id=%s sync_ok=%s connected=%s active=%s",
+        current_user.id, sync_ok, user.social_connected, _active,
+    )
     return SocialConnectedCallbackResponse(
         ok=bool(sync_ok),
         connected=bool(user.social_connected),

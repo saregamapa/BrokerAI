@@ -341,15 +341,24 @@
           }
         });
 
-        refreshStatus();
-
-        try {
-          if (window.location.search.indexOf("returned=1") !== -1) {
-            refreshStatus().then(function () {
+        if (window.location.search.indexOf("returned=1") !== -1) {
+          // Returning from Ayrshare OAuth — trigger the callback first, then refresh status.
+          (async function () {
+            try {
+              BrokerAI.setLoading(true);
+              await BrokerAI.apiJson("/social-connected-callback", { method: "POST", body: "{}" });
+              await refreshStatus();
               BrokerAI.showToast("Back from Ayrshare — status refreshed", "info");
-            });
-          }
-        } catch (e) {}
+            } catch (e) {
+              console.warn("[connect] returned=1 callback/refresh failed:", e);
+              await refreshStatus();
+            } finally {
+              BrokerAI.setLoading(false);
+            }
+          })();
+        } else {
+          refreshStatus();
+        }
       })();
     </script>
   </body>

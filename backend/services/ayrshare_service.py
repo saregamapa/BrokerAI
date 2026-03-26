@@ -159,6 +159,11 @@ def create_ayrshare_profile(user_id: int, _email: str) -> str:
             "Ayrshare did not return a profile key", status_code=502
         )
 
+    log.info(
+        "Ayrshare profile created user_id=%s profile_key_prefix=%s",
+        user_id,
+        profile_key.strip()[:8],
+    )
     return profile_key.strip()
 
 
@@ -241,8 +246,14 @@ def generate_social_connect_url(
     domain = _sso_domain()
     private_key, pk_is_b64 = _load_private_key_for_jwt()
     if not key:
+        log.error("generateJWT aborted: AYRSHARE_API_KEY is empty")
         raise AyrshareServiceError("AYRSHARE_API_KEY is not configured", status_code=503)
     if not domain or not private_key:
+        log.error(
+            "generateJWT aborted: missing config domain=%s private_key_present=%s",
+            bool(domain),
+            bool(private_key),
+        )
         raise AyrshareServiceError(
             "Social SSO is not configured. Set AYRSHARE_SSO_DOMAIN and "
             "AYRSHARE_PRIVATE_KEY (or AYRSHARE_PRIVATE_KEY_PATH) per Ayrshare "
@@ -318,6 +329,7 @@ def generate_social_connect_url(
 
     url = _parse_response(last_resp, last_data)
     if url:
+        log.info("Ayrshare generateJWT succeeded mode=%s profile_key_prefix=%s", mode, profile_key[:8])
         return url
 
     # Fallback: if JSON failed but form not tried yet, retry with form (raw PEM only).
@@ -367,6 +379,11 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
     key = _api_key()
     pk = profile_key.strip()
     if not key or not pk:
+        log.warning(
+            "fetch_active_social_accounts skipped: api_key_present=%s profile_key_present=%s",
+            bool(key),
+            bool(pk),
+        )
         return None
     try:
         with httpx.Client(timeout=30.0) as client:
@@ -400,8 +417,19 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
 
     raw = data.get("activeSocialAccounts")
     if not isinstance(raw, list):
+        log.warning(
+            "Ayrshare GET /user returned no activeSocialAccounts for profile_key prefix %s — data keys: %s",
+            pk[:8],
+            list(data.keys()) if isinstance(data, dict) else type(data).__name__,
+        )
         return []
-    return [str(x).strip().lower() for x in raw if x]
+    accounts = [str(x).strip().lower() for x in raw if x]
+    log.info(
+        "Ayrshare GET /user profile_key_prefix=%s activeSocialAccounts=%s",
+        pk[:8],
+        accounts,
+    )
+    return accounts
 
 
 def linked_social_slugs(active_accounts: Optional[List[str]]) -> set[str]:
@@ -430,7 +458,14 @@ def is_social_connection_satisfied(active_accounts: Optional[List[str]]) -> bool
     except ValueError:
         need = 3
     need = max(1, min(3, need))
-    return len(linked) >= need
+    satisfied = len(linked) >= need
+    log.debug(
+        "is_social_connection_satisfied linked=%s need=%s satisfied=%s",
+        sorted(linked),
+        need,
+        satisfied,
+    )
+    return satisfied
 
 
 def has_all_target_platforms_linked(active_accounts: Optional[List[str]]) -> bool:
