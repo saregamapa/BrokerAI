@@ -20,6 +20,7 @@ log = get_logger("brokerai.ayrshare_service")
 AYRSHARE_API_CREATE_PROFILE = "https://api.ayrshare.com/api/profiles"
 AYRSHARE_API_GENERATE_JWT = "https://api.ayrshare.com/api/profiles/generateJWT"
 AYRSHARE_API_USER = "https://api.ayrshare.com/api/user"
+AYRSHARE_API_GET_PROFILES = "https://api.ayrshare.com/api/profiles"
 
 # All three must be linked before campaign creation / publishing.
 REQUIRED_LINKED_SOCIAL_PLATFORMS = frozenset({"facebook", "instagram", "linkedin"})
@@ -430,6 +431,56 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
         accounts,
     )
     return accounts
+
+
+def fetch_profiles_by_ref_id(ref_id: str) -> Optional[List[Dict[str, Any]]]:
+    """
+    GET /api/profiles filtered by refId.
+    Returns profile list or None when Ayrshare call fails.
+    """
+    key = _api_key()
+    rid = str(ref_id or "").strip()
+    if not key or not rid:
+        log.warning(
+            "fetch_profiles_by_ref_id skipped: api_key_present=%s ref_id_present=%s",
+            bool(key),
+            bool(rid),
+        )
+        return None
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            resp = client.get(
+                AYRSHARE_API_GET_PROFILES,
+                params={"refId": rid},
+                headers={"Authorization": f"Bearer {key}"},
+            )
+    except httpx.RequestError as e:
+        log.warning("Ayrshare GET /profiles failed ref_id=%s err=%s", rid, e)
+        return None
+
+    try:
+        data = resp.json()
+    except Exception:
+        data = {"raw": resp.text}
+
+    if resp.status_code >= 400 or not isinstance(data, dict):
+        log.warning(
+            "Ayrshare GET /profiles HTTP %s ref_id=%s body=%s",
+            resp.status_code,
+            rid,
+            data,
+        )
+        return None
+
+    if data.get("status") == "error":
+        log.warning("Ayrshare GET /profiles error ref_id=%s msg=%s", rid, data.get("message"))
+        return None
+
+    profiles = data.get("profiles")
+    if not isinstance(profiles, list):
+        profiles = []
+    log.info("Ayrshare GET /profiles ref_id=%s response=%s", rid, data)
+    return [p for p in profiles if isinstance(p, dict)]
 
 
 def linked_social_slugs(active_accounts: Optional[List[str]]) -> set[str]:

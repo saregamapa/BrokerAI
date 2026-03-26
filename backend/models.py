@@ -23,6 +23,19 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class SocialAccount(SQLModel, table=True):
+    __tablename__ = "social_accounts"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    # Single source of truth row can use platform="ayrshare_profile"
+    platform: str = Field(default="ayrshare_profile", index=True)
+    is_connected: bool = Field(default=False)
+    profile_key: str = ""
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Campaign(SQLModel, table=True):
     __tablename__ = "campaigns"
 

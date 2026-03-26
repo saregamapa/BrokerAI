@@ -288,6 +288,36 @@ def _sqlite_migrate() -> None:
                 )
             )
 
+    # Social accounts table (source-of-truth for connection status)
+    if not insp2.has_table("social_accounts"):
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE social_accounts ("
+                    "id INTEGER PRIMARY KEY, "
+                    "user_id INTEGER NOT NULL, "
+                    "platform TEXT DEFAULT 'ayrshare_profile', "
+                    "is_connected INTEGER DEFAULT 0, "
+                    "profile_key TEXT DEFAULT '', "
+                    "created_at DATETIME, "
+                    "updated_at DATETIME)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_social_accounts_user_platform "
+                    "ON social_accounts(user_id, platform)"
+                )
+            )
+    else:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_social_accounts_user_platform "
+                    "ON social_accounts(user_id, platform)"
+                )
+            )
+
 
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)

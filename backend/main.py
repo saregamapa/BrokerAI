@@ -50,7 +50,7 @@ from backend.workflow.post_state import (
     transition_post_status,
 )
 from backend.timeutil import is_valid_iana_timezone, normalize_iana_timezone
-from backend.models import Campaign, Post, User
+from backend.models import Campaign, Post, SocialAccount, User
 from backend.schemas import (
     AnalyticsBulkUpdateOut,
     AnalyticsOut,
@@ -79,12 +79,9 @@ from backend.schemas import (
 )
 from backend.services.ayrshare_service import (
     AyrshareServiceError,
-    REQUIRED_LINKED_SOCIAL_PLATFORMS,
     create_ayrshare_profile,
-    fetch_active_social_accounts,
+    fetch_profiles_by_ref_id,
     generate_social_connect_url,
-    is_social_connection_satisfied,
-    linked_social_slugs,
 )
 from backend.services.ai_analytics_service import analyze_performance
 from backend.services.analytics import (
@@ -123,54 +120,98 @@ def _connect_redirect_url() -> Optional[str]:
     return f"{base}/connect.html?returned=1"
 
 
-def _sync_user_social_from_ayrshare(session: Session, user: User) -> Tuple[List[str], bool]:
-    """
-    Refresh social_connected from Ayrshare GET /user (Profile-Key).
+def _upsert_social_account(
+    session: Session,
+    *,
+    user_id: int,
+    platform: str,
+    is_connected: bool,
+    profile_key: str,
+) -> SocialAccount:
+    row = session.exec(
+        select(SocialAccount).where(
+            SocialAccount.user_id == user_id,
+            SocialAccount.platform == platform,
+        )
+    ).first()
+    now = datetime.utcnow()
+    if row is None:
+        row = SocialAccount(
+            user_id=user_id,
+            platform=platform,
+            is_connected=bool(is_connected),
+            profile_key=(profile_key or "").strip(),
+            created_at=now,
+            updated_at=now,
+        )
+    else:
+        row.is_connected = bool(is_connected)
+        row.profile_key = (profile_key or "").strip()
+        row.updated_at = now
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
 
-    Returns (active_account_labels, ayrshare_api_ok). When profile key exists but GET /user
-    fails, returns ([], False) and does not change social_connected.
+
+def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, bool]:
     """
+    Verify against Ayrshare GET /profiles.
+    Returns (is_connected, ayrshare_sync_ok). Source of truth: social_accounts table.
+    """
+    uid = int(user.id or 0)
+    if uid <= 0:
+        return False, False
+    ref_id = f"brokerai_user_{uid}"
+    profiles = fetch_profiles_by_ref_id(ref_id)
+    if profiles is None:
+        row = session.exec(
+            select(SocialAccount).where(
+                SocialAccount.user_id == uid,
+                SocialAccount.platform == "ayrshare_profile",
+            )
+        ).first()
+        if row is not None:
+            user.social_connected = bool(row.is_connected and (row.profile_key or "").strip())
+            session.add(user)
+            session.commit()
+        log.warning("verify_social: Ayrshare /profiles failed user_id=%s", uid)
+        return bool(user.social_connected), False
+
+    has_profile = len(profiles) > 0
     pk = (user.ayrshare_profile_key or "").strip()
-    if not pk:
-        log.debug("_sync_user_social: user_id=%s has no ayrshare_profile_key, skipping", user.id)
-        return [], True
-    active = fetch_active_social_accounts(pk)
-    if active is None:
-        log.warning("_sync_user_social: Ayrshare API returned None for user_id=%s pk_prefix=%s", user.id, pk[:8])
-        return [], False
-    was_connected = user.social_connected
-    user.social_connected = is_social_connection_satisfied(active)
+    # User is connected only if profile exists and we have a valid stored profile key.
+    is_connected = bool(has_profile and pk)
+    _upsert_social_account(
+        session,
+        user_id=uid,
+        platform="ayrshare_profile",
+        is_connected=is_connected,
+        profile_key=pk if is_connected else "",
+    )
+    user.social_connected = is_connected
     session.add(user)
     session.commit()
-    if user.social_connected != was_connected:
-        log.info(
-            "_sync_user_social: user_id=%s social_connected changed %s→%s active=%s",
-            user.id, was_connected, user.social_connected, active,
-        )
-    return active, True
+    log.info(
+        "verify_social user_id=%s has_profile=%s profile_key_present=%s connected=%s",
+        uid,
+        has_profile,
+        bool(pk),
+        is_connected,
+    )
+    return is_connected, True
 
 
 def _require_social_ready(session: Session, user_id: int) -> None:
     u = session.get(User, user_id)
     if not u:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    _active, sync_ok = _sync_user_social_from_ayrshare(session, u)
+    connected, _sync_ok = _verify_user_social_connection(session, u)
     session.refresh(u)
-    if not sync_ok and not u.social_connected:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Could not verify social accounts with Ayrshare. Check AYRSHARE_API_KEY and "
-                "try Connect Accounts again in a few minutes."
-            ),
-        )
-    if not u.social_connected:
+    if not connected:
         raise HTTPException(
             status_code=403,
-            detail=(
-                "Connect Facebook, Instagram, and LinkedIn on Connect Accounts before "
-                "creating or publishing campaigns."
-            ),
+            detail="Please connect your social accounts first.",
         )
 
 
@@ -367,6 +408,13 @@ async def connect_social(
             session.add(user)
             session.commit()
             session.refresh(user)
+        _upsert_social_account(
+            session,
+            user_id=int(user.id or 0),
+            platform="ayrshare_profile",
+            is_connected=False,
+            profile_key=(user.ayrshare_profile_key or "").strip(),
+        )
         redirect = _connect_redirect_url()
         url = await asyncio.to_thread(
             generate_social_connect_url,
@@ -392,27 +440,19 @@ def social_status(
     user = session.get(User, current_user.id)
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    active, sync_ok = _sync_user_social_from_ayrshare(session, user)
+    connected, sync_ok = _verify_user_social_connection(session, user)
     session.refresh(user)
-    pk = (user.ayrshare_profile_key or "").strip()
-    has_profile = bool(pk)
-    if not sync_ok:
-        active = []
-    linked_slugs_set = linked_social_slugs(active) & REQUIRED_LINKED_SOCIAL_PLATFORMS
-    linked_required = sorted(linked_slugs_set)
-    missing = sorted(REQUIRED_LINKED_SOCIAL_PLATFORMS - linked_slugs_set)
     resp = SocialStatusResponse(
-        connected=bool(user.social_connected),
+        connected=bool(connected),
         profile_key=user.ayrshare_profile_key or None,
-        linked_platforms=linked_required,
-        missing_platforms=missing,
-        has_social_profile=has_profile,
         ayrshare_sync_ok=sync_ok,
     )
     log.info(
-        "social-status user_id=%s connected=%s sync_ok=%s linked=%s missing=%s has_profile=%s",
-        current_user.id, resp.connected, resp.ayrshare_sync_ok,
-        resp.linked_platforms, resp.missing_platforms, resp.has_social_profile,
+        "social-status user_id=%s connected=%s sync_ok=%s profile_key_present=%s",
+        current_user.id,
+        resp.connected,
+        resp.ayrshare_sync_ok,
+        bool(resp.profile_key),
     )
     return resp
 
@@ -426,15 +466,17 @@ def social_connected_callback(
     user = session.get(User, current_user.id)
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    _active, sync_ok = _sync_user_social_from_ayrshare(session, user)
+    connected, sync_ok = _verify_user_social_connection(session, user)
     session.refresh(user)
     log.info(
-        "social-connected-callback user_id=%s sync_ok=%s connected=%s active=%s",
-        current_user.id, sync_ok, user.social_connected, _active,
+        "social-connected-callback user_id=%s sync_ok=%s connected=%s",
+        current_user.id,
+        sync_ok,
+        connected,
     )
     return SocialConnectedCallbackResponse(
         ok=bool(sync_ok),
-        connected=bool(user.social_connected),
+        connected=bool(connected),
     )
 
 

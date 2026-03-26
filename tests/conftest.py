@@ -41,14 +41,21 @@ def client() -> TestClient:
 
 @pytest.fixture(autouse=True)
 def _stub_ayrshare_profile_sync(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Avoid real GET /user during tests; keep pytest profile marked as linked after sync."""
+    """Avoid real Ayrshare calls during tests."""
     from backend.services import ayrshare_service
 
     real_fetch = ayrshare_service.fetch_active_social_accounts
+    real_profiles = ayrshare_service.fetch_profiles_by_ref_id
 
     def _fetch(pk: str):
         if (pk or "").strip() == "pytest-ayrshare-profile-key":
             return ["facebook", "instagram", "linkedin"]
         return real_fetch(pk)
 
+    def _profiles(ref_id: str):
+        if str(ref_id or "").strip().startswith("brokerai_user_"):
+            return [{"refId": ref_id, "title": "Pytest Profile"}]
+        return real_profiles(ref_id)
+
     monkeypatch.setattr(ayrshare_service, "fetch_active_social_accounts", _fetch)
+    monkeypatch.setattr(ayrshare_service, "fetch_profiles_by_ref_id", _profiles)

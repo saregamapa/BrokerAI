@@ -232,12 +232,8 @@ class ConnectSocialResponse(BaseModel):
 class SocialStatusResponse(BaseModel):
     connected: bool
     profile_key: Optional[str] = None
-    linked_platforms: List[str] = Field(default_factory=list)
-    missing_platforms: List[str] = Field(default_factory=list)
-    has_social_profile: bool = False
-    """True once POST /connect-social created an Ayrshare User Profile (profile key stored)."""
     ayrshare_sync_ok: bool = True
-    """False if Ayrshare GET /user failed while a profile key exists (check API key / network)."""
+    """False if Ayrshare GET /profiles verification failed."""
 
 
 class SocialConnectedCallbackResponse(BaseModel):
