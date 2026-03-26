@@ -441,7 +441,11 @@
         var detailEl = document.getElementById("wizard-connect-gate-detail");
         try {
           var s = await BrokerAI.apiJson("/social-status", { method: "GET" });
-          if (!s.connected) {
+          if (s.connected) {
+            gate.classList.add("hidden");
+            if (fields) fields.disabled = false;
+            if (detailEl) detailEl.textContent = "";
+          } else {
             gate.classList.remove("hidden");
             var disable = s.ayrshare_sync_ok !== false;
             if (fields) fields.disabled = disable;
