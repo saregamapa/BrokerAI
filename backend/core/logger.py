@@ -20,7 +20,7 @@ def _resolve_level() -> int:
     return _LOG_LEVEL_NAMES.get(raw, logging.INFO)
 
 
-def configure_logging(level: int | None = None) -> None:
+def configure_logging(level: Optional[int] = None) -> None:
     """Idempotent-ish setup: ensure a single stream handler with a consistent format.
 
     Reads LOG_LEVEL env var (DEBUG, INFO, WARNING, ERROR, CRITICAL) when *level* is
