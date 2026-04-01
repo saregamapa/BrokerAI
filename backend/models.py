@@ -5,6 +5,31 @@ from sqlalchemy import JSON, Column, Text
 from sqlmodel import Field, SQLModel
 
 
+class Team(SQLModel, table=True):
+    __tablename__ = "teams"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(default="", sa_column=Column(Text))
+    # "team" (small business, max 5) or "org" (organisation, max 13)
+    account_type: str = Field(default="team")
+    owner_id: int = Field(foreign_key="users.id", index=True)
+    max_members: int = Field(default=5)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TeamInvite(SQLModel, table=True):
+    __tablename__ = "team_invites"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True)          # invite recipient
+    team_id: int = Field(foreign_key="teams.id", index=True)
+    role: str = Field(default="member")     # always "member" for invite flow
+    token: str = Field(unique=True, index=True)
+    is_used: bool = Field(default=False)
+    expires_at: datetime = Field()
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class User(SQLModel, table=True):
     __tablename__ = "users"
 
@@ -21,6 +46,13 @@ class User(SQLModel, table=True):
     instagram_url: str = ""
     linkedin_url: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # RBAC fields
+    # account_type: "individual" | "team" | "org"
+    account_type: str = Field(default="individual")
+    # role: "owner" | "admin" | "member"
+    role: str = Field(default="owner")
+    # FK to teams.id — null for individual accounts
+    team_id: Optional[int] = Field(default=None, foreign_key="teams.id", index=True)
 
 
 class SocialAccount(SQLModel, table=True):
@@ -41,7 +73,13 @@ class Campaign(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    # draft → pending_approval (after graph phase 1) → approved → publishing → completed
+    # RBAC: team campaigns are visible to all team members; nullable for individual
+    team_id: Optional[int] = Field(default=None, foreign_key="teams.id", index=True)
+    # creator and approver tracking
+    created_by: Optional[int] = Field(default=None, foreign_key="users.id")
+    approved_by: Optional[int] = Field(default=None, foreign_key="users.id")
+    # draft → in_review → approved → publishing → published | failed
+    # Legacy: "pending_approval" maps to "in_review" on read
     status: str = "draft"
     graph_thread_id: str = ""
     # Campaign metadata (from wizard inputs)

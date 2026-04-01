@@ -394,12 +394,15 @@
                 String(p.last_error).replace(/</g, "&lt;") +
                 "</p>";
             }
-            body +=
-              '<button type="button" data-publish-now="' +
-              p.id +
-              '" ' +
-              (publishNowDisabled ? "disabled" : "") +
-              ' class="mt-2 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40">Publish now</button>';
+            // RBAC: only show publish button to owner/admin
+            if (!window.__rbac_is_member) {
+              body +=
+                '<button type="button" data-publish-now="' +
+                p.id +
+                '" ' +
+                (publishNowDisabled ? "disabled" : "") +
+                ' class="mt-2 rounded-lg bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40">Publish now</button>';
+            }
             body += "</div>";
           }
 
@@ -480,6 +483,25 @@
         try {
           var me = await BrokerAI.apiJson("/me", { method: "GET" });
           userTimeZone = (me && me.timezone) || "UTC";
+
+          // RBAC: hide approve/publish controls for team/org members
+          var userRole = (me && me.role) || "owner";
+          var userAccountType = (me && me.account_type) || "individual";
+          var isMember = (userAccountType !== "individual") && (userRole === "member");
+          if (isMember) {
+            var approveWrap = document.getElementById("approve-wrap");
+            if (approveWrap) {
+              approveWrap.innerHTML =
+                '<div class="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900">' +
+                '<strong>Team member:</strong> Campaign approval requires an owner or admin.' +
+                '</div>';
+            }
+            // Hide per-post publish/approve buttons (rendered dynamically via render())
+            window.__rbac_is_member = true;
+          } else {
+            window.__rbac_is_member = false;
+          }
+
           var data = await BrokerAI.apiJson("/campaign/" + encodeURIComponent(id), { method: "GET" });
           sk.classList.add("hidden");
           render(data);

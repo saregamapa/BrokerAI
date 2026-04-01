@@ -302,6 +302,79 @@ def _sqlite_migrate() -> None:
                     "UPDATE users SET linkedin_url = '' WHERE linkedin_url IS NULL"
                 )
             )
+            # RBAC columns
+            if "account_type" not in ucols:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN account_type TEXT DEFAULT 'individual'")
+                )
+            if "role" not in ucols:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'owner'")
+                )
+            if "team_id" not in ucols:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN team_id INTEGER")
+                )
+            # Backfill nulls for RBAC fields on existing rows
+            conn.execute(
+                text("UPDATE users SET account_type = 'individual' WHERE account_type IS NULL OR trim(account_type) = ''")
+            )
+            conn.execute(
+                text("UPDATE users SET role = 'owner' WHERE role IS NULL OR trim(role) = ''")
+            )
+
+    # Campaign RBAC columns migration
+    if insp2.has_table("campaigns"):
+        ccols2 = {c["name"] for c in insp2.get_columns("campaigns")}
+        with engine.begin() as conn:
+            if "team_id" not in ccols2:
+                conn.execute(
+                    text("ALTER TABLE campaigns ADD COLUMN team_id INTEGER")
+                )
+            if "created_by" not in ccols2:
+                conn.execute(
+                    text("ALTER TABLE campaigns ADD COLUMN created_by INTEGER")
+                )
+                # Backfill: set created_by = user_id for existing campaigns
+                conn.execute(
+                    text("UPDATE campaigns SET created_by = user_id WHERE created_by IS NULL")
+                )
+            if "approved_by" not in ccols2:
+                conn.execute(
+                    text("ALTER TABLE campaigns ADD COLUMN approved_by INTEGER")
+                )
+
+    # team_invites table
+    if not insp2.has_table("team_invites"):
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE team_invites ("
+                    "id INTEGER PRIMARY KEY, "
+                    "email TEXT NOT NULL, "
+                    "team_id INTEGER NOT NULL, "
+                    "role TEXT DEFAULT 'member', "
+                    "token TEXT NOT NULL UNIQUE, "
+                    "is_used INTEGER DEFAULT 0, "
+                    "expires_at DATETIME NOT NULL, "
+                    "created_at DATETIME)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_team_invites_token ON team_invites(token)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_team_invites_email ON team_invites(email)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_team_invites_team_id ON team_invites(team_id)"
+                )
+            )
 
     # Social accounts table (source-of-truth for connection status)
     if not insp2.has_table("social_accounts"):

@@ -115,6 +115,67 @@ class AnalyticsBulkUpdateOut(BaseModel):
     total: int
 
 
+class InviteOut(BaseModel):
+    """Response returned when an owner creates an invite."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    team_id: int
+    role: str
+    token: str
+    is_used: bool
+    expires_at: datetime
+    created_at: datetime
+    # Computed field — constructed by the route, not stored in DB
+    signup_url: str = ""
+
+
+class InviteLookupOut(BaseModel):
+    """Response for GET /invite-info?token=XYZ — used by frontend pre-fill."""
+    valid: bool
+    email: Optional[str] = None
+    team_id: Optional[int] = None
+    error: Optional[str] = None
+
+
+class TeamOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    account_type: str
+    owner_id: int
+    max_members: int
+    created_at: Optional[datetime] = None
+
+
+class MemberOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    role: str
+    account_type: str
+    team_id: Optional[int] = None
+
+
+class InviteMemberRequest(BaseModel):
+    email: EmailStr
+
+
+class UpdateRoleRequest(BaseModel):
+    role: str
+
+    @field_validator("role")
+    @classmethod
+    def _valid_role(cls, v: str) -> str:
+        v = str(v).strip().lower()
+        if v not in ("admin", "member"):
+            raise ValueError("role must be 'admin' or 'member'")
+        return v
+
+
 class CampaignOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -129,6 +190,10 @@ class CampaignOut(BaseModel):
     linkedin_url: str = ""
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    # RBAC
+    team_id: Optional[int] = None
+    created_by: Optional[int] = None
+    approved_by: Optional[int] = None
 
 
 class CampaignDetailOut(BaseModel):
@@ -165,6 +230,20 @@ class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6, max_length=128)
     timezone: Optional[str] = None
+    # RBAC: account type chosen at signup (ignored when invite_token is present)
+    account_type: str = Field(default="individual")
+    # Team/org name (required when account_type != "individual" and no invite_token)
+    team_name: Optional[str] = None
+    # Invite token — when present, bypasses normal account_type logic
+    invite_token: Optional[str] = None
+
+    @field_validator("account_type")
+    @classmethod
+    def _valid_account_type(cls, v: str) -> str:
+        v = str(v).strip().lower()
+        if v not in ("individual", "team", "org"):
+            raise ValueError("account_type must be 'individual', 'team', or 'org'")
+        return v
 
     @field_validator("timezone")
     @classmethod
@@ -197,6 +276,10 @@ class UserOut(BaseModel):
     facebook_url: str = ""
     instagram_url: str = ""
     linkedin_url: str = ""
+    # RBAC
+    account_type: str = "individual"
+    role: str = "owner"
+    team_id: Optional[int] = None
 
 
 class UpdateProfileUrlsRequest(BaseModel):

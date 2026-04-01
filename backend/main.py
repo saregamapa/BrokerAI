@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 import backend.env_loader  # noqa: F401 — loads project root .env before agent imports
 
 from backend.core.logger import configure_logging, get_logger
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -50,7 +50,8 @@ from backend.workflow.post_state import (
     transition_post_status,
 )
 from backend.timeutil import is_valid_iana_timezone, normalize_iana_timezone
-from backend.models import Campaign, Post, SocialAccount, User
+from backend.models import Campaign, Post, SocialAccount, Team, TeamInvite, User
+from backend.permissions import check_permission, require_permission
 from backend.schemas import (
     AnalyticsBulkUpdateOut,
     AnalyticsOut,
@@ -65,17 +66,35 @@ from backend.schemas import (
     ConnectSocialResponse,
     GenerateCampaignRequest,
     GenerateCampaignResponse,
+    InviteLookupOut,
+    InviteMemberRequest,
+    InviteOut,
     LoginRequest,
+    MemberOut,
     PerformanceAnalyticsAIOut,
     PostAnalyticsOut,
     PostOut,
     SignupRequest,
     SocialConnectedCallbackResponse,
     SocialStatusResponse,
+    TeamOut,
     TokenResponse,
     UpdatePostRequest,
     UpdateProfileUrlsRequest,
+    UpdateRoleRequest,
     UserOut,
+)
+from backend.services.team_service import (
+    create_team,
+    list_members,
+    remove_member,
+    update_member_role,
+)
+from backend.services.invite_service import (
+    create_invite,
+    get_invite_by_token,
+    validate_and_redeem_invite,
+    INVITE_TTL_HOURS,
 )
 from backend.services.ayrshare_service import (
     AyrshareServiceError,
@@ -635,13 +654,59 @@ def social_connected_callback(
 @app.post("/signup", response_model=TokenResponse)
 def signup(body: SignupRequest, session: Session = Depends(get_session)):
     email = body.email.strip().lower()
+    tz = normalize_iana_timezone(getattr(body, "timezone", None))
+    invite_token = (getattr(body, "invite_token", None) or "").strip() or None
+
+    # ── CASE 2: Invite signup ──────────────────────────────────────────────
+    if invite_token:
+        # validate_and_redeem_invite raises HTTPException on any failure
+        invite = validate_and_redeem_invite(session, token=invite_token, signup_email=email)
+
+        if get_user_by_email(session, email):
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        user = User(
+            email=email,
+            password_hash=hash_password(body.password),
+            timezone=tz,
+            account_type="team",
+            role="member",
+            team_id=invite.team_id,
+        )
+        session.add(user)
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        # Commit invite redemption (is_used=True was set in validate_and_redeem_invite)
+        session.refresh(user)
+        log.info(
+            "invite_signup user_id=%s team_id=%s invite_id=%s",
+            user.id, invite.team_id, invite.id,
+        )
+        return TokenResponse(access_token=create_access_token(user.id))
+
+    # ── CASE 1: Normal signup ──────────────────────────────────────────────
     if get_user_by_email(session, email):
         raise HTTPException(status_code=400, detail="Email already registered")
-    tz = normalize_iana_timezone(getattr(body, "timezone", None))
+
+    account_type = (getattr(body, "account_type", None) or "individual").lower()
+
+    team_name = (getattr(body, "team_name", None) or "").strip()
+    if account_type in ("team", "org") and not team_name:
+        team_name = (
+            email.split("@")[0].replace(".", " ").title()
+            + ("'s Team" if account_type == "team" else "'s Organization")
+        )
+
     user = User(
         email=email,
         password_hash=hash_password(body.password),
         timezone=tz,
+        account_type=account_type,
+        role="owner",
     )
     session.add(user)
     try:
@@ -650,6 +715,11 @@ def signup(body: SignupRequest, session: Session = Depends(get_session)):
         session.rollback()
         raise HTTPException(status_code=400, detail="Email already registered")
     session.refresh(user)
+
+    if account_type in ("team", "org"):
+        create_team(session, name=team_name, account_type=account_type, owner=user)
+        session.refresh(user)
+
     return TokenResponse(access_token=create_access_token(user.id))
 
 
@@ -678,6 +748,9 @@ def me(
         facebook_url=getattr(u, "facebook_url", None) or "",
         instagram_url=getattr(u, "instagram_url", None) or "",
         linkedin_url=getattr(u, "linkedin_url", None) or "",
+        account_type=getattr(u, "account_type", None) or "individual",
+        role=getattr(u, "role", None) or "owner",
+        team_id=getattr(u, "team_id", None),
     )
 
 
@@ -708,6 +781,9 @@ def update_profile_urls(
         facebook_url=u.facebook_url or "",
         instagram_url=u.instagram_url or "",
         linkedin_url=u.linkedin_url or "",
+        account_type=getattr(u, "account_type", None) or "individual",
+        role=getattr(u, "role", None) or "owner",
+        team_id=getattr(u, "team_id", None),
     )
 
 
@@ -788,11 +864,17 @@ async def generate_campaign(
             detail=f"Daily campaign generation limit reached ({_MAX_CAMPAIGNS_PER_USER_PER_DAY} per day). Try again tomorrow.",
         )
 
+    # RBAC: check create_campaign permission
+    if not check_permission(current_user, "create_campaign"):
+        raise HTTPException(status_code=403, detail="You do not have permission to create campaigns")
+
     fb_u = (getattr(db_user, "facebook_url", None) or "").strip()
     ig_u = (getattr(db_user, "instagram_url", None) or "").strip()
     li_u = (getattr(db_user, "linkedin_url", None) or "").strip()
     camp = Campaign(
         user_id=current_user.id,
+        team_id=getattr(current_user, "team_id", None),
+        created_by=current_user.id,
         status="draft",
         graph_thread_id="",
         name=f"{body.business_type} – {body.goal}"[:200],
@@ -965,12 +1047,17 @@ async def campaign_insights(
 async def approve_campaign(
     body: ApproveCampaignRequest,
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("approve_campaign")),
 ):
     _require_social_ready(session, current_user.id)
 
     camp = session.get(Campaign, body.campaign_id)
-    if not camp or camp.user_id != current_user.id:
+    # Allow if user owns the campaign OR belongs to the same team as the campaign
+    user_team_id = getattr(current_user, "team_id", None)
+    camp_team_id = getattr(camp, "team_id", None) if camp else None
+    owns_campaign = camp and camp.user_id == current_user.id
+    same_team = camp and camp_team_id is not None and camp_team_id == user_team_id
+    if not camp or (not owns_campaign and not same_team):
         raise HTTPException(status_code=404, detail="Campaign not found")
     if camp.status != "pending_approval":
         raise HTTPException(
@@ -998,6 +1085,11 @@ async def approve_campaign(
             status_code=500,
             detail="Could not finalize campaign approval. Please try again.",
         )
+    # Record who approved
+    camp.approved_by = current_user.id
+    camp.updated_at = datetime.utcnow()
+    session.add(camp)
+    session.commit()
     return {
         "ok": True,
         "message": "Campaign approved — posts are queued for publishing.",
@@ -1040,7 +1132,7 @@ async def list_posts(
 async def approve_post(
     post_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("approve_campaign")),
 ):
     row = session.get(Post, post_id)
     if not row or row.user_id != current_user.id:
@@ -1069,7 +1161,7 @@ async def approve_post(
 async def publish_post_now(
     post_id: int,
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("publish_campaign")),
 ):
     """Idempotent manual publish (bypasses schedule). Double-click safe."""
     row = session.get(Post, post_id)
@@ -1259,6 +1351,184 @@ async def stats(
         "total_campaigns": payload["total_campaigns"],
         "plan": current_user.plan,
     }
+
+
+# ---------------------------------------------------------------------------
+# Campaign workflow: submit for review
+# ---------------------------------------------------------------------------
+
+@app.post("/campaigns/{campaign_id}/submit-review")
+def submit_campaign_for_review(
+    campaign_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(require_permission("review_campaign")),
+):
+    """
+    Transition a campaign from draft/generated → in_review.
+    Any team member can submit; only owner/admin can approve.
+    """
+    camp = session.get(Campaign, campaign_id)
+    user_team_id = getattr(current_user, "team_id", None)
+    camp_team_id = getattr(camp, "team_id", None) if camp else None
+    owns_campaign = camp and camp.user_id == current_user.id
+    same_team = camp and camp_team_id is not None and camp_team_id == user_team_id
+    if not camp or (not owns_campaign and not same_team):
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    allowed_from = {"draft", "pending_approval", "generated"}
+    if camp.status not in allowed_from:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Campaign cannot be submitted for review from status '{camp.status}'",
+        )
+    camp.status = "in_review"
+    camp.updated_at = datetime.utcnow()
+    session.add(camp)
+    session.commit()
+    return {"ok": True, "campaign_id": campaign_id, "status": "in_review"}
+
+
+# ---------------------------------------------------------------------------
+# Team management routes
+# ---------------------------------------------------------------------------
+
+@app.get("/teams/{team_id}", response_model=TeamOut)
+def get_team(
+    team_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Get team details. Requester must be a member."""
+    team = session.get(Team, team_id)
+    if team is None:
+        raise HTTPException(status_code=404, detail="Team not found")
+    if getattr(current_user, "team_id", None) != team_id:
+        raise HTTPException(status_code=403, detail="You are not a member of this team")
+    return TeamOut(
+        id=team.id,
+        name=team.name,
+        account_type=team.account_type,
+        owner_id=team.owner_id,
+        max_members=team.max_members,
+        created_at=team.created_at,
+    )
+
+
+@app.get("/teams/{team_id}/members", response_model=List[MemberOut])
+def get_team_members(
+    team_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """List all members of a team."""
+    members = list_members(session, team_id=team_id, requester=current_user)
+    return [
+        MemberOut(
+            id=m.id,
+            email=m.email,
+            role=m.role,
+            account_type=m.account_type,
+            team_id=m.team_id,
+        )
+        for m in members
+    ]
+
+
+@app.post("/teams/{team_id}/invite", response_model=InviteOut)
+def invite_team_member(
+    team_id: int,
+    body: InviteMemberRequest,
+    request: Request,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Owner creates an invite link for *email*.
+    Returns the invite record including the signup URL.
+    No email is sent — caller is responsible for sharing the link.
+    """
+    # Derive base URL from the incoming request so the link works in all environments
+    base_url = (
+        os.getenv("BROKERAI_PUBLIC_ORIGIN", "").rstrip("/")
+        or str(request.base_url).rstrip("/")
+    )
+    invite = create_invite(
+        session,
+        team_id=team_id,
+        requester=current_user,
+        email=str(body.email),
+        base_url=base_url,
+    )
+    signup_url = f"{base_url}/signup.html?invite_token={invite.token}"
+    log.info(
+        "invite_created team_id=%s inviter_id=%s email=%s invite_id=%s",
+        team_id, current_user.id, body.email, invite.id,
+    )
+    return InviteOut(
+        id=invite.id,
+        email=invite.email,
+        team_id=invite.team_id,
+        role=invite.role,
+        token=invite.token,
+        is_used=invite.is_used,
+        expires_at=invite.expires_at,
+        created_at=invite.created_at,
+        signup_url=signup_url,
+    )
+
+
+@app.get("/invite-info", response_model=InviteLookupOut)
+def invite_info(token: str, session: Session = Depends(get_session)):
+    """
+    Public endpoint — frontend calls this to pre-fill the signup form.
+    Returns invite metadata (email, team_id) if the token is valid,
+    or an error message if it is not.
+    """
+    from backend.services.invite_service import _utcnow
+    invite = get_invite_by_token(session, token)
+    if invite is None:
+        return InviteLookupOut(valid=False, error="Invalid invite token")
+    if invite.is_used:
+        return InviteLookupOut(valid=False, error="This invite has already been used")
+    if _utcnow() > invite.expires_at:
+        return InviteLookupOut(valid=False, error="This invite has expired")
+    return InviteLookupOut(valid=True, email=invite.email, team_id=invite.team_id)
+
+
+@app.put("/teams/{team_id}/members/{user_id}", response_model=MemberOut)
+def update_team_member_role(
+    team_id: int,
+    user_id: int,
+    body: UpdateRoleRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Update a team member's role. Owner can assign admin; owner/admin can set member."""
+    updated = update_member_role(
+        session,
+        team_id=team_id,
+        requester=current_user,
+        target_user_id=user_id,
+        new_role=body.role,
+    )
+    return MemberOut(
+        id=updated.id,
+        email=updated.email,
+        role=updated.role,
+        account_type=updated.account_type,
+        team_id=updated.team_id,
+    )
+
+
+@app.delete("/teams/{team_id}/members/{user_id}")
+def remove_team_member(
+    team_id: int,
+    user_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove a member from the team. Owner/admin only. Cannot remove the owner."""
+    remove_member(session, team_id=team_id, requester=current_user, target_user_id=user_id)
+    return {"ok": True, "user_id": user_id, "removed": True}
 
 
 @app.get("/health")

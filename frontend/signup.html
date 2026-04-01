@@ -71,7 +71,18 @@
         </a>
 
         <div class="w-full max-w-sm">
-          <h1 class="text-2xl font-bold tracking-tight text-slate-900">Create your account</h1>
+          <!-- Invite banner — shown when invite_token is present in URL -->
+          <div id="invite-banner" class="hidden mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+            <div class="flex items-start gap-3">
+              <span class="mt-0.5 text-lg">🎉</span>
+              <div>
+                <p class="text-sm font-semibold text-amber-900">You've been invited to join a team</p>
+                <p id="invite-desc" class="mt-0.5 text-xs text-amber-700">Sign up with your invited email address to join.</p>
+              </div>
+            </div>
+          </div>
+
+          <h1 id="signup-heading" class="text-2xl font-bold tracking-tight text-slate-900">Create your account</h1>
           <p class="mt-2 text-sm text-slate-600">
             Already registered?
             <a href="/login.html" class="font-semibold text-amber-600 hover:underline">Log in</a>
@@ -89,6 +100,9 @@
                 placeholder="you@example.com"
                 class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
               />
+              <p id="invite-email-hint" class="hidden mt-1 text-xs text-amber-700 font-medium">
+                ⚠ You must sign up with the exact invited email address.
+              </p>
             </div>
             <div>
               <label for="password" class="block text-sm font-medium text-slate-700">
@@ -105,8 +119,38 @@
                 class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
               />
             </div>
+
+            <!-- Account Type (hidden for invite signups) -->
+            <div id="account-type-section">
+              <label for="account_type" class="block text-sm font-medium text-slate-700">Account type</label>
+              <select
+                id="account_type"
+                name="account_type"
+                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
+              >
+                <option value="individual">Individual — just me</option>
+                <option value="team">Small Business (Team) — up to 5 users</option>
+                <option value="org">Organisation — up to 13 users</option>
+              </select>
+            </div>
+
+            <!-- Team / Org Name (shown for team/org, hidden for invite) -->
+            <div id="team-name-field" class="hidden">
+              <label for="team_name" class="block text-sm font-medium text-slate-700">
+                <span id="team-name-label">Team name</span>
+              </label>
+              <input
+                id="team_name"
+                name="team_name"
+                type="text"
+                placeholder="e.g. Acme Realty"
+                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
+              />
+            </div>
+
             <button
               type="submit"
+              id="signup-btn"
               class="w-full rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
             >
               Create account
@@ -138,23 +182,113 @@
       if (BrokerAI.getToken()) {
         window.location.href = "/dashboard.html";
       }
+
+      var _inviteToken = null;
+      var _inviteEmail = null;
+
+      // ── Invite flow bootstrap ──────────────────────────────────────────
+      (async function initInvite() {
+        var params = new URLSearchParams(location.search);
+        var token = params.get("invite_token");
+        if (!token) return;
+
+        _inviteToken = token;
+
+        // Fetch invite metadata for pre-fill
+        try {
+          var info = await BrokerAI.apiJson("/invite-info?token=" + encodeURIComponent(token), { method: "GET" }, true /* allow 4xx */);
+          if (info && info.valid) {
+            _inviteEmail = info.email || null;
+            // Pre-fill email and lock it
+            var emailEl = document.getElementById("email");
+            if (_inviteEmail) {
+              emailEl.value = _inviteEmail;
+              emailEl.readOnly = true;
+              emailEl.classList.add("bg-slate-50", "cursor-not-allowed");
+            }
+            // Show invite banner
+            document.getElementById("invite-banner").classList.remove("hidden");
+            document.getElementById("invite-email-hint").classList.remove("hidden");
+            document.getElementById("invite-desc").textContent =
+              "You're joining a team" + (_inviteEmail ? " as " + _inviteEmail : "") + ". Sign up to accept.";
+            document.getElementById("signup-heading").textContent = "Join your team";
+            document.getElementById("signup-btn").textContent = "Accept invite & join team";
+          } else {
+            // Invalid token — show error and disable form
+            var msg = (info && info.error) || "This invite link is invalid or has expired.";
+            document.getElementById("invite-banner").classList.remove("hidden");
+            document.getElementById("invite-banner").className =
+              document.getElementById("invite-banner").className
+                .replace("border-amber-200 bg-amber-50", "border-red-200 bg-red-50");
+            document.getElementById("invite-banner").innerHTML =
+              '<div class="flex items-start gap-3">' +
+              '<span class="mt-0.5 text-lg">⛔</span>' +
+              '<div><p class="text-sm font-semibold text-red-900">Invite invalid</p>' +
+              '<p class="mt-0.5 text-xs text-red-700">' + msg + '</p></div></div>';
+            document.getElementById("signup-btn").disabled = true;
+            document.getElementById("signup-btn").classList.add("opacity-40", "cursor-not-allowed");
+          }
+        } catch (e) {
+          // Non-critical — just proceed without pre-fill
+        }
+
+        // Hide account type section for invite signups
+        document.getElementById("account-type-section").classList.add("hidden");
+        document.getElementById("team-name-field").classList.add("hidden");
+      })();
+
+      // ── Account-type dropdown logic (normal signup only) ───────────────
+      var accountTypeEl = document.getElementById("account_type");
+      var teamNameField = document.getElementById("team-name-field");
+      var teamNameLabel = document.getElementById("team-name-label");
+      function updateTeamNameVisibility() {
+        if (_inviteToken) return; // invite flow — section is hidden
+        var val = accountTypeEl.value;
+        if (val === "team" || val === "org") {
+          teamNameField.classList.remove("hidden");
+          teamNameLabel.textContent = val === "org" ? "Organisation name" : "Team name";
+        } else {
+          teamNameField.classList.add("hidden");
+        }
+      }
+      accountTypeEl.addEventListener("change", updateTeamNameVisibility);
+      updateTeamNameVisibility();
+
+      // ── Form submit ───────────────────────────────────────────────────
       document.getElementById("signup-form").addEventListener("submit", async function (e) {
         e.preventDefault();
         var fd = new FormData(e.target);
+        var tz;
+        try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (_) { tz = "UTC"; }
+
+        var body = {
+          email: fd.get("email"),
+          password: fd.get("password"),
+          timezone: tz,
+        };
+
+        if (_inviteToken) {
+          // Invite signup path
+          body.invite_token = _inviteToken;
+        } else {
+          // Normal signup path
+          var accountType = fd.get("account_type") || "individual";
+          var teamName = (fd.get("team_name") || "").trim();
+          body.account_type = accountType;
+          if (teamName) body.team_name = teamName;
+        }
+
         BrokerAI.setLoading(true);
         try {
           var res = await BrokerAI.apiJson("/signup", {
             method: "POST",
-            body: JSON.stringify({
-              email: fd.get("email"),
-              password: fd.get("password"),
-              timezone: (function () {
-                try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) { return "UTC"; }
-              })(),
-            }),
+            body: JSON.stringify(body),
           });
           BrokerAI.setToken(res.access_token);
-          BrokerAI.showToast("Account created. Welcome!", "success");
+          BrokerAI.showToast(
+            _inviteToken ? "Welcome! You've joined the team." : "Account created. Welcome!",
+            "success"
+          );
           window.location.href = "/dashboard.html";
         } catch (err) {
           BrokerAI.showToast(err.message || "Sign up failed", "error");
