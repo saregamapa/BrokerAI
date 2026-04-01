@@ -6,6 +6,7 @@ class AgentState(TypedDict, total=False):
     user_id: int
     campaign_id: int
     approved: bool
+    num_posts: int          # Derived from posting frequency; drives how many posts are generated
     campaign_data: Dict[str, Any]
     strategy_plan: Dict[str, Any]
     posts: List[Dict[str, Any]]

@@ -40,15 +40,19 @@ def _get_checkpointer():
         db_url = f"sqlite:///{db_path}"
 
     try:
+        import sqlite3 as _sqlite3
         from langgraph.checkpoint.sqlite import SqliteSaver
 
-        # SqliteSaver.from_conn_string() accepts a plain file path.
-        # Handle both "sqlite:///relative.db" and "sqlite:////absolute/path.db"
+        # Resolve DB path from the URL
         if db_url.startswith("sqlite:///"):
             path = db_url[len("sqlite:///"):]  # Preserve leading / for absolute paths
         else:
             path = db_url  # Already a plain path
-        _checkpointer = SqliteSaver.from_conn_string(path)
+
+        # In langgraph-checkpoint-sqlite>=2.0, from_conn_string() is a context manager.
+        # Create the connection directly with sqlite3 to keep it open for the app lifetime.
+        _conn = _sqlite3.connect(str(path), check_same_thread=False)
+        _checkpointer = SqliteSaver(_conn)
         log.info("LangGraph checkpoint: persistent SQLite at %s", path)
     except (ImportError, Exception) as e:
         log.warning(

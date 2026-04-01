@@ -44,6 +44,10 @@ class Campaign(SQLModel, table=True):
     # draft → pending_approval (after graph phase 1) → approved → publishing → completed
     status: str = "draft"
     graph_thread_id: str = ""
+    # Campaign metadata (from wizard inputs)
+    name: str = Field(default="", sa_column=Column(Text))
+    objective: str = Field(default="", sa_column=Column(Text))
+    target_audience: str = Field(default="", sa_column=Column(Text))
     facebook_url: str = ""
     instagram_url: str = ""
     linkedin_url: str = ""

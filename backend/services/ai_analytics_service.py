@@ -23,7 +23,7 @@ Analyze the following posts with performance metrics:
 - Suggest 5 actionable improvements
 - Suggest next 3 post ideas based on best performers
 
-Fair housing: never suggest targeting or excluding protected classes.
+Never suggest targeting or excluding people based on protected characteristics.
 
 Return structured fields only (no markdown)."""
 

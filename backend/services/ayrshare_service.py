@@ -104,7 +104,7 @@ def create_ayrshare_profile(user_id: int, _email: str) -> str:
         "refId": f"brokerai_user_{user_id}",
     }
     try:
-        with httpx.Client(timeout=45.0) as client:
+        with httpx.Client(timeout=20.0) as client:
             resp = client.post(
                 AYRSHARE_API_CREATE_PROFILE,
                 json=payload,
@@ -270,7 +270,7 @@ def generate_social_connect_url(
     last_data: Any = None
 
     try:
-        with httpx.Client(timeout=45.0) as client:
+        with httpx.Client(timeout=20.0) as client:
             if mode == "form":
                 if pk_is_b64:
                     log.warning(
@@ -336,7 +336,7 @@ def generate_social_connect_url(
     # Fallback: if JSON failed but form not tried yet, retry with form (raw PEM only).
     if mode == "json" and not pk_is_b64:
         try:
-            with httpx.Client(timeout=45.0) as client:
+            with httpx.Client(timeout=20.0) as client:
                 last_resp = _generate_jwt_request_form(
                     client,
                     key,
@@ -387,7 +387,7 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
         )
         return None
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=12.0) as client:
             resp = client.get(
                 AYRSHARE_API_USER,
                 headers={

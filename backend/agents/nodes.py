@@ -37,11 +37,40 @@ DAYS = [
     "Sunday",
 ]
 
-# One post per calendar day in the generated week (LangGraph pipeline contract).
+# Default fallback when frequency is unknown.
 CAMPAIGN_POST_COUNT = 7
 
+
+def _num_posts_for_frequency(freq: str) -> int:
+    """Map a human-readable posting frequency to a post count."""
+    f = (freq or "").lower()
+    if "daily" in f or "every day" in f:
+        return 7
+    if "5" in f and "week" in f:
+        return 5
+    if "3" in f and "week" in f:
+        return 3
+    if "1" in f and "week" in f:
+        return 1
+    return CAMPAIGN_POST_COUNT
+
+
+def _days_for_frequency(freq: str) -> List[str]:
+    """Return day-name labels matching the post count for this frequency."""
+    n = _num_posts_for_frequency(freq)
+    if n >= 7:
+        return DAYS[:]
+    if n == 5:
+        return DAYS[:5]   # Mon–Fri
+    if n == 3:
+        return ["Monday", "Wednesday", "Friday"]
+    if n == 1:
+        return ["Day 1"]
+    return DAYS[:n]
+
 _BAD_PLACEHOLDER_KEYS = frozenset(
-    {"your_key_here", "sk-your-key-here", "sk-proj-replace-me", "replace_me"}
+    {"your_key_here", "sk-your-key-here", "sk-proj-replace-me", "replace_me",
+     "your_openai_key_here", "your-openai-key-here"}
 )
 
 
@@ -107,7 +136,7 @@ def _social_presence_prompt_block(data: Dict[str, Any]) -> str:
     if not fb and not ig and not li:
         return (
             "User social presence: No profile URLs were provided. "
-            "Use a professional, warm, trustworthy real estate tone that works across "
+            "Use a professional, warm, trustworthy brand tone that works across "
             "Facebook, Instagram, and LinkedIn; prioritize local relevance and the stated goal and audience."
         )
     return (
@@ -135,25 +164,28 @@ def _parse_start(s: Any) -> date:
 
 
 def _schedule_offsets(freq: str) -> List[int]:
-    f = (freq or "").lower()
-    if "daily" in f or "every day" in f:
-        return list(range(7))
-    if "5" in f and "week" in f:
-        return [0, 1, 2, 3, 4, 7, 8]
-    if "2" in f and "week" in f:
-        return [0, 3, 7, 10, 14, 17, 21]
-    return [0, 2, 4, 7, 9, 11, 14]
+    """Return day-offsets from start_date for each post, matching the post count."""
+    n = _num_posts_for_frequency(freq)
+    if n >= 7:
+        return list(range(7))       # daily: 0,1,2,3,4,5,6
+    if n == 5:
+        return [0, 1, 2, 3, 4]     # 5/wk: Mon–Fri
+    if n == 3:
+        return [0, 2, 4]            # 3/wk: Mon, Wed, Fri
+    if n == 1:
+        return [0]                  # weekly: start date only
+    return list(range(n))
 
 
 _STRATEGY_SYSTEM = """\
-You are a senior real estate social media strategist who has managed accounts \
-for top-producing brokers and teams. You understand what content drives \
+You are a senior social media strategist who has managed campaigns \
+for businesses and brands across every industry. You understand what content drives \
 engagement, builds trust, and generates leads on social media.
 
 Key principles you follow:
 - Mix content types: educational, social proof, community, behind-the-scenes, calls-to-action
 - Never post the same type of content two days in a row
-- Local relevance beats generic advice — always tie content to the specific market
+- Local relevance beats generic content — always tie content to the specific market and business
 - Each day should have a clear PURPOSE (educate, engage, convert, nurture)
 - Weekend content is lighter and more personal; weekday content is more professional
 """
@@ -178,26 +210,30 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
         raise OpenAINotConfiguredError(
             "OPENAI_API_KEY is required for strategy generation."
         )
+    freq = data.get("frequency", "3 per week")
+    num_posts = _num_posts_for_frequency(freq)
+    day_labels = _days_for_frequency(freq)
+    day_list_str = ", ".join(day_labels)
+
     try:
         llm = _llm(key).with_structured_output(StrategyPlan)
         location = data.get("location", "the local area")
-        audience = data.get("audience") or "local buyers and sellers"
-        goal = data.get("goal", "generate leads")
-        biz = data.get("business_type", "real estate agent")
+        audience = data.get("audience") or "potential customers in the local area"
+        goal = data.get("goal", "grow brand awareness")
+        biz = data.get("business_type", "small business")
         msg = (
-            f"Build a {CAMPAIGN_POST_COUNT}-day social media content plan for a {biz} in {location}.\n\n"
+            f"Build a {num_posts}-post social media content plan for a {biz} in {location}.\n\n"
             f"PRIMARY GOAL: {goal}\n"
             f"TARGET AUDIENCE: {audience}\n\n"
             "Requirements:\n"
-            f"- Output exactly {CAMPAIGN_POST_COUNT} days (Monday through Sunday)\n"
+            f"- Output exactly {num_posts} posts using these day labels: {day_list_str}\n"
             "- Each day needs: theme (2-4 words) and angle (one sentence describing the specific post idea)\n"
-            "- Vary content types across the week: market insight, social proof/testimonial, "
-            "community spotlight, educational tip, behind-the-scenes, listing highlight, personal/lifestyle\n"
+            "- Vary content types: industry insight, social proof/testimonial, "
+            "community spotlight, educational tip, behind-the-scenes, product/service highlight, personal/lifestyle\n"
             f"- Make angles SPECIFIC to {location} — reference neighborhoods, local landmarks, "
-            "market conditions, or seasonal relevance when possible\n"
-            "- Weekend posts should feel lighter and more personal\n"
-            "- At least one day should include a clear call-to-action\n"
-            "- All content must be Fair Housing compliant and inclusive"
+            "local culture, or seasonal relevance when possible\n"
+            "- At least one post should include a clear call-to-action\n"
+            "- All content must be inclusive and welcoming to all audiences"
         )
         plan: StrategyPlan = llm.invoke(
             [
@@ -211,18 +247,19 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
         log.exception("[agent:strategy] OpenAI structured output failed")
         raise CampaignPipelineError(f"Strategy generation failed: {e}") from e
 
-    if len(plan.days) != CAMPAIGN_POST_COUNT:
+    if len(plan.days) != num_posts:
         raise CampaignPipelineError(
-            f"Strategy must return exactly {CAMPAIGN_POST_COUNT} days; got {len(plan.days)}."
+            f"Strategy must return exactly {num_posts} posts; got {len(plan.days)}."
         )
     return {
+        "num_posts": num_posts,
         "strategy_plan": plan.model_dump(),
-        "step_log": [f"strategy: OpenAI plan ({len(plan.days)} days)"],
+        "step_log": [f"strategy: OpenAI plan ({num_posts} posts, freq={freq})"],
     }
 
 
 _CONTENT_SYSTEM = """\
-You are a top-performing real estate social media copywriter. Your captions \
+You are a top-performing social media copywriter. Your captions \
 consistently get high engagement because you follow these rules:
 
 CAPTION RULES:
@@ -230,37 +267,37 @@ CAPTION RULES:
 (question, bold statement, surprising stat, or pattern interrupt). The first \
 line must make someone stop scrolling.
 2. LOCAL FLAVOR: Reference the specific city, neighborhoods, local landmarks, \
-or market conditions. Never write generic "real estate" content.
+or relevant context. Never write generic, could-be-any-business content.
 3. VOICE: Write like a knowledgeable local friend, not a corporate brochure. \
 Conversational but professional.
 4. STRUCTURE: Hook → Value/Story (2-3 sentences) → CTA or conversation starter. \
 Keep captions 40-80 words for Instagram/Facebook, 20-40 words for LinkedIn.
 5. VARIETY: Each post should feel different — don't start multiple posts the \
 same way or use the same structure twice.
-6. NO FLUFF: Cut phrases like "In today's market...", "Are you looking to...", \
-"Whether you're buying or selling...". Be specific and direct.
+6. NO FLUFF: Cut phrases like "In today's world...", "Are you looking to...", \
+"Whether you're a...". Be specific and direct.
 
 HASHTAG RULES:
 - 5-8 hashtags per post
-- Mix: 2-3 broad (#realestate, #homebuying), 2-3 local (#AustinTX, #EastAustinHomes), \
-1-2 niche (#FirstTimeHomeBuyer, #InvestmentProperty)
+- Mix: 2-3 broad industry tags, 2-3 local tags (#AustinTX, #EastAustin), \
+1-2 niche/goal-specific tags
 - Always include location-specific hashtags
 - Never use banned/spammy hashtags (#followforfollow, #like4like)
 
 IMAGE PROMPT RULES:
 - Write detailed DALL·E-oriented visual prompts (15-25 words) for downstream image generation.
 - Specify: subject, setting, lighting, mood, style
-- Real estate focused: exteriors, interiors, neighborhoods, lifestyle scenes
-- Example: "Modern craftsman home exterior at golden hour, manicured lawn, warm porch lights, \
-suburban neighborhood, photorealistic"
+- Match the business type: product shots, lifestyle scenes, team moments, community
+- Example: "Modern small business storefront at golden hour, welcoming entrance, \
+warm window lighting, urban neighborhood, photorealistic"
 
 VIDEO:
 - Always set video_script to empty string "". Short-form video scripts are generated later in the media step.
 
-FAIR HOUSING:
-- Never reference race, color, religion, sex, disability, familial status, or national origin
-- Never suggest a neighborhood is "good for families" or "exclusive"
-- Focus on property features and market data, not who lives there
+COMPLIANCE:
+- Never reference protected characteristics in a discriminatory way
+- Focus on benefits, features and values that appeal to a broad audience
+- Avoid absolute claims like "guaranteed results" without appropriate context
 
 SOCIAL PROFILE CONTEXT:
 - When the user provides social profile URLs, align captions, hashtags, and image_prompts with the inferred
@@ -280,7 +317,7 @@ def _score_content_quality(posts: List[Dict[str, Any]], location: str) -> int:
     generic_starts = [
         "in today's", "are you looking", "whether you're",
         "looking to buy", "thinking about", "dreaming of",
-        "as a real estate", "in the world of", "when it comes to",
+        "in the world of", "when it comes to", "have you ever",
     ]
     for p in posts:
         cap = (p.get("caption") or "").lower()
@@ -308,11 +345,12 @@ def _score_content_quality(posts: List[Dict[str, Any]], location: str) -> int:
 
 def content_node(state: AgentState) -> Dict[str, Any]:
     data = _campaign_data(state)
+    num_posts = state.get("num_posts") or _num_posts_for_frequency(data.get("frequency", "3 per week"))
     strat = state.get("strategy_plan") or {}
     day_rows = strat.get("days") or []
-    if len(day_rows) < CAMPAIGN_POST_COUNT:
+    if len(day_rows) < num_posts:
         raise CampaignPipelineError(
-            f"Content step requires a full strategy ({CAMPAIGN_POST_COUNT} days); got {len(day_rows)}."
+            f"Content step requires {num_posts} strategy days; got {len(day_rows)}."
         )
     key = _openai_api_key()
     location = data.get("location", "the local area")
@@ -333,14 +371,14 @@ def content_node(state: AgentState) -> Dict[str, Any]:
 
     platforms = data.get("platforms") or ["facebook"]
     platform_str = ", ".join(platforms)
-    audience = data.get("audience") or "local buyers and sellers"
-    goal = data.get("goal", "generate leads")
-    biz = data.get("business_type", "real estate agent")
+    audience = data.get("audience") or "potential customers in the local area"
+    goal = data.get("goal", "grow brand awareness")
+    biz = data.get("business_type", "small business")
     social_block = _social_presence_prompt_block(data)
-    ctx = json.dumps({"campaign": data, "strategy_days": day_rows[:CAMPAIGN_POST_COUNT]})
+    ctx = json.dumps({"campaign": data, "strategy_days": day_rows[:num_posts]})
 
     msg = (
-        f"Write exactly {CAMPAIGN_POST_COUNT} social media posts for a {biz} in {location}.\n\n"
+        f"Write exactly {num_posts} social media posts for a {biz} in {location}.\n\n"
         f"GOAL: {goal}\n"
         f"AUDIENCE: {audience}\n"
         f"PLATFORMS: {platform_str}\n\n"
@@ -365,10 +403,10 @@ def content_node(state: AgentState) -> Dict[str, Any]:
                     HumanMessage(content=msg),
                 ]
             )
-            candidate = [p.model_dump() for p in pack.posts[:CAMPAIGN_POST_COUNT]]
-            if len(candidate) != CAMPAIGN_POST_COUNT:
+            candidate = [p.model_dump() for p in pack.posts[:num_posts]]
+            if len(candidate) != num_posts:
                 raise CampaignPipelineError(
-                    f"Content model returned {len(candidate)} posts; need {CAMPAIGN_POST_COUNT}."
+                    f"Content model returned {len(candidate)} posts; need {num_posts}."
                 )
             for c in candidate:
                 if not str(c.get("caption") or "").strip():
@@ -402,9 +440,9 @@ def content_node(state: AgentState) -> Dict[str, Any]:
                     f"OpenAI content generation failed: {last_err}"
                 ) from last_err
 
-    if len(posts) != CAMPAIGN_POST_COUNT:
+    if len(posts) != num_posts:
         raise CampaignPipelineError(
-            f"Content step must produce {CAMPAIGN_POST_COUNT} posts; got {len(posts)}."
+            f"Content step must produce {num_posts} posts; got {len(posts)}."
         )
     for p in posts:
         p["video_script"] = ""
@@ -415,6 +453,7 @@ def content_node(state: AgentState) -> Dict[str, Any]:
 def media_node(state: AgentState) -> Dict[str, Any]:
     posts = list(state.get("posts") or [])
     data = _campaign_data(state)
+    num_posts = state.get("num_posts") or _num_posts_for_frequency(data.get("frequency", "3 per week"))
     strat = state.get("strategy_plan") or {}
     day_rows = strat.get("days") or []
 
@@ -425,9 +464,9 @@ def media_node(state: AgentState) -> Dict[str, Any]:
         _video_scripts_on(state),
     )
 
-    if len(posts) != CAMPAIGN_POST_COUNT:
+    if len(posts) != num_posts:
         raise CampaignPipelineError(
-            f"Media step expected {CAMPAIGN_POST_COUNT} posts; got {len(posts)}."
+            f"Media step expected {num_posts} posts; got {len(posts)}."
         )
     if not _ai_images_on(state):
         raise CampaignPipelineError(
@@ -450,7 +489,7 @@ def media_node(state: AgentState) -> Dict[str, Any]:
             raise CampaignPipelineError(
                 f"Post index {i}: empty caption before media generation."
             )
-        day_key = str(p.get("day") or DAYS[i % CAMPAIGN_POST_COUNT])
+        day_key = str(p.get("day") or DAYS[i % len(DAYS)])
         theme = theme_for_day.get(day_key, "")
         full_prompt = build_image_prompt(
             cap,
@@ -497,8 +536,9 @@ def _compliance_one(caption: str, *, use_llm: bool) -> ComplianceLLM:
         try:
             llm = _llm(key).with_structured_output(ComplianceLLM)
             msg = (
-                "Review this real estate social caption for US Fair Housing risk, discrimination, "
-                "steering, or unsafe claims. Return JSON fields passed, issues[], fixed_caption. "
+                "Review this social media caption for compliance issues: discriminatory language, "
+                "misleading claims, unsafe promises, or missing disclaimers. "
+                "Return JSON fields passed, issues[], fixed_caption. "
                 "If minor issues, set passed true and still list suggestions. "
                 "If serious risk, passed false and fixed_caption must be a compliant rewrite.\n\n"
                 f"Caption:\n{caption}"
@@ -590,6 +630,7 @@ def persist_posts_node(state: AgentState) -> Dict[str, Any]:
     uid = state["user_id"]
     posts = state.get("posts") or []
     data = _campaign_data(state)
+    num_posts = state.get("num_posts") or _num_posts_for_frequency(data.get("frequency", "3 per week"))
     raw_plats = data.get("platforms") or ["facebook"]
     if not isinstance(raw_plats, list):
         raw_plats = ["facebook"]
@@ -597,9 +638,9 @@ def persist_posts_node(state: AgentState) -> Dict[str, Any]:
     if not plats:
         plats = ["facebook"]
     log.info("[agent:persist] campaign_id=%s rows=%s platforms=%s", cid, len(posts), plats)
-    if len(posts) != CAMPAIGN_POST_COUNT:
+    if len(posts) != num_posts:
         raise CampaignPipelineError(
-            f"Persist expected {CAMPAIGN_POST_COUNT} posts; got {len(posts)}."
+            f"Persist expected {num_posts} posts; got {len(posts)}."
         )
     with Session(engine) as session:
         camp = session.get(Campaign, cid)

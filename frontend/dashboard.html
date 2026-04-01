@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard — BrokerAI</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/styles.css" />
   </head>
@@ -17,7 +18,7 @@
     >
       <div class="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-xl">
         <div class="brokerai-spinner" aria-label="Loading"></div>
-        <p class="text-sm font-medium text-slate-700">Loading calendar…</p>
+        <p class="text-sm font-medium text-slate-700">Loading…</p>
       </div>
     </div>
 
@@ -39,22 +40,38 @@
 
       <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/20 px-4 py-8 md:px-8">
         <div class="mx-auto max-w-6xl">
+          <!-- Welcome banner (shown when no posts yet) -->
+          <div id="welcome-banner" class="hidden mb-6 rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50 to-white p-5 shadow-sm">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div class="flex items-start gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15">
+                  <svg class="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </div>
+                <div>
+                  <p class="text-sm font-bold text-slate-900">Welcome to BrokerAI! 👋</p>
+                  <p class="mt-0.5 text-xs text-slate-600">Create your first AI campaign to get started. It only takes a few minutes.</p>
+                </div>
+              </div>
+              <a href="/wizard.html" class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition duration-200 hover:scale-105 active:scale-95">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                Create first campaign
+              </a>
+            </div>
+          </div>
+
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h1 class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Calendar</h1>
-              <p class="mt-1 text-sm text-slate-600">Scheduled and published posts at a glance.</p>
+              <h1 class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Dashboard</h1>
+              <p class="mt-1 text-sm text-slate-600">Your content calendar and campaign overview.</p>
             </div>
-            <a
-              href="/wizard.html"
-              class="inline-flex items-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-105 hover:shadow-xl active:scale-95"
-            >
-              + New campaign
+            <a href="/wizard.html" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-105 hover:shadow-xl active:scale-95">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+              New campaign
             </a>
           </div>
 
-          <div class="mt-10">
-            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Analytics summary</h2>
-            <p class="mt-1 text-xs text-slate-500">Account-wide metrics from <code class="rounded bg-slate-100 px-1">GET /analytics</code></p>
+          <div class="mt-8">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Overview</h2>
             <div id="analytics-bar" class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
               <div
                 class="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-amber-50/40 p-4 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-xl"
@@ -83,34 +100,18 @@
             </div>
           </div>
 
-          <div id="stats-bar" class="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div
-              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-xl"
-            >
-              <div id="dash-total" class="text-2xl font-bold text-slate-900">-</div>
-              <div class="text-xs font-medium text-slate-500">Total posts</div>
-            </div>
-            <div
-              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-xl"
-            >
-              <div id="dash-published" class="text-2xl font-bold text-emerald-600">-</div>
-              <div class="text-xs font-medium text-slate-500">Published</div>
-            </div>
-            <div
-              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-xl"
-            >
-              <div id="dash-scheduled" class="text-2xl font-bold text-amber-600">-</div>
-              <div class="text-xs font-medium text-slate-500">Scheduled</div>
-            </div>
-            <div
-              class="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-xl"
-            >
-              <div id="dash-rate" class="text-2xl font-bold text-sky-600">-</div>
-              <div class="text-xs font-medium text-slate-500">Success rate</div>
-            </div>
+          <!-- Stats are combined into analytics-bar above; hidden elements kept for JS compat -->
+          <div class="hidden">
+            <div id="dash-total"></div>
+            <div id="dash-published"></div>
+            <div id="dash-scheduled"></div>
+            <div id="dash-rate"></div>
           </div>
 
-          <div class="mt-10 flex flex-wrap items-center justify-between gap-4">
+          <div class="mt-10">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Content calendar</h2>
+          </div>
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
             <button
               type="button"
               id="prev-m"
@@ -638,6 +639,11 @@
           viewMonth = n.getMonth();
           updateStats();
           renderCal();
+          // Show welcome banner only if no posts yet
+          if (!allPosts.length) {
+            var banner = document.getElementById("welcome-banner");
+            if (banner) banner.classList.remove("hidden");
+          }
           var insightCamp = pickInsightsCampaignId(allPosts);
           await loadAiInsights(insightCamp);
         } catch (err) {

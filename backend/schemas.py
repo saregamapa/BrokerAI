@@ -7,7 +7,7 @@ from backend.timeutil import is_valid_iana_timezone
 
 
 class GenerateCampaignRequest(BaseModel):
-    business_type: str = "Real Estate Agent"
+    business_type: str = "Small Business"
     goal: str
     location: str
     platforms: List[str] = Field(default_factory=list)
@@ -121,6 +121,9 @@ class CampaignOut(BaseModel):
     id: int
     user_id: int
     status: str
+    name: str = ""
+    objective: str = ""
+    target_audience: str = ""
     facebook_url: str = ""
     instagram_url: str = ""
     linkedin_url: str = ""

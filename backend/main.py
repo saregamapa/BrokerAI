@@ -80,6 +80,7 @@ from backend.schemas import (
 from backend.services.ayrshare_service import (
     AyrshareServiceError,
     create_ayrshare_profile,
+    fetch_active_social_accounts,
     fetch_profiles_by_ref_id,
     generate_social_connect_url,
 )
@@ -177,45 +178,88 @@ def _social_state_from_row(row: Optional[SocialAccount], *, sync_ok: bool) -> st
 
 def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, bool]:
     """
-    Verify against Ayrshare GET /profiles.
-    Returns (is_connected, ayrshare_sync_ok). Source of truth: social_accounts table.
+    Verify social connection against Ayrshare.
+    Strategy:
+      1. If a profile_key is stored (on the user or in social_accounts), use
+         GET /api/user (Profile-Key header) as the authoritative source —
+         this avoids the unreliable GET /profiles?refId= filter.
+      2. Fall back to GET /profiles?refId= only when no key is known.
+    Returns (is_connected, ayrshare_sync_ok).
     """
     uid = int(user.id or 0)
     if uid <= 0:
         return False, False
+
+    # Re-read fresh from DB to avoid session-cache staleness
+    db_user = session.get(User, uid)
+    pk = ((db_user and db_user.ayrshare_profile_key) or "").strip()
+
+    # Also check social_accounts table as a fallback key source
+    if not pk:
+        row = _get_social_account(session, uid)
+        if row:
+            pk = (row.profile_key or "").strip()
+
+    if pk:
+        # Primary path: verify via profile key directly (most reliable)
+        active_accounts = fetch_active_social_accounts(pk)
+        if active_accounts is None:
+            # Ayrshare API failed — preserve existing DB state, signal sync failure
+            row = _get_social_account(session, uid)
+            if row is not None:
+                existing_connected = bool(row.is_connected and (row.profile_key or "").strip())
+                user.social_connected = existing_connected
+                session.add(user)
+                session.commit()
+            log.warning("verify_social: Ayrshare /user failed user_id=%s", uid)
+            return bool(user.social_connected), False
+
+        is_connected = len(active_accounts) > 0
+        _upsert_social_account(
+            session,
+            user_id=uid,
+            platform="ayrshare_profile",
+            is_connected=is_connected,
+            profile_key=pk,  # Always preserve the profile key
+        )
+        user.social_connected = is_connected
+        session.add(user)
+        session.commit()
+        log.info(
+            "verify_social user_id=%s profile_key_prefix=%s active_accounts=%s connected=%s",
+            uid,
+            pk[:8],
+            active_accounts,
+            is_connected,
+        )
+        return is_connected, True
+
+    # Fallback path: no profile key known, try refId lookup
     ref_id = f"brokerai_user_{uid}"
     profiles = fetch_profiles_by_ref_id(ref_id)
     if profiles is None:
-        row = _get_social_account(session, uid)
-        if row is not None:
-            user.social_connected = bool(row.is_connected and (row.profile_key or "").strip())
-            session.add(user)
-            session.commit()
         log.warning("verify_social: Ayrshare /profiles failed user_id=%s", uid)
-        return bool(user.social_connected), False
+        return False, False
 
     has_profile = len(profiles) > 0
-    pk = (user.ayrshare_profile_key or "").strip()
-    # User is connected only if profile exists and we have a valid stored profile key.
-    is_connected = bool(has_profile and pk)
+    # Without a profile key we cannot be truly connected
+    is_connected = False
     _upsert_social_account(
         session,
         user_id=uid,
         platform="ayrshare_profile",
-        is_connected=is_connected,
-        profile_key=pk if is_connected else "",
+        is_connected=False,
+        profile_key="",
     )
-    user.social_connected = is_connected
+    user.social_connected = False
     session.add(user)
     session.commit()
     log.info(
-        "verify_social user_id=%s has_profile=%s profile_key_present=%s connected=%s",
+        "verify_social user_id=%s has_profile=%s pk_empty=True connected=False",
         uid,
         has_profile,
-        bool(pk),
-        is_connected,
     )
-    return is_connected, True
+    return False, True
 
 
 def _require_social_ready(session: Session, user_id: int) -> None:
@@ -406,6 +450,26 @@ async def serve_connect():
     return FileResponse(BASE_DIR / "frontend" / "connect.html")
 
 
+@app.get("/privacy.html")
+async def serve_privacy():
+    return FileResponse(BASE_DIR / "frontend" / "privacy.html")
+
+
+@app.get("/cookies.html")
+async def serve_cookies():
+    return FileResponse(BASE_DIR / "frontend" / "cookies.html")
+
+
+@app.get("/terms.html")
+async def serve_terms():
+    return FileResponse(BASE_DIR / "frontend" / "terms.html")
+
+
+@app.get("/contact.html")
+async def serve_contact():
+    return FileResponse(BASE_DIR / "frontend" / "contact.html")
+
+
 @app.post("/connect-social", response_model=ConnectSocialResponse)
 async def connect_social(
     session: Session = Depends(get_session),
@@ -492,6 +556,14 @@ async def connect_social(
             e.message,
         )
         raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.exception("connect-social unexpected error user_id=%s", current_user.id)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Connect Accounts failed: {e}",
+        ) from e
     log.info("connect-social success user_id=%s pk_prefix=%s", current_user.id, (user.ayrshare_profile_key or "")[:8])
     return ConnectSocialResponse(connect_url=url)
 
@@ -723,6 +795,9 @@ async def generate_campaign(
         user_id=current_user.id,
         status="draft",
         graph_thread_id="",
+        name=f"{body.business_type} – {body.goal}"[:200],
+        objective=body.goal,
+        target_audience=body.audience or "",
         facebook_url=fb_u,
         instagram_url=ig_u,
         linkedin_url=li_u,
@@ -823,6 +898,21 @@ def _post_summary_for_insights(row: Post) -> Dict[str, Any]:
         "platforms": [str(p) for p in plats],
         "posted_or_scheduled_hour_utc": hour_utc,
     }
+
+
+@app.get("/campaigns", response_model=List[CampaignOut])
+async def list_campaigns(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Return all campaigns for the authenticated user, newest first."""
+    stmt = (
+        select(Campaign)
+        .where(Campaign.user_id == current_user.id)
+        .order_by(Campaign.created_at.desc())
+    )
+    campaigns = session.exec(stmt).all()
+    return [CampaignOut.model_validate(c) for c in campaigns]
 
 
 @app.get("/campaign/{campaign_id}", response_model=CampaignDetailOut)

@@ -14,10 +14,10 @@ async def check_caption_compliance(caption: str) -> CheckComplianceResponse:
 
     client = AsyncOpenAI(api_key=key)
     system = (
-        "You are a Fair Housing and marketing compliance reviewer for US real estate social posts. "
-        "Check for: discriminatory or steering language (race, religion, national origin, familial status, "
-        "disability, sex), promises that sound like guaranteed returns, unlicensed legal/tax advice, "
-        "missing basic disclaimers when needed (e.g. 'not legal advice'). "
+        "You are a marketing compliance reviewer for social media posts. "
+        "Check for: discriminatory language (race, religion, national origin, disability, sex, age), "
+        "promises that sound like guaranteed results or returns, unlicensed legal/financial/medical advice, "
+        "false claims, or missing basic disclaimers when needed (e.g. 'not financial advice'). "
         "Return ONLY JSON: "
         '{"passed": boolean, "issues": string[], "suggested_fix": string}. '
         "If minor issues only, passed can still be true with issues listing suggestions."
@@ -49,20 +49,20 @@ def _heuristic_check(caption: str) -> CheckComplianceResponse:
     lower = caption.lower()
     red_flags: List[str] = []
     banned = [
-        ("families only", "Avoid familial-status discrimination."),
-        ("no children", "Avoid familial-status discrimination."),
-        ("christian", "Avoid religious preference in housing ads."),
-        ("muslim", "Avoid religious preference in housing ads."),
-        ("white neighborhood", "Avoid racial steering."),
-        ("exclusive", "Review for potentially exclusionary language."),
+        ("families only", "Avoid language that excludes protected groups."),
+        ("no children", "Avoid language that discriminates by familial status."),
+        ("whites only", "Avoid racially discriminatory language."),
+        ("guaranteed returns", "Avoid making promises of guaranteed financial results."),
+        ("guaranteed results", "Avoid making promises of guaranteed results."),
+        ("100% guaranteed", "Avoid absolute guarantees that could mislead consumers."),
     ]
     for phrase, msg in banned:
         if phrase in lower:
             red_flags.append(msg)
     passed = len(red_flags) == 0
     fix = (
-        "Use inclusive language; describe the property and services, not preferred types of people. "
-        "Add 'Equal Housing Opportunity' where appropriate."
+        "Use inclusive language and avoid making absolute claims. "
+        "Add appropriate disclaimers where necessary (e.g., 'Results may vary')."
         if not passed
         else ""
     )

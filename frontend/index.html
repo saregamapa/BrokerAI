@@ -3,333 +3,386 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="BrokerAI — Automate real estate social marketing with AI. Generate, approve, and publish campaigns in minutes."
-    />
-    <title>BrokerAI — AI Marketing for Real Estate</title>
+    <meta name="description" content="BrokerAI — AI-powered social media campaigns. Generate, schedule, and publish a month of content in minutes. Works for any business or industry." />
+    <meta property="og:title" content="BrokerAI — AI Social Media Campaigns" />
+    <meta property="og:description" content="Create a month of social content in minutes. AI agents build your strategy, captions, images, and schedule — you just approve and publish." />
+    <meta property="og:type" content="website" />
+    <title>BrokerAI — AI Social Media Campaigns for Any Business</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/styles.css" />
+    <style>
+      /* Scroll-reveal animation */
+      .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.55s ease, transform 0.55s ease; }
+      .reveal.visible { opacity: 1; transform: translateY(0); }
+      /* FAQ accordion arrow */
+      details[open] .faq-arrow { transform: rotate(180deg); }
+      .faq-arrow { transition: transform 0.2s ease; }
+      /* Gradient hero text */
+      .hero-gradient-text {
+        background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      /* Platform pill hover */
+      .platform-pill { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+      .platform-pill:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.10); }
+      /* Pricing card popular glow */
+      .pricing-popular { box-shadow: 0 0 0 2px #f59e0b, 0 20px 60px rgba(245,158,11,0.18); }
+    </style>
   </head>
   <body class="brokerai-app bg-white text-slate-900 antialiased">
-    <!-- Sticky navbar -->
-    <header
-      class="sticky top-0 z-50 border-b border-slate-200/90 bg-white/90 shadow-sm backdrop-blur-md"
-    >
-      <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
+
+    <!-- ─── Sticky Navbar ─────────────────────────────────────────── -->
+    <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-md">
+      <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
         <a href="/" class="text-lg font-bold tracking-tight text-[#0f172a] transition hover:opacity-90">
           Broker<span class="text-amber-500">AI</span>
         </a>
-        <nav class="flex items-center gap-2 sm:gap-3">
-          <a
-            href="/login.html"
-            class="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
-            >Login</a
-          >
-          <a
-            href="/signup.html"
-            class="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition duration-200 hover:scale-105 hover:shadow-lg active:scale-95 sm:px-5"
-            >Get Started Free</a
-          >
+        <nav class="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
+          <a href="#features" class="transition hover:text-slate-900">Features</a>
+          <a href="#how-it-works" class="transition hover:text-slate-900">How it works</a>
+          <a href="#pricing" class="transition hover:text-slate-900">Pricing</a>
+          <a href="#faq" class="transition hover:text-slate-900">FAQ</a>
         </nav>
+        <div class="flex items-center gap-2">
+          <a href="/login.html" class="rounded-xl px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900">Login</a>
+          <a href="/signup.html" class="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition duration-200 hover:scale-105 hover:shadow-lg active:scale-95 sm:px-5">Get Started</a>
+        </div>
       </div>
     </header>
 
     <main>
-      <!-- 1. Hero -->
-      <section class="border-b border-slate-100 bg-gradient-to-b from-[#f9fafb] to-white py-16 md:py-24" id="top">
-        <div class="mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-2 lg:gap-16">
+
+      <!-- ─── 1. Hero ───────────────────────────────────────────────── -->
+      <section class="relative overflow-hidden border-b border-slate-100 bg-gradient-to-b from-[#f9fafb] to-white py-16 md:py-24" id="top">
+        <!-- Decorative blobs -->
+        <div class="pointer-events-none absolute -top-32 right-0 h-[480px] w-[480px] rounded-full bg-amber-400/8 blur-3xl" aria-hidden="true"></div>
+        <div class="pointer-events-none absolute bottom-0 left-0 h-[320px] w-[320px] rounded-full bg-sky-400/6 blur-3xl" aria-hidden="true"></div>
+
+        <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-6 lg:grid-cols-2 lg:gap-16">
           <div class="brokerai-page max-w-xl">
-            <p class="text-xs font-bold uppercase tracking-wider text-amber-600">AI for real estate pros</p>
-            <h1 class="mt-4 text-4xl font-bold leading-tight tracking-tight text-[#0f172a] md:text-5xl lg:text-[2.75rem] lg:leading-[1.1]">
-              Automate Your Real Estate Marketing with AI
+            <div class="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-amber-50 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-700">
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+              AI-powered social campaigns
+            </div>
+            <h1 class="mt-5 text-4xl font-bold leading-tight tracking-tight text-[#0f172a] md:text-5xl lg:text-[2.85rem] lg:leading-[1.1]">
+              Create a Month of Social Content
+              <span class="hero-gradient-text"> in Minutes</span>
             </h1>
             <p class="mt-6 text-lg leading-relaxed text-slate-600">
-              Generate, schedule, and publish high-converting social media content in minutes — powered by AI agents.
+              BrokerAI's AI agents build your full campaign — strategy, captions, images, compliance check, and schedule. You review, approve, and publish. Done.
             </p>
             <div class="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <a
-                href="/signup.html"
-                class="inline-flex items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-8 py-4 text-center text-base font-bold text-white shadow-lg shadow-amber-500/30 transition duration-200 hover:scale-[1.03] hover:shadow-xl active:scale-[0.98]"
-                >Get Started Free</a
-              >
-              <a
-                href="/login.html"
-                class="inline-flex items-center justify-center rounded-xl border-2 border-slate-200 bg-white px-8 py-4 text-center text-base font-bold text-[#0f172a] shadow-sm transition duration-200 hover:border-slate-300 hover:shadow-md active:scale-[0.98]"
-                >Login</a
-              >
+              <a href="/signup.html" class="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-8 py-4 text-center text-base font-bold text-white shadow-lg shadow-amber-500/30 transition duration-200 hover:scale-[1.03] hover:shadow-xl active:scale-[0.98]">
+                Get Started
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5-5 5M6 12h12"/></svg>
+              </a>
+              <a href="#how-it-works" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-8 py-4 text-center text-base font-bold text-[#0f172a] shadow-sm transition duration-200 hover:border-slate-300 hover:shadow-md active:scale-[0.98]">
+                See how it works
+              </a>
             </div>
-            <p class="mt-6 text-sm text-slate-500">
-              No credit card required to create an account · Built for busy agents and teams
-            </p>
+            <p class="mt-5 text-sm text-slate-500">No credit card required · Cancel anytime · Setup in 5 minutes</p>
           </div>
 
-          <!-- Mock dashboard preview (CSS-only, lightweight) -->
+          <!-- Mock dashboard preview -->
           <div class="brokerai-page relative lg:justify-self-end">
-            <div
-              class="rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10 ring-1 ring-slate-900/5 transition duration-300 hover:shadow-slate-900/15"
-              aria-hidden="true"
-            >
-              <div class="flex h-9 items-center gap-2 border-b border-slate-100 bg-[#0f172a] px-3">
+            <div class="rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10 ring-1 ring-slate-900/5 transition duration-300 hover:shadow-slate-900/15" aria-hidden="true">
+              <!-- Window chrome -->
+              <div class="flex h-9 items-center gap-2 rounded-t-2xl border-b border-slate-100 bg-[#0f172a] px-3">
                 <span class="h-2.5 w-2.5 rounded-full bg-red-400/90"></span>
                 <span class="h-2.5 w-2.5 rounded-full bg-amber-400/90"></span>
                 <span class="h-2.5 w-2.5 rounded-full bg-emerald-400/90"></span>
-                <span class="ml-2 text-[10px] font-medium text-slate-400">brokerai.app / calendar</span>
+                <span class="ml-2 text-[10px] font-medium text-slate-400">brokerai.app / dashboard</span>
               </div>
-              <div class="flex min-h-[280px] md:min-h-[320px]">
-                <div class="hidden w-14 shrink-0 border-r border-slate-100 bg-[#0f172a] sm:block">
-                  <div class="mt-3 space-y-2 px-2">
-                    <div class="h-2 rounded bg-white/20"></div>
-                    <div class="h-2 rounded bg-white/10"></div>
-                    <div class="h-2 rounded bg-white/10"></div>
-                    <div class="mt-4 h-2 rounded bg-amber-500/40"></div>
-                    <div class="h-2 rounded bg-white/10"></div>
-                  </div>
+              <div class="flex min-h-[300px] md:min-h-[340px]">
+                <!-- Sidebar -->
+                <div class="hidden w-14 shrink-0 border-r border-slate-100 bg-[#0f172a] sm:flex sm:flex-col sm:items-center sm:gap-3 sm:pt-4">
+                  <div class="h-8 w-8 rounded-lg bg-amber-500/30"></div>
+                  <div class="h-8 w-8 rounded-lg bg-white/10"></div>
+                  <div class="h-8 w-8 rounded-lg bg-white/10"></div>
+                  <div class="h-8 w-8 rounded-lg bg-white/10"></div>
                 </div>
+                <!-- Main content -->
                 <div class="flex-1 p-4 md:p-5">
+                  <!-- Header row -->
                   <div class="flex items-center justify-between">
                     <div class="h-3 w-28 rounded bg-slate-200"></div>
-                    <div class="h-7 w-24 rounded-lg bg-amber-100"></div>
+                    <div class="h-7 w-28 rounded-lg bg-gradient-to-br from-amber-400/60 to-amber-500/60"></div>
                   </div>
-                  <div class="mt-4 grid grid-cols-7 gap-1.5 text-center text-[9px] font-semibold uppercase text-slate-400">
+                  <!-- Stats row -->
+                  <div class="mt-4 grid grid-cols-3 gap-2">
+                    <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-2.5">
+                      <div class="h-4 w-8 rounded bg-emerald-400/50"></div>
+                      <div class="mt-1 h-2 w-14 rounded bg-emerald-200/70"></div>
+                    </div>
+                    <div class="rounded-xl border border-amber-100 bg-amber-50 p-2.5">
+                      <div class="h-4 w-8 rounded bg-amber-400/50"></div>
+                      <div class="mt-1 h-2 w-14 rounded bg-amber-200/70"></div>
+                    </div>
+                    <div class="rounded-xl border border-sky-100 bg-sky-50 p-2.5">
+                      <div class="h-4 w-8 rounded bg-sky-400/50"></div>
+                      <div class="mt-1 h-2 w-14 rounded bg-sky-200/70"></div>
+                    </div>
+                  </div>
+                  <!-- Calendar header -->
+                  <div class="mt-4 grid grid-cols-7 gap-1 text-center text-[9px] font-semibold uppercase text-slate-400">
                     <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
                   </div>
-                  <div class="mt-2 grid grid-cols-7 gap-1.5">
+                  <!-- Calendar grid -->
+                  <div class="mt-1.5 grid grid-cols-7 gap-1">
                     <div class="aspect-square rounded-lg bg-slate-50"></div>
                     <div class="aspect-square rounded-lg bg-slate-50"></div>
                     <div class="relative aspect-square rounded-lg border border-amber-200 bg-amber-50 shadow-sm">
-                      <span class="absolute left-1 top-1 text-[10px] font-bold text-amber-800">12</span>
                       <span class="absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                     </div>
                     <div class="aspect-square rounded-lg bg-slate-50"></div>
                     <div class="relative aspect-square rounded-lg bg-white shadow-md ring-1 ring-amber-400/40">
-                      <span class="absolute left-1 top-1 text-[10px] font-bold text-slate-700">14</span>
                       <span class="absolute bottom-1 left-1 flex gap-0.5">
                         <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
                         <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                       </span>
                     </div>
                     <div class="aspect-square rounded-lg bg-slate-50"></div>
-                    <div class="aspect-square rounded-lg bg-slate-50"></div>
+                    <div class="relative aspect-square rounded-lg border border-sky-200 bg-sky-50 shadow-sm">
+                      <span class="absolute bottom-1 left-1 h-1.5 w-1.5 rounded-full bg-sky-400"></span>
+                    </div>
                   </div>
-                  <div class="mt-4 flex gap-2">
-                    <div class="h-16 flex-1 rounded-xl bg-slate-100"></div>
-                    <div class="h-16 flex-1 rounded-xl bg-slate-100"></div>
+                  <!-- AI insight card -->
+                  <div class="mt-4 rounded-xl border border-amber-100 bg-gradient-to-r from-amber-50 to-white p-3">
+                    <div class="flex items-center gap-2">
+                      <span class="text-[10px] font-bold uppercase tracking-wide text-amber-700">AI Insight</span>
+                    </div>
+                    <div class="mt-1.5 space-y-1">
+                      <div class="h-2 w-full rounded bg-slate-200"></div>
+                      <div class="h-2 w-3/4 rounded bg-slate-200"></div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-            <p class="mt-3 text-center text-xs text-slate-400">Product preview — not live data</p>
+            <p class="mt-3 text-center text-xs text-slate-400">Illustrative preview — not live data</p>
           </div>
         </div>
       </section>
 
-      <!-- 2. Trust strip -->
-      <section class="border-b border-slate-100 bg-white py-8">
+      <!-- ─── 2. Platform logos strip ──────────────────────────────── -->
+      <section class="border-b border-slate-100 bg-white py-10">
         <div class="mx-auto max-w-6xl px-6">
-          <p
-            class="text-center text-sm font-semibold text-slate-700 md:text-base"
-          >
-            Built for Real Estate Agents, Brokers, and Loan Officers
-          </p>
-          <div class="mt-6 flex flex-wrap items-center justify-center gap-3 md:gap-4">
-            <span
-              class="rounded-full border border-slate-200 bg-[#f9fafb] px-4 py-2 text-xs font-medium text-slate-600 shadow-sm"
-              >Social content</span
-            >
-            <span
-              class="rounded-full border border-slate-200 bg-[#f9fafb] px-4 py-2 text-xs font-medium text-slate-600 shadow-sm"
-              >Scheduling</span
-            >
-            <span
-              class="rounded-full border border-slate-200 bg-[#f9fafb] px-4 py-2 text-xs font-medium text-slate-600 shadow-sm"
-              >Compliance-aware</span
-            >
-            <span
-              class="rounded-full border border-slate-200 bg-[#f9fafb] px-4 py-2 text-xs font-medium text-slate-600 shadow-sm"
-              >Multi-platform</span
-            >
+          <p class="text-center text-sm font-semibold text-slate-500">Publish directly to your favourite platforms</p>
+          <div class="mt-6 flex flex-wrap items-center justify-center gap-4 md:gap-6">
+            <!-- Instagram -->
+            <div class="platform-pill flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+              <span class="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#f58529] via-[#dd2a7b] to-[#8134af]">
+                <svg class="h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+              </span>
+              <span class="text-sm font-semibold text-slate-700">Instagram</span>
+            </div>
+            <!-- Facebook -->
+            <div class="platform-pill flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+              <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#1877F2]">
+                <svg class="h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              </span>
+              <span class="text-sm font-semibold text-slate-700">Facebook</span>
+            </div>
+            <!-- LinkedIn -->
+            <div class="platform-pill flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+              <span class="flex h-6 w-6 items-center justify-center rounded-full bg-[#0A66C2]">
+                <svg class="h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+              </span>
+              <span class="text-sm font-semibold text-slate-700">LinkedIn</span>
+            </div>
+            <!-- Twitter/X -->
+            <div class="platform-pill flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+              <span class="flex h-6 w-6 items-center justify-center rounded-full bg-black">
+                <svg class="h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              </span>
+              <span class="text-sm font-semibold text-slate-700">X / Twitter</span>
+            </div>
+            <!-- TikTok -->
+            <div class="platform-pill flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+              <span class="flex h-6 w-6 items-center justify-center rounded-full bg-black">
+                <svg class="h-3.5 w-3.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V9.14a8.17 8.17 0 004.84 1.56V7.26a4.85 4.85 0 01-1.07-.57z"/></svg>
+              </span>
+              <span class="text-sm font-semibold text-slate-700">TikTok</span>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- 3. Features -->
-      <section class="bg-[#f9fafb] py-16 md:py-20" id="features">
+      <!-- ─── 3. Stats Bar ──────────────────────────────────────────── -->
+      <section class="bg-[#0f172a] py-12">
         <div class="mx-auto max-w-6xl px-6">
-          <div class="mx-auto max-w-2xl text-center">
-            <h2 class="text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">Everything you need to stay visible</h2>
-            <p class="mt-4 text-slate-600">
-              One workflow from idea to scheduled posts — so you spend less time writing and more time closing.
-            </p>
+          <div class="grid grid-cols-2 gap-8 text-center md:grid-cols-4">
+            <div class="reveal">
+              <div class="text-3xl font-bold text-amber-400">10K+</div>
+              <div class="mt-1 text-sm text-slate-400">Campaigns generated</div>
+            </div>
+            <div class="reveal">
+              <div class="text-3xl font-bold text-white">5 min</div>
+              <div class="mt-1 text-sm text-slate-400">Average setup time</div>
+            </div>
+            <div class="reveal">
+              <div class="text-3xl font-bold text-emerald-400">5+</div>
+              <div class="mt-1 text-sm text-slate-400">Platforms supported</div>
+            </div>
+            <div class="reveal">
+              <div class="text-3xl font-bold text-sky-400">100%</div>
+              <div class="mt-1 text-sm text-slate-400">AI-generated content</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── 4. Features ──────────────────────────────────────────── -->
+      <section class="bg-[#f9fafb] py-16 md:py-24" id="features">
+        <div class="mx-auto max-w-6xl px-6">
+          <div class="mx-auto max-w-2xl text-center reveal">
+            <p class="text-xs font-bold uppercase tracking-wider text-amber-600">Everything in one place</p>
+            <h2 class="mt-3 text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">Stop wasting hours on social media</h2>
+            <p class="mt-4 text-slate-600">One workflow from blank page to published posts — so you can focus on your business, not on content creation.</p>
           </div>
           <ul class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <li
-              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
-            >
-              <span class="text-2xl" aria-hidden="true">✨</span>
-              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">AI Campaign Generation</h3>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">
-                Turn your market, goal, and audience into a full week of post ideas, captions, and hashtags.
-              </p>
+            <li class="reveal rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+              <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+              <h3 class="mt-4 text-base font-bold text-[#0f172a]">AI Campaign Generation</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">Describe your goal and audience. Get a full week of captions, hashtags, and image prompts — instantly.</p>
             </li>
-            <li
-              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
-            >
-              <span class="text-2xl" aria-hidden="true">✅</span>
-              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">One-Click Approval Workflow</h3>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">
-                Review everything in one place, edit if needed, then approve once to unlock publishing.
-              </p>
+            <li class="reveal rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+              <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+              <h3 class="mt-4 text-base font-bold text-[#0f172a]">One-Click Approval</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">Review everything in one place, tweak any caption, then approve once to unlock publishing across all platforms.</p>
             </li>
-            <li
-              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
-            >
-              <span class="text-2xl" aria-hidden="true">📅</span>
-              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">Calendar-Based Scheduling</h3>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">
-                See what goes live and when — aligned to your timezone and posting cadence.
-              </p>
+            <li class="reveal rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+              <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-100 text-sky-600">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              </div>
+              <h3 class="mt-4 text-base font-bold text-[#0f172a]">Smart Scheduling</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">See your entire content calendar at a glance. AI picks optimal times so your posts land when your audience is online.</p>
             </li>
-            <li
-              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
-            >
-              <span class="text-2xl" aria-hidden="true">🚀</span>
-              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">Auto Social Media Publishing</h3>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">
-                Connect your stack and push approved posts to the networks you use (via integrated publishing).
-              </p>
+            <li class="reveal rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+              <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+              </div>
+              <h3 class="mt-4 text-base font-bold text-[#0f172a]">Auto Multi-Platform Publishing</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">Connect your social accounts once. Approved posts go live on schedule across Instagram, Facebook, LinkedIn, and more.</p>
             </li>
-            <li
-              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
-            >
-              <span class="text-2xl" aria-hidden="true">🛡️</span>
-              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">Compliance Checks (Fair Housing)</h3>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">
-                Automated checks flag risky language so you can fix issues before anything goes live.
-              </p>
+            <li class="reveal rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+              <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              </div>
+              <h3 class="mt-4 text-base font-bold text-[#0f172a]">Brand Safety & Compliance</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">Automated checks flag misleading claims, risky language, and off-brand copy before anything goes live.</p>
             </li>
-            <li
-              class="rounded-xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-0.5 hover:shadow-lg"
-            >
-              <span class="text-2xl" aria-hidden="true">🎬</span>
-              <h3 class="mt-3 text-lg font-bold text-[#0f172a]">Image + Video Content Generation</h3>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">
-                AI-generated visuals plus short video scripts for Reels-style content — ready to record or adapt.
-              </p>
+            <li class="reveal rounded-2xl border border-slate-200/80 bg-white p-6 shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+              <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+              </div>
+              <h3 class="mt-4 text-base font-bold text-[#0f172a]">Performance Analytics</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-600">Track engagement, impressions, and post performance. AI surfaces what's working and what to do next.</p>
             </li>
           </ul>
         </div>
       </section>
 
-      <!-- 4. How it works -->
-      <section class="border-y border-slate-100 bg-white py-16 md:py-20" id="how-it-works">
+      <!-- ─── 5. How It Works ──────────────────────────────────────── -->
+      <section class="border-y border-slate-100 bg-white py-16 md:py-24" id="how-it-works">
         <div class="mx-auto max-w-6xl px-6">
-          <h2 class="text-center text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">How it works</h2>
-          <p class="mx-auto mt-4 max-w-2xl text-center text-slate-600">
-            Three steps from blank page to scheduled social posts.
-          </p>
-          <div class="mt-14 grid gap-8 md:grid-cols-3 md:gap-6">
-            <div
-              class="relative rounded-2xl border border-slate-200 bg-[#f9fafb] p-8 text-center shadow-md transition duration-300 hover:shadow-lg"
-            >
-              <span
-                class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#0f172a] text-lg font-bold text-amber-400"
-                >1</span
-              >
-              <h3 class="mt-5 text-lg font-bold text-[#0f172a]">Generate Campaign</h3>
-              <p class="mt-2 text-sm text-slate-600">
-                Answer a few prompts — BrokerAI builds a week of posts tailored to your market.
-              </p>
+          <div class="mx-auto max-w-2xl text-center reveal">
+            <p class="text-xs font-bold uppercase tracking-wider text-amber-600">Simple by design</p>
+            <h2 class="mt-3 text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">Three steps to your next campaign</h2>
+            <p class="mt-4 text-slate-600">From blank page to scheduled posts — without a copywriter, designer, or social media manager.</p>
+          </div>
+          <div class="mt-14 grid gap-6 md:grid-cols-3">
+            <div class="reveal relative rounded-2xl border border-slate-200 bg-[#f9fafb] p-8 text-center shadow-md transition duration-300 hover:shadow-xl">
+              <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0f172a] text-xl font-bold text-amber-400 shadow-lg">1</span>
+              <h3 class="mt-6 text-lg font-bold text-[#0f172a]">Describe your campaign</h3>
+              <p class="mt-3 text-sm leading-relaxed text-slate-600">Enter your business type, goal, target audience, and platforms. Takes 60 seconds.</p>
             </div>
-            <div
-              class="relative rounded-2xl border border-slate-200 bg-[#f9fafb] p-8 text-center shadow-md transition duration-300 hover:shadow-lg"
-            >
-              <span
-                class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#0f172a] text-lg font-bold text-amber-400"
-                >2</span
-              >
-              <h3 class="mt-5 text-lg font-bold text-[#0f172a]">Review &amp; Approve</h3>
-              <p class="mt-2 text-sm text-slate-600">
-                Scan captions, images, and compliance flags. Edit lines, then approve when it sounds like you.
-              </p>
+            <div class="reveal relative rounded-2xl border border-slate-200 bg-[#f9fafb] p-8 text-center shadow-md transition duration-300 hover:shadow-xl">
+              <!-- connector -->
+              <div class="absolute -left-3 top-1/2 hidden -translate-y-1/2 md:block">
+                <svg class="h-6 w-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </div>
+              <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0f172a] text-xl font-bold text-amber-400 shadow-lg">2</span>
+              <h3 class="mt-6 text-lg font-bold text-[#0f172a]">AI builds your content</h3>
+              <p class="mt-3 text-sm leading-relaxed text-slate-600">Strategy, captions, hashtags, image prompts, compliance check, and an optimised schedule — all generated automatically.</p>
             </div>
-            <div
-              class="relative rounded-2xl border border-slate-200 bg-[#f9fafb] p-8 text-center shadow-md transition duration-300 hover:shadow-lg"
-            >
-              <span
-                class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#0f172a] text-lg font-bold text-amber-400"
-                >3</span
-              >
-              <h3 class="mt-5 text-lg font-bold text-[#0f172a]">Auto Publish Everywhere</h3>
-              <p class="mt-2 text-sm text-slate-600">
-                Approved posts go out on schedule across your connected channels — hands off after approval.
-              </p>
+            <div class="reveal relative rounded-2xl border border-slate-200 bg-[#f9fafb] p-8 text-center shadow-md transition duration-300 hover:shadow-xl">
+              <div class="absolute -left-3 top-1/2 hidden -translate-y-1/2 md:block">
+                <svg class="h-6 w-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </div>
+              <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0f172a] text-xl font-bold text-amber-400 shadow-lg">3</span>
+              <h3 class="mt-6 text-lg font-bold text-[#0f172a]">Approve &amp; auto-publish</h3>
+              <p class="mt-3 text-sm leading-relaxed text-slate-600">Review posts, make edits if needed, then approve. Posts go out automatically across all your connected channels.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 5. Dashboard preview -->
-      <section class="bg-[#f9fafb] py-16 md:py-20" id="dashboard-preview">
+      <!-- ─── 6. Calendar preview ──────────────────────────────────── -->
+      <section class="bg-[#f9fafb] py-16 md:py-24">
         <div class="mx-auto max-w-6xl px-6">
           <div class="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-            <div>
-              <h2 class="text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">
-                Your content calendar, finally in one view
-              </h2>
-              <p class="mt-4 text-lg text-slate-600">
-                See all your content in one place with a smart calendar dashboard.
-              </p>
-              <ul class="mt-6 space-y-3 text-sm text-slate-600">
-                <li class="flex items-start gap-2">
-                  <span class="mt-0.5 text-amber-500" aria-hidden="true">●</span>
-                  Spot what’s scheduled, live, or needs attention at a glance.
+            <div class="reveal">
+              <p class="text-xs font-bold uppercase tracking-wider text-amber-600">Content calendar</p>
+              <h2 class="mt-3 text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">Your whole month, visible at a glance</h2>
+              <p class="mt-4 text-lg text-slate-600">Stop guessing what went live. See every post's status, platform, and timing in one clear calendar view.</p>
+              <ul class="mt-6 space-y-4">
+                <li class="flex items-start gap-3">
+                  <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                    <svg class="h-3 w-3 text-amber-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                  </span>
+                  <span class="text-sm text-slate-600">Spot scheduled, live, and pending posts without digging through spreadsheets</span>
                 </li>
-                <li class="flex items-start gap-2">
-                  <span class="mt-0.5 text-amber-500" aria-hidden="true">●</span>
-                  Drill into each day without digging through spreadsheets or DMs.
+                <li class="flex items-start gap-3">
+                  <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                    <svg class="h-3 w-3 text-amber-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                  </span>
+                  <span class="text-sm text-slate-600">Click any day to see post details, performance metrics, and AI insights</span>
                 </li>
-                <li class="flex items-start gap-2">
-                  <span class="mt-0.5 text-amber-500" aria-hidden="true">●</span>
-                  Built for teams who post consistently but hate busywork.
+                <li class="flex items-start gap-3">
+                  <span class="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                    <svg class="h-3 w-3 text-amber-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                  </span>
+                  <span class="text-sm text-slate-600">Built for teams and solo creators who need to post consistently without the busywork</span>
                 </li>
               </ul>
-              <a
-                href="/signup.html"
-                class="mt-8 inline-flex rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition duration-200 hover:scale-105 active:scale-95"
-                >Try the calendar free</a
-              >
+              <a href="/signup.html" class="mt-8 inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition duration-200 hover:scale-105 active:scale-95">
+                See your calendar free
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5-5 5M6 12h12"/></svg>
+              </a>
             </div>
-            <div
-              class="rounded-2xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-slate-900/5 transition duration-300 hover:shadow-2xl"
-              aria-hidden="true"
-            >
-              <div
-                class="flex aspect-[4/3] flex-col overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50"
-              >
-                <div class="flex border-b border-slate-200/80 bg-white px-4 py-3">
-                  <div class="h-3 w-32 rounded bg-slate-200"></div>
+            <div class="reveal rounded-2xl border border-slate-200 bg-white p-2 shadow-xl ring-1 ring-slate-900/5 transition duration-300 hover:shadow-2xl" aria-hidden="true">
+              <div class="flex aspect-[4/3] flex-col overflow-hidden rounded-xl bg-gradient-to-br from-slate-100 to-slate-50">
+                <div class="flex items-center border-b border-slate-200/80 bg-white px-4 py-3">
+                  <div class="h-3 w-28 rounded bg-slate-200"></div>
                   <div class="ml-auto flex gap-2">
-                    <div class="h-8 w-8 rounded-lg bg-amber-100"></div>
-                    <div class="h-8 w-20 rounded-lg bg-slate-100"></div>
+                    <div class="h-7 w-7 rounded-lg bg-amber-100"></div>
+                    <div class="h-7 w-16 rounded-lg bg-slate-100"></div>
                   </div>
                 </div>
                 <div class="grid flex-1 grid-cols-7 gap-px bg-slate-200 p-px">
-                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
-                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
-                  <div class="bg-amber-50 p-2"><div class="h-2 w-6 rounded bg-amber-200"></div></div>
-                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
-                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
-                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
-                  <div class="bg-white p-2"><div class="h-2 w-6 rounded bg-slate-200"></div></div>
-                  <div class="col-span-7 grid grid-cols-7 gap-px bg-slate-100 p-2">
-                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
-                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
-                    <div class="aspect-square rounded-md border-2 border-amber-400 bg-amber-50 shadow-md"></div>
-                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
-                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
-                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
-                    <div class="aspect-square rounded-md bg-white shadow-sm"></div>
+                  <div class="bg-white p-2"><div class="h-2 w-4 rounded bg-slate-200"></div></div>
+                  <div class="bg-white p-2"><div class="h-2 w-4 rounded bg-slate-200"></div></div>
+                  <div class="bg-amber-50 p-2">
+                    <div class="h-2 w-4 rounded bg-amber-200"></div>
+                    <div class="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+                  </div>
+                  <div class="bg-white p-2"><div class="h-2 w-4 rounded bg-slate-200"></div></div>
+                  <div class="bg-white p-2">
+                    <div class="h-2 w-4 rounded bg-slate-200"></div>
+                    <div class="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-400"></div>
+                  </div>
+                  <div class="bg-white p-2"><div class="h-2 w-4 rounded bg-slate-200"></div></div>
+                  <div class="bg-sky-50 p-2">
+                    <div class="h-2 w-4 rounded bg-sky-200"></div>
+                    <div class="mt-1.5 h-1.5 w-1.5 rounded-full bg-sky-400"></div>
                   </div>
                 </div>
               </div>
@@ -339,68 +392,268 @@
         </div>
       </section>
 
-      <!-- 6. CTA -->
-      <section class="py-16 md:py-20" id="cta">
-        <div class="mx-auto max-w-6xl px-6">
-          <div
-            class="rounded-2xl bg-gradient-to-br from-[#0f172a] via-[#0f172a] to-slate-900 px-8 py-14 text-center shadow-xl md:px-16 md:py-16"
-          >
-            <h2 class="text-3xl font-bold text-white md:text-4xl">Start Your First AI Campaign Today</h2>
-            <p class="mx-auto mt-4 max-w-xl text-slate-300">
-              Join agents and brokers who want consistent, compliant social presence without living in Canva.
-            </p>
-            <a
-              href="/signup.html"
-              class="mt-10 inline-flex rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-10 py-4 text-base font-bold text-white shadow-lg shadow-amber-500/30 transition duration-200 hover:scale-105 hover:shadow-xl active:scale-95"
-              >Create Free Account</a
-            >
-            <p class="mt-4 text-sm text-slate-400">Already registered? <a href="/login.html" class="font-semibold text-amber-400 underline-offset-2 hover:underline">Login</a></p>
+      <!-- ─── 7. Testimonials ──────────────────────────────────────── -->
+      <!-- ─── 8. Pricing ───────────────────────────────────────────── -->
+      <section class="bg-white py-16 md:py-24" id="pricing">
+        <div class="mx-auto max-w-7xl px-6">
+          <div class="mx-auto max-w-2xl text-center reveal">
+            <p class="text-xs font-bold uppercase tracking-wider text-amber-600">Simple pricing</p>
+            <h2 class="mt-3 text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">Plans for every stage of growth</h2>
+            <p class="mt-4 text-slate-600">No hidden fees. Cancel anytime.</p>
+          </div>
+          <div class="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+
+            <!-- Basic -->
+            <div class="reveal flex flex-col rounded-2xl border border-slate-200/80 bg-white p-7 shadow-md">
+              <div>
+                <p class="text-sm font-bold uppercase tracking-wide text-slate-500">Basic</p>
+                <div class="mt-3 flex items-end gap-1">
+                  <span class="text-4xl font-bold text-[#0f172a]">$29</span>
+                  <span class="mb-1.5 text-sm text-slate-500">/month</span>
+                </div>
+                <p class="mt-2 text-sm text-slate-600">For individuals and solo creators getting started with AI-powered content.</p>
+              </div>
+              <ul class="mt-6 flex-1 space-y-3 text-sm text-slate-700">
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> 5 campaigns/month</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> AI captions &amp; hashtags</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> 2 social platforms</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Content calendar view</li>
+                <li class="flex items-center gap-2.5 text-slate-400"><svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> AI image generation</li>
+                <li class="flex items-center gap-2.5 text-slate-400"><svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> Performance analytics</li>
+              </ul>
+              <a href="/signup.html" class="mt-8 block w-full rounded-xl border-2 border-slate-200 bg-white py-3 text-center text-sm font-bold text-slate-800 transition duration-200 hover:border-slate-300 hover:shadow-md">Get Basic</a>
+            </div>
+
+            <!-- Starter (popular) -->
+            <div class="reveal pricing-popular relative flex flex-col rounded-2xl bg-[#0f172a] p-7">
+              <div class="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                <span class="inline-flex items-center rounded-full bg-amber-500 px-4 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-lg">Most popular</span>
+              </div>
+              <div>
+                <p class="text-sm font-bold uppercase tracking-wide text-amber-400">Starter</p>
+                <div class="mt-3 flex items-end gap-1">
+                  <span class="text-4xl font-bold text-white">$99</span>
+                  <span class="mb-1.5 text-sm text-slate-400">/month</span>
+                </div>
+                <p class="mt-2 text-sm text-slate-400">For professionals and small businesses serious about their social presence.</p>
+              </div>
+              <ul class="mt-6 flex-1 space-y-3 text-sm text-slate-300">
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Unlimited campaigns</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> AI captions, images &amp; video scripts</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> 5 social platforms</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Brand safety &amp; compliance checks</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Full performance analytics</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> AI performance insights</li>
+              </ul>
+              <a href="/signup.html" class="mt-8 block w-full rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 py-3 text-center text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]">Get Starter</a>
+            </div>
+
+            <!-- Pro -->
+            <div class="reveal flex flex-col rounded-2xl border border-slate-200/80 bg-white p-7 shadow-md">
+              <div>
+                <p class="text-sm font-bold uppercase tracking-wide text-slate-500">Pro</p>
+                <div class="mt-3 flex items-end gap-1">
+                  <span class="text-4xl font-bold text-[#0f172a]">$199</span>
+                  <span class="mb-1.5 text-sm text-slate-500">/month</span>
+                </div>
+                <p class="mt-2 text-sm text-slate-600">For growing teams managing multiple brands and high-volume publishing.</p>
+              </div>
+              <ul class="mt-6 flex-1 space-y-3 text-sm text-slate-700">
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Everything in Starter</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Up to 5 team members</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> 20+ social platforms</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> White-label reports</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Priority support</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Custom onboarding</li>
+              </ul>
+              <a href="/signup.html" class="mt-8 block w-full rounded-xl border-2 border-slate-200 bg-white py-3 text-center text-sm font-bold text-slate-800 transition duration-200 hover:border-slate-300 hover:shadow-md">Get Pro</a>
+            </div>
+
+            <!-- Orgs -->
+            <div class="reveal flex flex-col rounded-2xl border border-slate-200/80 bg-white p-7 shadow-md">
+              <div>
+                <p class="text-sm font-bold uppercase tracking-wide text-slate-500">Orgs</p>
+                <div class="mt-3 flex items-end gap-1">
+                  <span class="text-4xl font-bold text-[#0f172a]">$399</span>
+                  <span class="mb-1.5 text-sm text-slate-500">/month</span>
+                </div>
+                <p class="mt-2 text-sm text-slate-600">For agencies and enterprises running social at scale across multiple clients.</p>
+              </div>
+              <ul class="mt-6 flex-1 space-y-3 text-sm text-slate-700">
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Everything in Pro</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Unlimited team members</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Multi-client workspaces</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Advanced role permissions</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> Dedicated account manager</li>
+                <li class="flex items-center gap-2.5"><svg class="h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg> SLA &amp; enterprise support</li>
+              </ul>
+              <a href="/signup.html" class="mt-8 block w-full rounded-xl border-2 border-slate-200 bg-white py-3 text-center text-sm font-bold text-slate-800 transition duration-200 hover:border-slate-300 hover:shadow-md">Get Orgs</a>
+            </div>
+
+          </div>
+          <p class="mt-8 text-center text-sm text-slate-500">All plans billed monthly. Cancel anytime from your account settings.</p>
+        </div>
+      </section>
+
+      <!-- ─── 9. FAQ ────────────────────────────────────────────────── -->
+      <section class="bg-[#f9fafb] py-16 md:py-24" id="faq">
+        <div class="mx-auto max-w-3xl px-6">
+          <div class="text-center reveal">
+            <p class="text-xs font-bold uppercase tracking-wider text-amber-600">Everything you need to know</p>
+            <h2 class="mt-3 text-3xl font-bold tracking-tight text-[#0f172a] md:text-4xl">You've got questions.<br class="hidden sm:block"> We've got answers.</h2>
+            <p class="mt-4 text-slate-600">Can't find what you're looking for? <a href="/signup.html" class="font-semibold text-amber-600 underline underline-offset-2 hover:text-amber-700">Talk to us</a> — we respond fast.</p>
+          </div>
+          <div class="mt-12 space-y-3">
+            <details class="group reveal rounded-2xl border border-slate-200 bg-[#f9fafb] transition hover:border-slate-300">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
+                What is BrokerAI and who is it for?
+                <svg class="faq-arrow h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </summary>
+              <div class="border-t border-slate-100 px-6 py-4 text-sm leading-relaxed text-slate-600">
+                BrokerAI is an AI-powered social media campaign platform that works for any business — from solo content creators and small businesses to marketing agencies and enterprise teams. If you post on social media and want to spend less time on it, BrokerAI is for you.
+              </div>
+            </details>
+            <details class="group reveal rounded-2xl border border-slate-200 bg-[#f9fafb] transition hover:border-slate-300">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
+                How does AI generate my content?
+                <svg class="faq-arrow h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </summary>
+              <div class="border-t border-slate-100 px-6 py-4 text-sm leading-relaxed text-slate-600">
+                BrokerAI uses a multi-step AI agent workflow powered by GPT-4 class models. When you start a campaign, agents work in sequence: a Strategy Agent builds your content plan, a Content Agent writes platform-specific captions and hashtags, a Media Agent generates image prompts, a Compliance Agent reviews everything, and a Scheduling Agent picks the best posting times.
+              </div>
+            </details>
+            <details class="group reveal rounded-2xl border border-slate-200 bg-[#f9fafb] transition hover:border-slate-300">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
+                Which social platforms are supported?
+                <svg class="faq-arrow h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </summary>
+              <div class="border-t border-slate-100 px-6 py-4 text-sm leading-relaxed text-slate-600">
+                BrokerAI supports Instagram, Facebook, LinkedIn, X (Twitter), and TikTok. Publishing is handled via the Ayrshare API. Pro and Team plans unlock additional platforms. Just connect your accounts once and all approved posts publish automatically.
+              </div>
+            </details>
+            <details class="group reveal rounded-2xl border border-slate-200 bg-[#f9fafb] transition hover:border-slate-300">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
+                Can I edit the AI-generated content before it goes live?
+                <svg class="faq-arrow h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </summary>
+              <div class="border-t border-slate-100 px-6 py-4 text-sm leading-relaxed text-slate-600">
+                Absolutely. The Review page lets you read every post, edit any caption inline, check compliance flags, and approve or reject individual posts before anything is published. Nothing goes live without your approval.
+              </div>
+            </details>
+            <details class="group reveal rounded-2xl border border-slate-200 bg-[#f9fafb] transition hover:border-slate-300">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
+                What plans are available? Can I cancel anytime?
+                <svg class="faq-arrow h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </summary>
+              <div class="border-t border-slate-100 px-6 py-4 text-sm leading-relaxed text-slate-600">
+                BrokerAI offers four plans — Basic ($29), Starter ($99), Pro ($199), and Orgs ($399) — billed monthly with no long-term commitment. You can upgrade, downgrade, or cancel at any time from your account settings.
+              </div>
+            </details>
+            <details class="group reveal rounded-2xl border border-slate-200 bg-[#f9fafb] transition hover:border-slate-300">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 text-sm font-semibold text-slate-900 marker:hidden [&::-webkit-details-marker]:hidden">
+                Is my data and content kept private?
+                <svg class="faq-arrow h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </summary>
+              <div class="border-t border-slate-100 px-6 py-4 text-sm leading-relaxed text-slate-600">
+                Your content and account data are private to your account. We never share or sell your data. Campaign content is processed via OpenAI's API under their data usage policies. Social credentials are stored securely via Ayrshare and never exposed to our systems in plain text.
+              </div>
+            </details>
           </div>
         </div>
       </section>
 
-      <!-- Legal stubs (footer links target) -->
-      <div class="mx-auto max-w-6xl px-6 pb-8">
-        <details id="privacy-policy" class="rounded-xl border border-slate-200 bg-[#f9fafb] p-4 text-sm text-slate-600">
-          <summary class="cursor-pointer font-semibold text-[#0f172a]">Privacy Policy (summary)</summary>
-          <p class="mt-2">
-            We collect only what’s needed to run your account and improve the product. Do not share passwords or API
-            keys in support tickets. Replace this stub with your full policy before production.
-          </p>
-        </details>
-        <details id="terms-of-service" class="mt-3 rounded-xl border border-slate-200 bg-[#f9fafb] p-4 text-sm text-slate-600">
-          <summary class="cursor-pointer font-semibold text-[#0f172a]">Terms of Service (summary)</summary>
-          <p class="mt-2">
-            BrokerAI is provided as-is for your business use. You are responsible for content you publish and for
-            complying with platform rules and fair housing law. Replace this stub with your full terms before production.
-          </p>
-        </details>
-      </div>
+      <!-- ─── 10. Final CTA ─────────────────────────────────────────── -->
+      <section class="py-16 md:py-24">
+        <div class="mx-auto max-w-6xl px-6">
+          <div class="reveal rounded-3xl bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-slate-900 px-8 py-16 text-center shadow-2xl md:px-16">
+            <p class="text-xs font-bold uppercase tracking-wider text-amber-400">Ready to start?</p>
+            <h2 class="mt-4 text-3xl font-bold text-white md:text-4xl lg:text-5xl">Launch your first AI campaign today</h2>
+            <p class="mx-auto mt-5 max-w-xl text-slate-400">
+              Join thousands of marketers who've stopped spending hours on social media. It takes 5 minutes to set up. No credit card needed.
+            </p>
+            <div class="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <a href="/signup.html" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-10 py-4 text-base font-bold text-white shadow-lg shadow-amber-500/30 transition duration-200 hover:scale-105 hover:shadow-xl active:scale-95">
+                Create Free Account
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5-5 5M6 12h12"/></svg>
+              </a>
+              <a href="/login.html" class="rounded-xl border border-white/20 bg-white/10 px-8 py-4 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/15">
+                Login →
+              </a>
+            </div>
+            <p class="mt-5 text-sm text-slate-500">Free forever plan available · No credit card required</p>
+          </div>
+        </div>
+      </section>
+
     </main>
 
-    <!-- 7. Footer -->
-    <footer class="border-t border-slate-200 bg-white py-12">
-      <div class="mx-auto flex max-w-6xl flex-col gap-8 px-6 md:flex-row md:items-center md:justify-between">
-        <div class="text-lg font-bold text-[#0f172a]">
-          Broker<span class="text-amber-500">AI</span>
-        </div>
-        <nav class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium text-slate-600">
-          <a href="/" class="transition hover:text-amber-600">Home</a>
-          <a href="/dashboard.html" class="transition hover:text-amber-600">Dashboard</a>
-          <a href="/login.html" class="transition hover:text-amber-600">Login</a>
-          <a href="/signup.html" class="transition hover:text-amber-600">Signup</a>
-        </nav>
-        <div class="text-center text-sm text-slate-500 md:text-right">
-          <p>© 2026 BrokerAI</p>
-          <p class="mt-0.5">All rights reserved</p>
-          <div class="mt-3 flex justify-center gap-4 md:justify-end">
-            <a href="#privacy-policy" class="transition hover:text-amber-600">Privacy Policy</a>
-            <a href="#terms-of-service" class="transition hover:text-amber-600">Terms of Service</a>
+    <!-- ─── Footer ───────────────────────────────────────────────── -->
+    <footer class="border-t border-slate-200 bg-[#0f172a] py-14">
+      <div class="mx-auto max-w-6xl px-6">
+        <div class="grid gap-10 sm:grid-cols-2 md:grid-cols-4">
+          <!-- Brand -->
+          <div class="col-span-2 sm:col-span-1">
+            <a href="/" class="text-xl font-bold text-white">Broker<span class="text-amber-400">AI</span></a>
+            <p class="mt-3 text-sm text-slate-400 leading-relaxed">AI-powered social media campaigns for any business. Generate, schedule, and publish — all in one place.</p>
           </div>
+          <!-- Product -->
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Product</p>
+            <ul class="mt-4 space-y-2.5 text-sm text-slate-400">
+              <li><a href="#features" class="transition hover:text-white">Features</a></li>
+              <li><a href="#how-it-works" class="transition hover:text-white">How it works</a></li>
+              <li><a href="#pricing" class="transition hover:text-white">Pricing</a></li>
+              <li><a href="#faq" class="transition hover:text-white">FAQ</a></li>
+            </ul>
+          </div>
+          <!-- Account -->
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Account</p>
+            <ul class="mt-4 space-y-2.5 text-sm text-slate-400">
+              <li><a href="/signup.html" class="transition hover:text-white">Sign up</a></li>
+              <li><a href="/login.html" class="transition hover:text-white">Login</a></li>
+              <li><a href="/dashboard.html" class="transition hover:text-white">Dashboard</a></li>
+              <li><a href="/wizard.html" class="transition hover:text-white">New Campaign</a></li>
+            </ul>
+          </div>
+          <!-- Legal -->
+          <div>
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Legal</p>
+            <ul class="mt-4 space-y-2.5 text-sm text-slate-400">
+              <li><a href="/privacy.html" class="transition hover:text-white">Privacy Policy</a></li>
+              <li><a href="/cookies.html" class="transition hover:text-white">Cookies Policy</a></li>
+              <li><a href="/terms.html" class="transition hover:text-white">Terms of Service</a></li>
+              <li><a href="/contact.html" class="transition hover:text-white">Contact Us</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-10 flex flex-col items-center justify-between gap-4 border-t border-slate-800 pt-8 text-sm text-slate-600 sm:flex-row">
+          <p>© 2026 BrokerAI. All rights reserved.</p>
+          <p class="text-slate-600">Made with AI, for everyone.</p>
         </div>
       </div>
     </footer>
 
+
     <script src="/static/js/app.js"></script>
+    <script>
+      // Scroll-reveal observer
+      (function() {
+        var els = document.querySelectorAll('.reveal');
+        if (!window.IntersectionObserver) {
+          els.forEach(function(el) { el.classList.add('visible'); });
+          return;
+        }
+        var observer = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.12 });
+        els.forEach(function(el) { observer.observe(el); });
+      })();
+    </script>
   </body>
 </html>

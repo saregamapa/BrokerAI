@@ -40,21 +40,6 @@ html {
   animation: brokerai-spin 0.65s linear infinite;
 }
 
-@keyframes brokerai-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.brokerai-page {
-  animation: brokerai-fade-in 0.35s ease-out;
-}
-
 .brokerai-skeleton {
   border-radius: 0.75rem;
   background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
@@ -130,6 +115,125 @@ html {
 .brokerai-modal-backdrop.is-open .brokerai-modal-panel {
   opacity: 1;
   transform: scale(1) translateY(0);
+}
+
+/* ─── Toast icons via pseudo-element ─────────────────────────────── */
+.brokerai-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.brokerai-toast::before {
+  content: "";
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.0625rem;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.brokerai-toast--success::before {
+  /* green checkmark circle */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2310b981' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E");
+}
+
+.brokerai-toast--error::before {
+  /* red X circle */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ef4444' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E");
+}
+
+.brokerai-toast--info::before {
+  /* blue info circle */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233b82f6' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'/%3E%3C/svg%3E");
+}
+
+/* ─── Focus-visible ring (keyboard accessibility) ────────────────── */
+:focus-visible {
+  outline: 2px solid var(--ba-accent);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--ba-accent);
+  outline-offset: 2px;
+}
+
+/* ─── Scroll-reveal animations (.reveal / .reveal.visible) ───────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger delays for sibling .reveal elements */
+.reveal:nth-child(2) { transition-delay: 0.07s; }
+.reveal:nth-child(3) { transition-delay: 0.14s; }
+.reveal:nth-child(4) { transition-delay: 0.21s; }
+.reveal:nth-child(5) { transition-delay: 0.28s; }
+.reveal:nth-child(6) { transition-delay: 0.35s; }
+
+/* ─── Card hover lift utility ─────────────────────────────────────── */
+.card-lift {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 16px 40px rgba(15, 23, 42, 0.1),
+    0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+/* ─── Input polish ────────────────────────────────────────────────── */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select,
+textarea {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--ba-accent);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+
+/* ─── Smooth page transitions for app inner pages ─────────────────── */
+@keyframes brokerai-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.brokerai-page {
+  animation: brokerai-slide-up 0.3s ease-out;
 }
 
 /* Mobile sidebar drawer */

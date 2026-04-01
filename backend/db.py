@@ -209,6 +209,18 @@ def _sqlite_migrate() -> None:
                 conn.execute(
                     text("ALTER TABLE campaigns ADD COLUMN linkedin_url TEXT DEFAULT ''")
                 )
+            if "name" not in ccols:
+                conn.execute(
+                    text("ALTER TABLE campaigns ADD COLUMN name TEXT DEFAULT ''")
+                )
+            if "objective" not in ccols:
+                conn.execute(
+                    text("ALTER TABLE campaigns ADD COLUMN objective TEXT DEFAULT ''")
+                )
+            if "target_audience" not in ccols:
+                conn.execute(
+                    text("ALTER TABLE campaigns ADD COLUMN target_audience TEXT DEFAULT ''")
+                )
             conn.execute(
                 text(
                     "UPDATE campaigns SET facebook_url = '' WHERE facebook_url IS NULL"
@@ -224,6 +236,9 @@ def _sqlite_migrate() -> None:
                     "UPDATE campaigns SET linkedin_url = '' WHERE linkedin_url IS NULL"
                 )
             )
+            conn.execute(text("UPDATE campaigns SET name = '' WHERE name IS NULL"))
+            conn.execute(text("UPDATE campaigns SET objective = '' WHERE objective IS NULL"))
+            conn.execute(text("UPDATE campaigns SET target_audience = '' WHERE target_audience IS NULL"))
 
     # User table migrations
     if insp2.has_table("users"):

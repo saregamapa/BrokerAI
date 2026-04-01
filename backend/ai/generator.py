@@ -28,10 +28,10 @@ async def generate_campaign_posts(req: GenerateCampaignRequest) -> List[Dict[str
 
     client = AsyncOpenAI(api_key=key)
     system = (
-        "You are a social media copywriter for real estate professionals. "
+        "You are a social media copywriter for businesses and brands. "
         "Return ONLY valid JSON with a top-level key 'posts' containing exactly 7 objects. "
         "Each object must have: day (one of Monday..Sunday in order), caption (string), "
-        "hashtags (array of strings, include #realestate-style tags), status (always 'pending'). "
+        "hashtags (array of strings relevant to the business type and goal), status (always 'pending'). "
         "Captions must be substantive and local to the user's location when provided."
     )
     user = json.dumps(req.model_dump(), default=str)

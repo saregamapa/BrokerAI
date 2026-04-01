@@ -122,7 +122,7 @@
 
   function logout() {
     clearToken();
-    if (typeof window !== "undefined") window.location.href = "/login.html";
+    if (typeof window !== "undefined") window.location.href = "/";
   }
 
   /**

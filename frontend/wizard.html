@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Campaign wizard — BrokerAI</title>
+    <title>New Campaign — BrokerAI</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/styles.css" />
   </head>
@@ -73,8 +74,8 @@
         <div class="mx-auto max-w-3xl">
           <h1 class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Create a campaign</h1>
           <p class="mt-2 max-w-2xl text-sm text-slate-600 md:text-base">
-            Tell us about your business and goals. AI agents build a 7-day plan with captions, images, compliance, and
-            a publishing schedule.
+            Tell us about your business and goals. AI agents build a content plan with captions, images, compliance, and
+            a publishing schedule — sized to your posting frequency.
           </p>
 
           <!-- Step progress -->
@@ -156,11 +157,17 @@
                     name="business_type"
                     class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                   >
-                    <option value="Real Estate Agent" selected>Real Estate Agent</option>
-                    <option value="Real Estate Team">Real Estate Team</option>
-                    <option value="Mortgage Broker">Mortgage Broker</option>
-                    <option value="Property Manager">Property Manager</option>
-                    <option value="Real Estate Investor">Real Estate Investor</option>
+                    <option value="Small Business" selected>Small Business</option>
+                    <option value="E-commerce Brand">E-commerce Brand</option>
+                    <option value="Marketing Agency">Marketing Agency</option>
+                    <option value="Content Creator">Content Creator</option>
+                    <option value="SaaS / Tech Company">SaaS / Tech Company</option>
+                    <option value="Restaurant / Food & Beverage">Restaurant / Food &amp; Beverage</option>
+                    <option value="Fitness / Wellness Brand">Fitness / Wellness Brand</option>
+                    <option value="Professional Services">Professional Services</option>
+                    <option value="Non-profit / Community">Non-profit / Community</option>
+                    <option value="Real Estate Business">Real Estate Business</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
                 <div>
@@ -170,7 +177,7 @@
                   <input
                     name="location"
                     type="text"
-                    placeholder="e.g. Austin, TX"
+                    placeholder="e.g. New York, USA or Online"
                     required
                     class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                   />
@@ -186,12 +193,15 @@
                   class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                 >
                   <option value="">Select a goal…</option>
-                  <option value="Generate buyer leads">Generate buyer leads</option>
-                  <option value="Generate seller leads">Generate seller leads</option>
                   <option value="Build brand awareness">Build brand awareness</option>
-                  <option value="Promote a new listing">Promote a new listing</option>
+                  <option value="Generate leads">Generate leads</option>
+                  <option value="Drive website traffic">Drive website traffic</option>
+                  <option value="Grow social following">Grow social following</option>
+                  <option value="Promote a product or service">Promote a product or service</option>
+                  <option value="Announce a launch or event">Announce a launch or event</option>
                   <option value="Establish thought leadership">Establish thought leadership</option>
-                  <option value="Drive open house traffic">Drive open house traffic</option>
+                  <option value="Increase community engagement">Increase community engagement</option>
+                  <option value="Drive sales and conversions">Drive sales and conversions</option>
                 </select>
               </div>
               <div class="mt-5">
@@ -199,7 +209,7 @@
                 <input
                   name="audience"
                   type="text"
-                  placeholder="e.g. First-time homebuyers aged 28–40"
+                  placeholder="e.g. Small business owners aged 30–45 interested in productivity"
                   class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                 />
               </div>
@@ -355,7 +365,7 @@
                   />
                   <div>
                     <span class="text-sm font-semibold text-slate-900">AI captions &amp; strategy</span>
-                    <span class="mt-0.5 block text-xs text-slate-500">7-day plan, captions, hashtags, compliance</span>
+                    <span class="mt-0.5 block text-xs text-slate-500">AI captions, hashtags, compliance</span>
                   </div>
                 </label>
                 <label
@@ -396,7 +406,7 @@
               id="submit-btn"
               class="w-full rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 px-8 py-4 text-base font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Generate 7-day campaign
+              Generate &amp; Schedule
             </button>
             </fieldset>
           </form>
@@ -500,7 +510,7 @@
           return;
         }
         var body = {
-          business_type: fd.get("business_type") || "Real Estate Agent",
+          business_type: fd.get("business_type") || "Small Business",
           goal: fd.get("goal"),
           location: fd.get("location"),
           audience: fd.get("audience") || null,

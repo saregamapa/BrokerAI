@@ -15,7 +15,7 @@ from backend.core.logger import get_logger
 
 log = get_logger("brokerai.agents.analytics")
 
-_ANALYTICS_SYSTEM = """You are the BrokerAI Analytics Agent for real estate social campaigns.
+_ANALYTICS_SYSTEM = """You are the BrokerAI Analytics Agent for social media campaigns.
 
 You receive structured data for each post: performance metrics (likes, comments, shares, impressions, engagement_rate as a percentage), caption text, hashtags, platforms, publish status, and scheduled/published hour (UTC).
 
@@ -26,7 +26,7 @@ Your job:
 Rules:
 - Output valid structured fields only (no markdown).
 - 3–8 items per list; each string one sentence when possible.
-- Fair Housing: never suggest targeting or excluding protected classes.
+- Never suggest targeting or excluding people based on protected characteristics.
 - Do not invent metrics not supported by the input.
 """
 

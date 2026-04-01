@@ -58,11 +58,11 @@ def build_image_prompt(
     goal: str = "",
 ) -> str:
     """
-    Compose a DALL·E-ready prompt: professional real estate marketing visual.
+    Compose a DALL·E-ready prompt: professional brand/business marketing visual.
     """
     cap = (caption or "").strip()[:500]
     parts: List[str] = [
-        "Professional real estate social media marketing photograph, clean modern aesthetic, "
+        "Professional business social media marketing photograph, clean modern aesthetic, "
         "natural lighting, high detail, photorealistic, no text overlays, no watermarks, "
         "no logos, suitable for Instagram and Facebook.",
         f"Concept aligned with this post: {cap}",
@@ -72,12 +72,12 @@ def build_image_prompt(
     if (campaign_theme or "").strip():
         parts.append(f"Week theme context: {campaign_theme.strip()[:200]}")
     if (location or "").strip():
-        parts.append(f"Setting should evoke this market (architecture/vibe only, no discriminatory cues): {location.strip()[:120]}")
+        parts.append(f"Setting should evoke this locale (architecture/vibe only, no discriminatory cues): {location.strip()[:120]}")
     if (goal or "").strip():
         parts.append(f"Tone should support campaign goal: {goal.strip()[:120]}")
     parts.append(
-        "Show inviting residential property, curb appeal, or tasteful lifestyle context with "
-        "diverse adults in a generic professional context if people appear; Fair Housing compliant."
+        "Show an inviting, professional business context with "
+        "diverse adults in a welcoming setting if people appear; inclusive and non-discriminatory."
     )
     return " ".join(parts)[:4000]
 
@@ -147,20 +147,20 @@ def generate_video_script(
     loc = (location or "").strip()
     gl = (goal or "").strip()
     human = (
-        f"Create a 30-second real estate social media video script for Reels/Shorts.\n\n"
+        f"Create a 30-second social media video script for Reels/Shorts.\n\n"
         f"Topic / post focus: {topic}\n"
         f"Audience: {aud}\n"
         + (f"Location/market: {loc}\n" if loc else "")
         + (f"Campaign goal: {gl}\n" if gl else "")
         + "\n"
         "Scenes should be concrete and filmable. Voiceover should match the hook and scenes. "
-        "Stay Fair Housing compliant (no protected-class targeting)."
+        "Keep content inclusive and avoid targeting or excluding protected characteristics."
     )
     try:
         out: VideoScriptSchema = llm.invoke(
             [
                 SystemMessage(
-                    content="You write tight, high-retention short-form real estate video scripts."
+                    content="You write tight, high-retention short-form social media video scripts for businesses and brands."
                 ),
                 HumanMessage(content=human),
             ]

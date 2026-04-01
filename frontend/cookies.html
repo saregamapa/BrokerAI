@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cookies Policy — BrokerAI</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23f59e0b'/><text x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-size='20' font-weight='900' fill='white' font-family='system-ui'>B</text></svg>" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body class="brokerai-app min-h-screen bg-white text-slate-900 antialiased">
+
+    <!-- Topnav -->
+    <header class="sticky top-0 z-30 border-b border-slate-100 bg-white/90 backdrop-blur-md">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <a href="/" class="text-xl font-bold text-[#0f172a]">Broker<span class="text-amber-500">AI</span></a>
+        <a href="/" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 transition hover:text-slate-900">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+          Back to home
+        </a>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <div class="border-b border-slate-100 bg-[#f9fafb] py-12">
+      <div class="mx-auto max-w-3xl px-6">
+        <p class="text-xs font-bold uppercase tracking-wider text-amber-600">Legal</p>
+        <h1 class="mt-2 text-4xl font-bold tracking-tight text-[#0f172a]">Cookies Policy</h1>
+        <p class="mt-3 text-slate-500 text-sm">Last updated: April 1, 2026 &nbsp;·&nbsp; Effective: April 1, 2026</p>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <main class="mx-auto max-w-3xl px-6 py-14">
+      <div class="text-[15px] leading-relaxed text-slate-700 space-y-8">
+
+        <p>This Cookies Policy explains what cookies are, how BrokerAI uses them, and the choices you have. By continuing to use our platform, you consent to our use of cookies as described here.</p>
+
+        <hr class="border-slate-100" />
+
+        <section>
+          <h2 class="text-xl font-bold text-[#0f172a] mb-3">1. What Are Cookies?</h2>
+          <p>Cookies are small text files stored on your device (computer, tablet, or phone) when you visit a website. They allow the website to remember your actions and preferences over time, so you don't have to re-enter settings every time you return.</p>
+          <p class="mt-3">Similar technologies include <strong>localStorage</strong> and <strong>sessionStorage</strong>, which store data within your browser. We use these to persist your authentication token and app preferences without requiring a server round-trip.</p>
+        </section>
+
+        <hr class="border-slate-100" />
+
+        <section>
+          <h2 class="text-xl font-bold text-[#0f172a] mb-3">2. Cookies We Use</h2>
+
+          <!-- Table -->
+          <div class="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
+            <table class="min-w-full divide-y divide-slate-100 text-sm">
+              <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th class="px-5 py-3 text-left">Name / Key</th>
+                  <th class="px-5 py-3 text-left">Type</th>
+                  <th class="px-5 py-3 text-left">Purpose</th>
+                  <th class="px-5 py-3 text-left">Duration</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 bg-white">
+                <tr>
+                  <td class="px-5 py-3 font-mono text-xs text-slate-800">brokerai_token</td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">Strictly necessary</span></td>
+                  <td class="px-5 py-3 text-slate-600">Stores your JWT authentication token in localStorage so you remain logged in between sessions.</td>
+                  <td class="px-5 py-3 text-slate-600">Until logout or token expiry (60 min)</td>
+                </tr>
+                <tr class="bg-slate-50/50">
+                  <td class="px-5 py-3 font-mono text-xs text-slate-800">brokerai_tz</td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">Strictly necessary</span></td>
+                  <td class="px-5 py-3 text-slate-600">Stores your detected timezone (IANA string) used for scheduling posts in your local time.</td>
+                  <td class="px-5 py-3 text-slate-600">Persistent (localStorage)</td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-3 font-mono text-xs text-slate-800">_session</td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">Strictly necessary</span></td>
+                  <td class="px-5 py-3 text-slate-600">Server-side session identifier used to maintain secure state for authenticated API requests.</td>
+                  <td class="px-5 py-3 text-slate-600">Session (expires on browser close)</td>
+                </tr>
+                <tr class="bg-slate-50/50">
+                  <td class="px-5 py-3 font-mono text-xs text-slate-800">Analytics cookies</td>
+                  <td class="px-5 py-3"><span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">Analytics</span></td>
+                  <td class="px-5 py-3 text-slate-600">Used to understand aggregate usage patterns (e.g. page views, feature interactions) to improve the product. No personally identifiable data is shared.</td>
+                  <td class="px-5 py-3 text-slate-600">Up to 12 months</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <hr class="border-slate-100" />
+
+        <section>
+          <h2 class="text-xl font-bold text-[#0f172a] mb-3">3. Types of Cookies We Use</h2>
+
+          <div class="space-y-5">
+            <div class="rounded-2xl border border-blue-100 bg-blue-50/40 p-5">
+              <h3 class="font-semibold text-blue-900">Strictly Necessary Cookies</h3>
+              <p class="mt-1 text-sm text-slate-600">These cookies are essential for the platform to function. Without them, features like logging in, staying authenticated, and scheduling posts in your local timezone would not work. You cannot opt out of these cookies while using the Service.</p>
+            </div>
+            <div class="rounded-2xl border border-amber-100 bg-amber-50/40 p-5">
+              <h3 class="font-semibold text-amber-900">Analytics Cookies</h3>
+              <p class="mt-1 text-sm text-slate-600">These help us understand how users interact with BrokerAI — which features are popular, where users drop off, and what could be improved. The data is aggregated and anonymised. You can opt out by adjusting your browser settings.</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+              <h3 class="font-semibold text-slate-700">We Do Not Use</h3>
+              <p class="mt-1 text-sm text-slate-600">BrokerAI does <strong>not</strong> use advertising cookies, tracking pixels for ad targeting, or third-party marketing cookies. We do not share cookie data with advertisers.</p>
+            </div>
+          </div>
+        </section>
+
+        <hr class="border-slate-100" />
+
+        <section>
+          <h2 class="text-xl font-bold text-[#0f172a] mb-3">4. Third-Party Cookies</h2>
+          <p>Some of our third-party integrations may set their own cookies:</p>
+          <ul class="mt-3 list-disc pl-5 space-y-2">
+            <li><strong>Ayrshare:</strong> When you authenticate social accounts via Ayrshare's OAuth flow, Ayrshare may set session cookies in that window. These are governed by <a href="https://www.ayrshare.com/privacy/" target="_blank" rel="noopener" class="text-amber-600 underline underline-offset-2 hover:text-amber-700">Ayrshare's Privacy Policy</a>.</li>
+            <li><strong>Tailwind CSS CDN:</strong> Our frontend loads Tailwind CSS from a public CDN (cdn.tailwindcss.com). CDN requests may be logged by the CDN provider but do not set persistent cookies.</li>
+          </ul>
+        </section>
+
+        <hr class="border-slate-100" />
+
+        <section>
+          <h2 class="text-xl font-bold text-[#0f172a] mb-3">5. Managing Cookies</h2>
+          <p>You can control and delete cookies through your browser settings. Here's how for common browsers:</p>
+          <ul class="mt-3 list-disc pl-5 space-y-1.5 text-sm">
+            <li><strong>Chrome:</strong> Settings → Privacy and security → Cookies and other site data</li>
+            <li><strong>Firefox:</strong> Options → Privacy &amp; Security → Cookies and Site Data</li>
+            <li><strong>Safari:</strong> Preferences → Privacy → Manage Website Data</li>
+            <li><strong>Edge:</strong> Settings → Cookies and site permissions → Cookies and site data</li>
+          </ul>
+          <div class="mt-5 rounded-2xl border border-amber-200/60 bg-amber-50/50 p-4 text-sm text-amber-900">
+            <strong>Note:</strong> Blocking strictly necessary cookies (like your authentication token) will prevent BrokerAI from functioning correctly and you will not be able to stay logged in.
+          </div>
+          <p class="mt-4">To clear BrokerAI's localStorage data specifically, open your browser's developer tools (F12), go to Application → Local Storage → <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">http://127.0.0.1:8000</code>, and clear the entries.</p>
+        </section>
+
+        <hr class="border-slate-100" />
+
+        <section>
+          <h2 class="text-xl font-bold text-[#0f172a] mb-3">6. Changes to This Policy</h2>
+          <p>We may update this Cookies Policy periodically. Changes will be reflected by the "Last updated" date at the top of this page. Continued use of our Service after any changes constitutes your acceptance of the updated policy.</p>
+        </section>
+
+        <hr class="border-slate-100" />
+
+        <section>
+          <h2 class="text-xl font-bold text-[#0f172a] mb-3">7. Contact Us</h2>
+          <p>Questions about our use of cookies? Get in touch:</p>
+          <div class="mt-4 rounded-2xl border border-slate-200 bg-[#f9fafb] p-5 text-sm">
+            <p><strong>BrokerAI</strong></p>
+            <p class="mt-1">Email: <a href="mailto:privacy@brokerai.app" class="text-amber-600 underline underline-offset-2 hover:text-amber-700">privacy@brokerai.app</a></p>
+            <p class="mt-1">Contact form: <a href="/contact.html" class="text-amber-600 underline underline-offset-2 hover:text-amber-700">brokerai.app/contact</a></p>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-100 bg-[#0f172a] py-10 mt-8">
+      <div class="mx-auto max-w-6xl px-6 flex flex-col items-center justify-between gap-4 text-sm text-slate-500 sm:flex-row">
+        <a href="/" class="font-bold text-white">Broker<span class="text-amber-400">AI</span></a>
+        <div class="flex flex-wrap justify-center gap-5">
+          <a href="/privacy.html" class="hover:text-white transition">Privacy Policy</a>
+          <a href="/cookies.html" class="hover:text-white transition">Cookies Policy</a>
+          <a href="/terms.html" class="hover:text-white transition">Terms of Service</a>
+          <a href="/contact.html" class="hover:text-white transition">Contact Us</a>
+        </div>
+        <p>© 2026 BrokerAI.</p>
+      </div>
+    </footer>
+
+  </body>
+</html>
