@@ -395,7 +395,7 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
                     "Profile-Key": pk,
                 },
             )
-    except httpx.RequestError as e:
+    except Exception as e:
         log.warning("Ayrshare GET /user failed profile_key=%s err=%s", pk[:8], e)
         return None
 
@@ -454,7 +454,7 @@ def fetch_profiles_by_ref_id(ref_id: str) -> Optional[List[Dict[str, Any]]]:
                 params={"refId": rid},
                 headers={"Authorization": f"Bearer {key}"},
             )
-    except httpx.RequestError as e:
+    except Exception as e:
         log.warning("Ayrshare GET /profiles failed ref_id=%s err=%s", rid, e)
         return None
 
