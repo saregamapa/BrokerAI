@@ -23,6 +23,7 @@ from backend.integrations.ayrshare import (
     publish_post,
 )
 from backend.models import Post, User
+from backend.services.team_service import resolve_ayrshare_subject_user
 from backend.services.analytics import fetch_post_analytics
 from backend.workflow.post_state import (
     POST_APPROVED,
@@ -386,9 +387,14 @@ async def safe_publish_post(post_id: int, *, force_immediate: bool = False) -> D
     )
 
     with Session(engine) as session:
-        owner = session.get(User, snap.user_id)
+        post_user = session.get(User, snap.user_id)
+        subject = (
+            resolve_ayrshare_subject_user(session, post_user)
+            if post_user is not None
+            else None
+        )
         profile_key = (
-            (owner.ayrshare_profile_key or "").strip() if owner is not None else ""
+            (subject.ayrshare_profile_key or "").strip() if subject is not None else ""
         )
 
     try:

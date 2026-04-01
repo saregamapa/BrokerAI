@@ -23,12 +23,36 @@
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Connect Social Accounts</h1>
-              <p class="mt-1.5 text-sm text-slate-600">Link your social profiles so BrokerAI can publish approved posts automatically.</p>
+              <p id="connect-page-subtitle" class="mt-1.5 text-sm text-slate-600">
+                Link your social profiles so BrokerAI can publish approved posts automatically.
+              </p>
+            </div>
+          </div>
+
+          <!-- Team member / admin: social is the owner’s Ayrshare profile -->
+          <div
+            id="connect-team-inherited"
+            class="mt-8 hidden rounded-2xl border border-sky-200/80 bg-sky-50/90 p-5 shadow-sm"
+          >
+            <div class="flex items-start gap-3">
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/20">
+                <svg class="h-4 w-4 text-sky-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+              <div>
+                <p class="text-sm font-bold text-sky-950">Team workspace</p>
+                <p class="mt-1.5 text-sm leading-relaxed text-sky-900/85">
+                  Your team uses the <span class="font-semibold">owner’s</span> connected social accounts for publishing.
+                  You do not need to connect your own profiles. If posts cannot publish, ask the team owner to connect
+                  (or reconnect) accounts on this page while signed in as them.
+                </p>
+              </div>
             </div>
           </div>
 
           <!-- How it works -->
-          <div class="mt-8 rounded-2xl border border-amber-200/80 bg-amber-50/90 p-5 shadow-sm">
+          <div id="connect-how-owner" class="mt-8 rounded-2xl border border-amber-200/80 bg-amber-50/90 p-5 shadow-sm">
             <div class="flex items-start gap-3">
               <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20">
                 <svg class="h-4 w-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -99,8 +123,8 @@
             </div>
           </div>
 
-          <!-- Action buttons -->
-          <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+          <!-- Action buttons (hidden for team members — owner connects for the workspace) -->
+          <div id="connect-owner-actions" class="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
               id="btn-connect-accounts"
@@ -157,13 +181,44 @@
         var statusLine = document.getElementById("connect-status-line");
         var statusHint = document.getElementById("connect-status-hint");
         var statusIcon = document.getElementById("connect-status-icon");
+        var usesOwnerSocial = false;
+
+        async function initTeamRole() {
+          try {
+            var u = await BrokerAI.apiJson("/me", { method: "GET" });
+            usesOwnerSocial = !!(
+              u &&
+              u.team_id &&
+              String(u.role || "").toLowerCase() !== "owner"
+            );
+            if (usesOwnerSocial) {
+              var inh = document.getElementById("connect-team-inherited");
+              if (inh) inh.classList.remove("hidden");
+              var act = document.getElementById("connect-owner-actions");
+              if (act) act.classList.add("hidden");
+              var how = document.getElementById("connect-how-owner");
+              if (how) how.classList.add("hidden");
+              var sub = document.getElementById("connect-page-subtitle");
+              if (sub) {
+                sub.textContent =
+                  "Your team publishes through the owner’s linked channels. Status below reflects that connection.";
+              }
+            }
+          } catch (e) {
+            /* non-fatal */
+          }
+        }
 
         function setStatus(connected, detail, syncOk) {
           if (!statusLine) return;
           if (connected) {
             statusLine.textContent = "Connected";
             statusLine.className = "mt-2 text-lg font-semibold text-emerald-600";
-            statusHint.textContent = detail || "Your Ayrshare profile is verified. Posts will publish automatically.";
+            statusHint.textContent =
+              detail ||
+              (usesOwnerSocial
+                ? "The team owner’s Ayrshare profile is verified. Posts can publish to their linked accounts."
+                : "Your Ayrshare profile is verified. Posts will publish automatically.");
             if (statusIcon) {
               statusIcon.className = "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100";
               statusIcon.innerHTML = '<svg class="h-6 w-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
@@ -175,6 +230,10 @@
             if (detail) parts.push(detail);
             if (syncOk === false) {
               parts.push("Could not verify with Ayrshare. Check server config and retry.");
+            } else if (usesOwnerSocial) {
+              parts.push(
+                "Ask your team owner to open this page while signed in as the owner and complete Connect via Ayrshare."
+              );
             } else {
               parts.push('Tap "Connect via Ayrshare", complete the flow, then click "Verify connection".');
             }
@@ -224,8 +283,9 @@
           }
         });
 
-        if (window.location.search.indexOf("returned=1") !== -1) {
-          (async function () {
+        (async function boot() {
+          await initTeamRole();
+          if (window.location.search.indexOf("returned=1") !== -1) {
             try {
               BrokerAI.setLoading(true);
               var cb = await BrokerAI.apiJson("/social-connected-callback", { method: "POST", body: "{}" });
@@ -241,10 +301,10 @@
             } finally {
               BrokerAI.setLoading(false);
             }
-          })();
-        } else {
-          refreshStatus();
-        }
+          } else {
+            await refreshStatus();
+          }
+        })();
       })();
     </script>
   </body>

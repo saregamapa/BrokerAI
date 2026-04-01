@@ -18,6 +18,7 @@ from backend.integrations.ayrshare import (
     normalize_platforms,
 )
 from backend.models import Post, User
+from backend.services.team_service import resolve_ayrshare_subject_user
 
 log = get_logger("brokerai.analytics_service")
 
@@ -130,8 +131,15 @@ async def fetch_post_analytics(
     if row is None or row.user_id != user_id:
         return {"error": "not_found", "post_id": post_id}
 
-    owner = session.get(User, user_id)
-    profile_key = (owner.ayrshare_profile_key or "").strip() if owner is not None else ""
+    post_owner = session.get(User, user_id)
+    subject = (
+        resolve_ayrshare_subject_user(session, post_owner)
+        if post_owner is not None
+        else None
+    )
+    profile_key = (
+        (subject.ayrshare_profile_key or "").strip() if subject is not None else ""
+    )
 
     plat_list = _platform_list_for_row(row, platform)
 

@@ -32,6 +32,26 @@ def _get_team_or_404(session: Session, team_id: int) -> Team:
     return team
 
 
+def resolve_ayrshare_subject_user(session: Session, user: User) -> User:
+    """
+    Ayrshare Business uses one User Profile (Profile-Key) per connected workspace.
+
+    Team/org members (anyone who is not the team's owner user) publish and verify
+    social status through the team owner's profile — they do not create their own.
+    """
+    tid = getattr(user, "team_id", None)
+    if tid is None:
+        return user
+    team = session.get(Team, int(tid))
+    if team is None:
+        return user
+    oid = int(team.owner_id or 0)
+    if oid <= 0 or int(user.id or 0) == oid:
+        return user
+    owner = session.get(User, oid)
+    return owner if owner is not None else user
+
+
 def _require_team_member(user: User, team_id: int) -> None:
     """Raise 403 if the user does not belong to this team."""
     if getattr(user, "team_id", None) != team_id:

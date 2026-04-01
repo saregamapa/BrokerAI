@@ -88,6 +88,7 @@ from backend.services.team_service import (
     create_team,
     list_members,
     remove_member,
+    resolve_ayrshare_subject_user,
     update_member_role,
 )
 from backend.services.invite_service import (
@@ -285,13 +286,34 @@ def _require_social_ready(session: Session, user_id: int) -> None:
     u = session.get(User, user_id)
     if not u:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    connected, _sync_ok = _verify_user_social_connection(session, u)
-    session.refresh(u)
+    subject = resolve_ayrshare_subject_user(session, u)
+    connected, _sync_ok = _verify_user_social_connection(session, subject)
+    session.refresh(subject)
     if not connected:
         raise HTTPException(
             status_code=403,
             detail="Please connect your social accounts first.",
         )
+
+
+def _user_out(session: Session, u: User) -> UserOut:
+    """User profile for API responses; social_connected follows team owner's link for members."""
+    subject = resolve_ayrshare_subject_user(session, u)
+    connected, _ = _verify_user_social_connection(session, subject)
+    session.refresh(u)
+    session.refresh(subject)
+    return UserOut(
+        id=u.id,
+        email=u.email,
+        social_connected=bool(connected),
+        timezone=normalize_iana_timezone(getattr(u, "timezone", None)),
+        facebook_url=getattr(u, "facebook_url", None) or "",
+        instagram_url=getattr(u, "instagram_url", None) or "",
+        linkedin_url=getattr(u, "linkedin_url", None) or "",
+        account_type=getattr(u, "account_type", None) or "individual",
+        role=getattr(u, "role", None) or "owner",
+        team_id=getattr(u, "team_id", None),
+    )
 
 
 def _hashtags_to_list(raw: str) -> list:
@@ -498,6 +520,15 @@ async def connect_social(
     user = session.get(User, current_user.id)
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    subject = resolve_ayrshare_subject_user(session, user)
+    if int(subject.id or 0) != int(user.id or 0):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Social accounts are managed by your team owner. "
+                "Publishing uses their connected channels — you do not need to connect separately."
+            ),
+        )
     try:
         existing_row = _get_social_account(session, int(user.id or 0))
         if not (user.ayrshare_profile_key or "").strip() and existing_row is not None:
@@ -595,21 +626,23 @@ def social_status(
     user = session.get(User, current_user.id)
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    connected, sync_ok = _verify_user_social_connection(session, user)
-    session.refresh(user)
-    row = _get_social_account(session, int(user.id or 0))
+    subject = resolve_ayrshare_subject_user(session, user)
+    connected, sync_ok = _verify_user_social_connection(session, subject)
+    session.refresh(subject)
+    row = _get_social_account(session, int(subject.id or 0))
     state = _social_state_from_row(row, sync_ok=sync_ok)
     resp = SocialStatusResponse(
         connected=bool(connected),
         state=state,  # type: ignore[arg-type]
-        profile_key_present=bool((user.ayrshare_profile_key or "").strip()),
+        profile_key_present=bool((subject.ayrshare_profile_key or "").strip()),
         can_create_campaign=bool(connected),
         last_verified_at=(row.updated_at if row is not None else None),
         ayrshare_sync_ok=sync_ok,
     )
     log.info(
-        "social-status user_id=%s connected=%s state=%s sync_ok=%s profile_key_present=%s",
+        "social-status requester_id=%s subject_user_id=%s connected=%s state=%s sync_ok=%s profile_key_present=%s",
         current_user.id,
+        subject.id,
         resp.connected,
         resp.state,
         resp.ayrshare_sync_ok,
@@ -627,9 +660,10 @@ def social_connected_callback(
     user = session.get(User, current_user.id)
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    connected, sync_ok = _verify_user_social_connection(session, user)
-    session.refresh(user)
-    row = _get_social_account(session, int(user.id or 0))
+    subject = resolve_ayrshare_subject_user(session, user)
+    connected, sync_ok = _verify_user_social_connection(session, subject)
+    session.refresh(subject)
+    row = _get_social_account(session, int(subject.id or 0))
     state = _social_state_from_row(row, sync_ok=sync_ok)
     msg = None
     if not sync_ok:
@@ -637,8 +671,9 @@ def social_connected_callback(
     elif not connected:
         msg = "Authorization not completed yet. Finish in Ayrshare and retry."
     log.info(
-        "social-connected-callback user_id=%s sync_ok=%s connected=%s state=%s",
+        "social-connected-callback requester_id=%s subject_user_id=%s sync_ok=%s connected=%s state=%s",
         current_user.id,
+        subject.id,
         sync_ok,
         connected,
         state,
@@ -740,18 +775,7 @@ def me(
     u = session.get(User, user.id)
     if u is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return UserOut(
-        id=u.id,
-        email=u.email,
-        social_connected=bool(getattr(u, "social_connected", False)),
-        timezone=normalize_iana_timezone(getattr(u, "timezone", None)),
-        facebook_url=getattr(u, "facebook_url", None) or "",
-        instagram_url=getattr(u, "instagram_url", None) or "",
-        linkedin_url=getattr(u, "linkedin_url", None) or "",
-        account_type=getattr(u, "account_type", None) or "individual",
-        role=getattr(u, "role", None) or "owner",
-        team_id=getattr(u, "team_id", None),
-    )
+    return _user_out(session, u)
 
 
 @app.patch("/me/profile-urls", response_model=UserOut)
@@ -773,18 +797,7 @@ def update_profile_urls(
     session.add(u)
     session.commit()
     session.refresh(u)
-    return UserOut(
-        id=u.id,
-        email=u.email,
-        social_connected=bool(getattr(u, "social_connected", False)),
-        timezone=normalize_iana_timezone(getattr(u, "timezone", None)),
-        facebook_url=u.facebook_url or "",
-        instagram_url=u.instagram_url or "",
-        linkedin_url=u.linkedin_url or "",
-        account_type=getattr(u, "account_type", None) or "individual",
-        role=getattr(u, "role", None) or "owner",
-        team_id=getattr(u, "team_id", None),
-    )
+    return _user_out(session, u)
 
 
 PLAN_LIMITS = {
