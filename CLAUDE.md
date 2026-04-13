@@ -74,7 +74,6 @@ brokerai/
 │ ├── review.html
 │ ├── connect.html
 │ ├── analytics.html
-│ ├── calendar.html
 │ ├── css/
 │ ├── js/
 │
@@ -292,9 +291,6 @@ Steps:
 
 ### 6. Analytics Page
 - Show engagement metrics (mock initially)
-
-### 7. Calendar Page
-- Show scheduled posts
 
 ---
 

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comment Automations — BrokerAI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+  <header class="border-b border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+      <div class="flex items-center gap-3">
+        <a href="/dashboard.html" class="text-sm text-slate-500 hover:text-slate-700">← Dashboard</a>
+        <h1 class="text-xl font-bold">💬 Comment-to-DM Automations</h1>
+      </div>
+      <button id="btn-new" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600">+ New automation</button>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl px-6 py-8">
+    <div class="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      <strong>How it works:</strong> When someone comments a keyword (e.g. "PRICE", "INFO") on your post,
+      we auto-reply to their comment and send them a DM with the link you choose — usually a lead form.
+      Use <code class="rounded bg-amber-100 px-1">{handle}</code>, <code class="rounded bg-amber-100 px-1">{link}</code>, <code class="rounded bg-amber-100 px-1">{keyword}</code>, <code class="rounded bg-amber-100 px-1">{comment}</code> as template variables.
+    </div>
+
+    <div id="list" class="grid gap-4 md:grid-cols-2"></div>
+    <div id="empty" class="hidden rounded-2xl border border-dashed border-slate-300 p-12 text-center text-sm text-slate-500">
+      No automations yet. Create one to turn comments into DMs automatically.
+    </div>
+  </main>
+
+  <!-- Editor modal -->
+  <div id="modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 p-4">
+    <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+        <h2 id="mtitle" class="text-lg font-bold">New automation</h2>
+        <button id="mclose" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <div class="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+        <div>
+          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Name</label>
+          <input id="f-name" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Instagram: PRICE keyword → lead form" />
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Platform</label>
+            <select id="f-platform" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="tiktok">TikTok</option>
+              <option value="youtube">YouTube</option>
+            </select>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Match mode</label>
+            <select id="f-mode" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              <option value="any">Any keyword</option>
+              <option value="all">All keywords</option>
+              <option value="exact">Exact match</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">External post ID (from Ayrshare)</label>
+          <input id="f-epost" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono" placeholder="e.g. 17895462...  — leave blank for catch-all" />
+          <p class="mt-1 text-xs text-slate-500">The post ID returned by Ayrshare when you publish. Required for webhooks to find this automation.</p>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Keywords (comma-separated)</label>
+          <input id="f-keywords" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="PRICE, INFO, DETAILS" />
+          <label class="mt-2 flex items-center gap-2 text-xs text-slate-600">
+            <input id="f-case" type="checkbox" class="rounded" /> Case-sensitive
+          </label>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-3">
+          <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input id="f-reply-enabled" type="checkbox" class="rounded" checked /> Reply publicly to comment
+          </label>
+          <textarea id="f-reply" rows="2" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Thanks for the interest! Just sent you a DM 📩"></textarea>
+        </div>
+        <div class="rounded-lg border border-slate-200 p-3">
+          <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <input id="f-dm-enabled" type="checkbox" class="rounded" checked /> Send DM
+          </label>
+          <textarea id="f-dm" rows="3" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Hi {handle}! Here's the info you asked about: {link}"></textarea>
+          <div class="mt-2 grid gap-2 sm:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Attach lead form</label>
+              <select id="f-leadform" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                <option value="">— None —</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Or custom link</label>
+              <input id="f-link" type="url" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="https://..." />
+            </div>
+          </div>
+        </div>
+        <label class="flex items-center gap-2 text-sm text-slate-700">
+          <input id="f-active" type="checkbox" class="rounded" checked /> Active
+        </label>
+      </div>
+      <div class="flex items-center justify-between gap-3 border-t border-slate-200 px-6 py-4">
+        <button id="btn-test" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Test with a comment…</button>
+        <div class="flex gap-2">
+          <button id="mcancel" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+          <button id="msave" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test modal -->
+  <div id="testmodal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
+    <div class="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+        <h2 class="text-lg font-bold">Test automation</h2>
+        <button id="tclose" class="text-slate-400 hover:text-slate-700">✕</button>
+      </div>
+      <div class="space-y-3 px-6 py-4">
+        <div>
+          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Commenter handle</label>
+          <input id="t-handle" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value="test_user" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Comment text</label>
+          <textarea id="t-text" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="PRICE please"></textarea>
+        </div>
+        <label class="flex items-center gap-2 text-xs text-slate-600">
+          <input id="t-execute" type="checkbox" class="rounded" /> Log as real trigger (increments counter)
+        </label>
+        <div id="t-result" class="hidden rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"></div>
+      </div>
+      <div class="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
+        <button id="tcancel" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Close</button>
+        <button id="trun" class="rounded-lg bg-sky-500 px-4 py-2 text-sm font-bold text-white hover:bg-sky-600">Run test</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const TOKEN = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
+if (!TOKEN) { window.location.href = "/login.html"; }
+const H = { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" };
+
+const $ = (id) => document.getElementById(id);
+const state = { editing: null, forms: [] };
+
+async function api(path, opts={}) {
+  const r = await fetch(path, { headers: H, ...opts });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`${r.status}: ${t}`);
+  }
+  if (r.status === 204) return null;
+  return r.json();
+}
+
+function openModal(a) {
+  state.editing = a || null;
+  $("mtitle").textContent = a ? "Edit automation" : "New automation";
+  $("f-name").value = a?.name || "";
+  $("f-platform").value = a?.platform || "instagram";
+  $("f-mode").value = a?.match_mode || "any";
+  $("f-epost").value = a?.external_post_id || "";
+  $("f-keywords").value = (a?.keywords || []).join(", ");
+  $("f-case").checked = !!a?.case_sensitive;
+  $("f-reply-enabled").checked = a?.reply_comment_enabled ?? true;
+  $("f-reply").value = a?.reply_comment_template || "Thanks for the interest! Just sent you a DM 📩";
+  $("f-dm-enabled").checked = a?.dm_enabled ?? true;
+  $("f-dm").value = a?.dm_template || "Hi {handle}! Here's the info you asked about: {link}";
+  $("f-leadform").value = a?.lead_form_id ? String(a.lead_form_id) : "";
+  $("f-link").value = a?.link_url || "";
+  $("f-active").checked = a?.is_active ?? true;
+  $("modal").classList.remove("hidden"); $("modal").classList.add("flex");
+}
+
+function closeModal() {
+  $("modal").classList.add("hidden"); $("modal").classList.remove("flex");
+  state.editing = null;
+}
+
+async function loadLeadForms() {
+  try {
+    const j = await api("/lead-forms");
+    state.forms = j.items || [];
+    const sel = $("f-leadform");
+    sel.innerHTML = '<option value="">— None —</option>' +
+      state.forms.map(f => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join("");
+  } catch(e) { /* ignore */ }
+}
+
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+async function load() {
+  const j = await api("/comment-automations");
+  const list = $("list");
+  list.innerHTML = "";
+  if (!j.items?.length) { $("empty").classList.remove("hidden"); return; }
+  $("empty").classList.add("hidden");
+  for (const a of j.items) {
+    const div = document.createElement("div");
+    div.className = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
+    const statusPill = a.is_active
+      ? '<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">Active</span>'
+      : '<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Paused</span>';
+    div.innerHTML = `
+      <div class="flex items-start justify-between">
+        <div>
+          <h3 class="text-base font-bold">${escapeHtml(a.name)}</h3>
+          <p class="mt-1 text-xs text-slate-500">${escapeHtml(a.platform)} · ${a.trigger_count} triggers</p>
+        </div>
+        ${statusPill}
+      </div>
+      <div class="mt-3 text-sm">
+        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Keywords</div>
+        <div class="mt-1 flex flex-wrap gap-1">
+          ${a.keywords.map(k => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(k)}</span>`).join("")}
+        </div>
+      </div>
+      ${a.external_post_id ? `<p class="mt-2 text-xs text-slate-500">Post: <code class="font-mono">${escapeHtml(a.external_post_id)}</code></p>` : '<p class="mt-2 text-xs text-amber-600">⚠ No external post ID — webhook can\'t route here</p>'}
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button data-edit="${a.id}" class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-50">Edit</button>
+        <button data-triggers="${a.id}" class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-50">View triggers</button>
+        <button data-toggle="${a.id}" data-active="${a.is_active}" class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-50">${a.is_active ? "Pause" : "Activate"}</button>
+        <button data-del="${a.id}" class="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Delete</button>
+      </div>
+    `;
+    list.appendChild(div);
+  }
+  list.querySelectorAll("[data-edit]").forEach(b => b.onclick = async () => {
+    const a = (await api("/comment-automations/" + b.dataset.edit));
+    openModal(a);
+  });
+  list.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    if (!confirm("Delete this automation and all its triggers?")) return;
+    await api("/comment-automations/" + b.dataset.del, { method: "DELETE" });
+    load();
+  });
+  list.querySelectorAll("[data-toggle]").forEach(b => b.onclick = async () => {
+    const active = b.dataset.active === "true";
+    await api("/comment-automations/" + b.dataset.toggle, {
+      method: "PUT", body: JSON.stringify({ is_active: !active }),
+    });
+    load();
+  });
+  list.querySelectorAll("[data-triggers]").forEach(b => b.onclick = async () => {
+    const j = await api("/comment-automations/" + b.dataset.triggers + "/triggers");
+    const rows = (j.items || []).map(t => `
+      <tr class="border-b border-slate-100">
+        <td class="px-3 py-2 text-xs text-slate-500">${new Date(t.triggered_at+"Z").toLocaleString()}</td>
+        <td class="px-3 py-2 text-xs font-mono">@${escapeHtml(t.commenter_handle)}</td>
+        <td class="px-3 py-2 text-xs">${escapeHtml(t.comment_text)}</td>
+        <td class="px-3 py-2 text-xs">${t.dm_sent ? "✅" : "—"}</td>
+      </tr>`).join("");
+    const html = j.items?.length
+      ? `<table class="min-w-full text-sm"><thead><tr class="bg-slate-50 text-left"><th class="px-3 py-2">When</th><th class="px-3 py-2">Handle</th><th class="px-3 py-2">Comment</th><th class="px-3 py-2">DM</th></tr></thead><tbody>${rows}</tbody></table>`
+      : '<p class="p-4 text-sm text-slate-500">No triggers yet.</p>';
+    const w = window.open("", "_blank", "width=700,height=500");
+    w.document.write(`<html><head><title>Triggers</title><script src="https://cdn.tailwindcss.com"><\/script></head><body class="p-6">${html}</body></html>`);
+  });
+}
+
+async function save() {
+  const keywords = $("f-keywords").value.split(",").map(s => s.trim()).filter(Boolean);
+  if (!keywords.length) { alert("Enter at least one keyword."); return; }
+  const leadFormVal = $("f-leadform").value;
+  const body = {
+    name: $("f-name").value.trim() || "Untitled",
+    platform: $("f-platform").value,
+    match_mode: $("f-mode").value,
+    external_post_id: $("f-epost").value.trim(),
+    keywords,
+    case_sensitive: $("f-case").checked,
+    reply_comment_enabled: $("f-reply-enabled").checked,
+    reply_comment_template: $("f-reply").value,
+    dm_enabled: $("f-dm-enabled").checked,
+    dm_template: $("f-dm").value,
+    lead_form_id: leadFormVal ? parseInt(leadFormVal) : null,
+    link_url: $("f-link").value.trim(),
+    is_active: $("f-active").checked,
+  };
+  try {
+    if (state.editing) {
+      await api("/comment-automations/" + state.editing.id, { method: "PUT", body: JSON.stringify(body) });
+    } else {
+      await api("/comment-automations", { method: "POST", body: JSON.stringify(body) });
+    }
+    closeModal();
+    load();
+  } catch(e) {
+    alert("Save failed: " + e.message);
+  }
+}
+
+$("btn-new").onclick = () => openModal(null);
+$("mclose").onclick = closeModal;
+$("mcancel").onclick = closeModal;
+$("msave").onclick = save;
+
+$("btn-test").onclick = () => {
+  if (!state.editing) { alert("Save first, then test."); return; }
+  $("t-text").value = ""; $("t-result").classList.add("hidden");
+  $("testmodal").classList.remove("hidden"); $("testmodal").classList.add("flex");
+};
+$("tclose").onclick = $("tcancel").onclick = () => {
+  $("testmodal").classList.add("hidden"); $("testmodal").classList.remove("flex");
+};
+$("trun").onclick = async () => {
+  if (!state.editing) return;
+  try {
+    const j = await api(`/comment-automations/${state.editing.id}/simulate`, {
+      method: "POST",
+      body: JSON.stringify({
+        commenter_handle: $("t-handle").value || "test_user",
+        comment_text: $("t-text").value,
+        execute: $("t-execute").checked,
+      }),
+    });
+    const r = $("t-result");
+    r.classList.remove("hidden");
+    r.innerHTML = j.matched
+      ? `<p class="font-semibold text-emerald-700">✅ Matched on "${escapeHtml(j.matched_keyword)}"</p>
+         <div class="mt-2"><strong>Reply:</strong> <span class="text-slate-700">${escapeHtml(j.rendered_reply) || '<em>disabled</em>'}</span></div>
+         <div class="mt-1"><strong>DM:</strong> <span class="text-slate-700">${escapeHtml(j.rendered_dm) || '<em>disabled</em>'}</span></div>
+         ${j.trigger_id ? `<p class="mt-2 text-xs text-slate-500">Logged as trigger #${j.trigger_id}</p>` : ""}`
+      : '<p class="text-slate-600">No match — try different keywords or comment text.</p>';
+    if ($("t-execute").checked) load();
+  } catch(e) {
+    alert("Test failed: " + e.message);
+  }
+};
+
+loadLeadForms().then(load);
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lead Capture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: linear-gradient(135deg,#fef3c7 0%, #fff 55%, #fce7f3 100%); }
+    .ring-brand:focus { outline: none; box-shadow: 0 0 0 3px rgba(245,158,11,.35); border-color: #f59e0b; }
+  </style>
+</head>
+<body class="min-h-screen antialiased text-slate-900">
+  <main class="mx-auto flex min-h-screen max-w-xl items-center justify-center px-5 py-10">
+    <div id="card" class="w-full rounded-3xl border border-slate-200 bg-white/90 p-8 shadow-xl backdrop-blur">
+      <div id="loader" class="py-12 text-center text-slate-400">Loading form…</div>
+      <div id="form-body" class="hidden">
+        <h1 id="headline" class="text-2xl font-bold tracking-tight"></h1>
+        <p id="description" class="mt-2 whitespace-pre-line text-sm text-slate-600"></p>
+        <form id="lead-form" class="mt-6 space-y-4"></form>
+        <div id="err" class="mt-3 hidden rounded-lg bg-rose-50 px-4 py-2 text-sm text-rose-700"></div>
+        <p class="mt-6 text-center text-[11px] text-slate-400">Powered by BrokerAI</p>
+      </div>
+      <div id="thanks" class="hidden py-12 text-center">
+        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-3xl">✓</div>
+        <h2 class="text-xl font-bold text-slate-900">Thank you!</h2>
+        <p id="thanks-msg" class="mt-2 text-sm text-slate-600"></p>
+      </div>
+    </div>
+  </main>
+  <script>
+    // Derive slug from URL: /lead/{slug}.html or /lead/{slug}
+    (function () {
+      const path = window.location.pathname;
+      const m = path.match(/\/lead\/([a-zA-Z0-9]+)(?:\.html)?$/);
+      const slug = m ? m[1] : "";
+      if (!slug) { document.getElementById("loader").textContent = "Invalid form link."; return; }
+
+      const params = new URLSearchParams(window.location.search);
+      const utm_campaign = params.get("utm_campaign") || "";
+      const utm_source = params.get("utm_source") || "";
+      const source = params.get("src") || "";
+
+      const loader = document.getElementById("loader");
+      const body = document.getElementById("form-body");
+      const thanks = document.getElementById("thanks");
+      const err = document.getElementById("err");
+
+      function showErr(msg) { err.textContent = msg; err.classList.remove("hidden"); }
+
+      function fieldHtml(f) {
+        const common = `name="${f.key}" ${f.required ? "required" : ""} class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm ring-brand" placeholder="${f.placeholder || ""}"`;
+        if (f.type === "textarea") {
+          return `<textarea ${common} rows="3"></textarea>`;
+        }
+        if (f.type === "select") {
+          const opts = (f.options || []).map(o => `<option value="${o}">${o}</option>`).join("");
+          return `<select ${common}><option value="" disabled selected>Select…</option>${opts}</select>`;
+        }
+        if (f.type === "checkbox") {
+          return `<label class="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" name="${f.key}" ${f.required ? "required" : ""} /> ${f.help_text || f.label}</label>`;
+        }
+        const typeMap = { email: "email", phone: "tel", number: "number" };
+        const htmlType = typeMap[f.type] || "text";
+        return `<input type="${htmlType}" ${common} />`;
+      }
+
+      fetch(`/public/lead-forms/${encodeURIComponent(slug)}`)
+        .then(r => { if (!r.ok) throw new Error("Form not found"); return r.json(); })
+        .then(form => {
+          loader.classList.add("hidden");
+          body.classList.remove("hidden");
+          document.getElementById("headline").textContent = form.headline || form.name || "Get in touch";
+          document.getElementById("description").textContent = form.description || "";
+          const f = document.getElementById("lead-form");
+          (form.fields || []).forEach(fld => {
+            const wrap = document.createElement("div");
+            if (fld.type === "checkbox") {
+              wrap.innerHTML = fieldHtml(fld);
+            } else {
+              wrap.innerHTML = `<label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">${fld.label}${fld.required ? ' <span class="text-rose-500">*</span>' : ""}</label>` + fieldHtml(fld) + (fld.help_text ? `<div class="mt-1 text-xs text-slate-500">${fld.help_text}</div>` : "");
+            }
+            f.appendChild(wrap);
+          });
+          const btn = document.createElement("button");
+          btn.type = "submit";
+          btn.className = "w-full rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-white shadow-md hover:bg-amber-600";
+          btn.textContent = "Submit";
+          f.appendChild(btn);
+
+          f.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            err.classList.add("hidden");
+            btn.disabled = true; btn.textContent = "Submitting…";
+            const data = {};
+            (form.fields || []).forEach(fld => {
+              const el = f.querySelector(`[name="${fld.key}"]`);
+              if (!el) return;
+              if (fld.type === "checkbox") data[fld.key] = !!el.checked;
+              else data[fld.key] = el.value;
+            });
+            try {
+              const res = await fetch(`/public/lead-forms/${encodeURIComponent(slug)}/submit`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ data, source, utm_campaign, utm_source })
+              });
+              const d = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(d.detail || "Submission failed");
+              body.classList.add("hidden");
+              thanks.classList.remove("hidden");
+              document.getElementById("thanks-msg").textContent = d.thank_you_message || "We'll be in touch soon.";
+              if (d.redirect_url) setTimeout(() => { window.location.href = d.redirect_url; }, 1200);
+            } catch (ex) {
+              showErr(ex.message || "Something went wrong.");
+              btn.disabled = false; btn.textContent = "Submit";
+            }
+          });
+        })
+        .catch(e => { loader.textContent = e.message || "Unable to load form."; });
+    })();
+  </script>
+</body>
+</html>

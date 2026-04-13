@@ -32,6 +32,25 @@ def _get_team_or_404(session: Session, team_id: int) -> Team:
     return team
 
 
+def effective_team_role(session: Session, user: User) -> str:
+    """
+    RBAC role for /me and UI. If `user.role` is missing or invalid, infer from Team.owner_id
+    so invited members are never mislabeled as owner.
+    """
+    raw = (getattr(user, "role", None) or "").strip().lower()
+    if raw in ("owner", "admin", "member"):
+        return raw
+    tid = getattr(user, "team_id", None)
+    if tid is None:
+        return "owner"
+    team = session.get(Team, int(tid))
+    if team is None:
+        return "owner"
+    if int(user.id or 0) == int(team.owner_id or 0):
+        return "owner"
+    return "member"
+
+
 def resolve_ayrshare_subject_user(session: Session, user: User) -> User:
     """
     Ayrshare Business uses one User Profile (Profile-Key) per connected workspace.

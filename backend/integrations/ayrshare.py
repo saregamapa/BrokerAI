@@ -4,9 +4,24 @@ from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
+from backend.core.logger import get_logger
+
 # Official API host (matches publish docs; app.* may 404 or redirect for some keys)
 AYRSHARE_POST_URL = "https://api.ayrshare.com/api/post"
 AYRSHARE_ANALYTICS_POST_URL = "https://api.ayrshare.com/api/analytics/post"
+
+log = get_logger("brokerai.ayrshare")
+
+
+def _ayrshare_single_account_publish() -> bool:
+    """Primary-account POST /api/post (no Profile-Key). Set AYRSHARE_SINGLE_ACCOUNT_PUBLISH=true for local testing."""
+    return os.getenv("AYRSHARE_SINGLE_ACCOUNT_PUBLISH", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
 
 # Wizard / API labels → Ayrshare `platforms` slugs (lowercase)
 _PLATFORM_ALIASES: Dict[str, str] = {
@@ -73,7 +88,8 @@ async def publish_post(
 ) -> Dict[str, Any]:
     """
     POST to Ayrshare. Returns a dict with ok (bool), status_code, and body (parsed or raw).
-    User profiles require Profile-Key header (Business Plan).
+    Business Plan user profiles: send Profile-Key. Primary account only: set
+    AYRSHARE_SINGLE_ACCOUNT_PUBLISH=true and omit Profile-Key (matches Ayrshare single-profile POST).
     """
     api_key = os.getenv("AYRSHARE_API_KEY", "").strip()
     if not api_key:
@@ -83,8 +99,9 @@ async def publish_post(
             "body": {"error": "missing_env", "detail": "AYRSHARE_API_KEY is not set"},
         }
 
+    single_primary = _ayrshare_single_account_publish()
     pk = (profile_key or "").strip()
-    if not pk:
+    if not pk and not single_primary:
         return {
             "ok": False,
             "status_code": 0,
@@ -108,11 +125,17 @@ async def publish_post(
     if urls:
         payload["mediaUrls"] = urls
 
-    headers = {
+    headers: Dict[str, str] = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "Profile-Key": pk,
     }
+    if single_primary:
+        log.warning(
+            "ayrshare_publish_primary_account_no_profile_key platforms=%s",
+            normalized,
+        )
+    elif pk:
+        headers["Profile-Key"] = pk
     try:
         async with httpx.AsyncClient(timeout=45.0) as client:
             resp = await client.post(

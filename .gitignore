@@ -16,6 +16,16 @@ __pycache__/
 
 # Local database
 *.db
+*.db-shm
+*.db-wal
+*-journal
+
+# Ayrshare onboarding exports (often contain API keys / PEM in JSON)
+integration-aayrshare/
+
+# Local tooling / scratch
+.claude/
+_wtest
 
 # Local dev server (nohup)
 _uvicorn.log

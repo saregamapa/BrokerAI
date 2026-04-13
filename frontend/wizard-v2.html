@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Campaign · BrokerAI</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <style>
+    .step-card { scroll-margin-top: 90px; }
+    .chip { @apply rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-amber-400 hover:bg-amber-50 cursor-pointer transition; }
+    .chip.active { @apply border-amber-500 bg-amber-100 text-amber-900; }
+    .ctype-card { @apply cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 text-center transition hover:border-amber-400 hover:shadow-md; }
+    .ctype-card.active { @apply border-amber-500 ring-2 ring-amber-300 bg-amber-50; }
+    .pill-btn { @apply rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:bg-slate-50; }
+    .score-ring { background: conic-gradient(#10b981 calc(var(--p,0) * 1%), #e5e7eb 0); }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/80 backdrop-blur">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+      <a href="/dashboard.html" class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <span class="text-amber-500">⚡</span> BrokerAI
+      </a>
+      <div class="flex items-center gap-2 text-xs text-slate-500">
+        <span class="hidden sm:inline">New Campaign</span>
+        <a href="/wizard.html" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">Classic wizard</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-4xl px-6 pb-32 pt-10">
+    <!-- ENTRY POINT -->
+    <section class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div class="mb-4 flex items-center gap-3">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">1</span>
+        <h2 class="text-2xl font-semibold">Start with your idea</h2>
+      </div>
+      <p class="mb-6 text-sm text-slate-500">Give your campaign a name, pick a goal, and describe it in one sentence. We'll pre-fill the rest.</p>
+
+      <label class="mb-2 block text-sm font-semibold">Campaign name</label>
+      <input id="f-name" type="text" class="mb-5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-amber-400 focus:outline-none"
+             placeholder="e.g., Spring Listings Push — Westside" />
+
+      <label class="mb-2 block text-sm font-semibold">Goal</label>
+      <div id="goal-chips" class="mb-6 flex flex-wrap gap-2">
+        <button class="chip" data-val="Generate leads">Generate leads</button>
+        <button class="chip" data-val="Promote a listing">Promote a listing</button>
+        <button class="chip" data-val="Build brand awareness">Build brand awareness</button>
+        <button class="chip" data-val="Announce an open house">Announce open house</button>
+        <button class="chip" data-val="Drive engagement">Drive engagement</button>
+      </div>
+
+      <label class="mb-2 block text-sm font-semibold">Describe your campaign in one sentence <span class="text-xs font-normal text-slate-400">(AI will pre-fill the rest)</span></label>
+      <div class="flex gap-2">
+        <input id="f-prompt" type="text" class="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:border-amber-400 focus:outline-none"
+               placeholder='e.g., "3-bed condo in Jersey City, targeting young professionals, open house Saturday"' />
+        <button id="btn-prefill" class="whitespace-nowrap rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800">✨ Pre-fill</button>
+      </div>
+      <p id="prefill-note" class="mt-2 text-xs text-emerald-600 hidden"></p>
+
+      <div class="mt-6 grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-slate-600">Objective</label>
+          <textarea id="f-objective" rows="2" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"></textarea>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-slate-600">Target audience</label>
+          <textarea id="f-audience" rows="2" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 1: CONTENT TYPE -->
+    <section class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div class="mb-4 flex items-center gap-3">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">2</span>
+        <h2 class="text-2xl font-semibold">Choose content type</h2>
+      </div>
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-5">
+        <div class="ctype-card active" data-ctype="single_image">
+          <div class="text-2xl">🖼️</div>
+          <div class="mt-2 text-sm font-semibold">Single Image</div>
+          <div class="text-xs text-slate-500">Classic post</div>
+        </div>
+        <div class="ctype-card" data-ctype="carousel">
+          <div class="text-2xl">🎞️</div>
+          <div class="mt-2 text-sm font-semibold">Carousel</div>
+          <div class="text-xs text-slate-500">3–10 slides</div>
+        </div>
+        <div class="ctype-card" data-ctype="video">
+          <div class="text-2xl">🎬</div>
+          <div class="mt-2 text-sm font-semibold">Video</div>
+          <div class="text-xs text-slate-500">AI-generated</div>
+        </div>
+        <div class="ctype-card" data-ctype="story">
+          <div class="text-2xl">📱</div>
+          <div class="mt-2 text-sm font-semibold">Story</div>
+          <div class="text-xs text-slate-500">9:16 vertical</div>
+        </div>
+        <div class="ctype-card" data-ctype="text">
+          <div class="text-2xl">📝</div>
+          <div class="mt-2 text-sm font-semibold">Text-only</div>
+          <div class="text-xs text-slate-500">LinkedIn-style</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: MEDIA & DESIGN -->
+    <section class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div class="mb-4 flex items-center gap-3">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">3</span>
+        <h2 class="text-2xl font-semibold">Media &amp; Design</h2>
+      </div>
+
+      <!-- Brand Kit -->
+      <div class="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <div class="mb-3 flex items-center justify-between">
+          <div>
+            <div class="text-sm font-semibold">Brand Kit</div>
+            <div class="text-xs text-slate-500">Applied automatically to every AI-generated asset.</div>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-brand-upload" class="pill-btn">Upload logo</button>
+            <button id="btn-brand-ai" class="pill-btn">✨ AI-generate</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div>
+            <label class="mb-1 block text-[11px] font-semibold text-slate-600">Logo URL</label>
+            <input id="bk-logo" class="w-full rounded-md border border-slate-200 px-2 py-1 text-xs" placeholder="https://…" />
+          </div>
+          <div>
+            <label class="mb-1 block text-[11px] font-semibold text-slate-600">Primary color</label>
+            <input id="bk-primary" type="color" class="h-8 w-full rounded-md border border-slate-200" value="#0F62FE" />
+          </div>
+          <div>
+            <label class="mb-1 block text-[11px] font-semibold text-slate-600">Secondary color</label>
+            <input id="bk-secondary" type="color" class="h-8 w-full rounded-md border border-slate-200" value="#111827" />
+          </div>
+          <div>
+            <label class="mb-1 block text-[11px] font-semibold text-slate-600">Font</label>
+            <select id="bk-font" class="w-full rounded-md border border-slate-200 px-2 py-1 text-xs">
+              <option>Inter</option><option>Poppins</option><option>Montserrat</option>
+              <option>Playfair Display</option><option>Lato</option><option>Nunito</option>
+            </select>
+          </div>
+          <div>
+            <label class="mb-1 block text-[11px] font-semibold text-slate-600">Voice</label>
+            <input id="bk-voice" class="w-full rounded-md border border-slate-200 px-2 py-1 text-xs" placeholder="professional & warm" />
+          </div>
+        </div>
+        <div class="mt-3 flex justify-end">
+          <button id="btn-brand-save" class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800">Save brand kit</button>
+        </div>
+      </div>
+
+      <!-- Smart Image Selector (Unsplash) -->
+      <div id="media-image" class="mb-6">
+        <div class="mb-2 flex items-center gap-2">
+          <input id="unsplash-q" class="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Search Unsplash (e.g., 'luxury condo kitchen')" />
+          <button id="btn-unsplash" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600">Search</button>
+          <button id="btn-canva" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Open in Canva</button>
+        </div>
+        <div id="unsplash-grid" class="grid grid-cols-2 gap-2 md:grid-cols-4"></div>
+        <div id="unsplash-empty" class="py-6 text-center text-xs text-slate-400">Pick a photo to use as your campaign media, or open Canva for custom design.</div>
+        <div class="mt-3">
+          <label class="mb-1 block text-xs font-semibold text-slate-600">Selected image URL</label>
+          <input id="f-image-url" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-mono" placeholder="https://images.unsplash.com/…" />
+        </div>
+      </div>
+
+      <!-- Video -->
+      <div id="media-video" class="hidden">
+        <label class="mb-1 block text-sm font-semibold">Describe the video you want</label>
+        <textarea id="video-prompt" rows="3" class="mb-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Cinematic sunrise fly-over of a modern downtown skyline, slow dolly, warm tones"></textarea>
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <label class="text-xs text-slate-600">Aspect</label>
+          <select id="video-aspect" class="rounded-md border border-slate-200 px-2 py-1 text-xs">
+            <option value="9:16">9:16 (Story / Reels)</option>
+            <option value="1:1">1:1 (Feed)</option>
+            <option value="16:9">16:9 (Landscape)</option>
+          </select>
+          <label class="text-xs text-slate-600">Duration</label>
+          <input id="video-duration" type="number" min="3" max="10" value="5" class="w-16 rounded-md border border-slate-200 px-2 py-1 text-xs" />
+          <button id="btn-video" class="rounded-lg bg-fuchsia-600 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-700">🎬 Generate video</button>
+          <span id="video-status" class="text-xs text-slate-500"></span>
+        </div>
+        <video id="video-preview" class="hidden w-full rounded-xl border border-slate-200" controls></video>
+      </div>
+    </section>
+
+    <!-- STEP 3: AI CONTENT -->
+    <section class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div class="mb-4 flex items-center gap-3">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">4</span>
+        <h2 class="text-2xl font-semibold">AI Content</h2>
+      </div>
+
+      <div class="mb-4 grid gap-3 md:grid-cols-3">
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-slate-600">Tone</label>
+          <select id="tone-select" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option value="professional">Professional</option>
+            <option value="friendly">Friendly</option>
+            <option value="playful">Playful</option>
+            <option value="bold">Bold</option>
+            <option value="luxury">Luxury</option>
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-slate-600">Primary platform</label>
+          <select id="platform-select" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option value="instagram">Instagram</option>
+            <option value="facebook">Facebook</option>
+            <option value="linkedin">LinkedIn</option>
+          </select>
+        </div>
+        <div class="flex items-end gap-2">
+          <button id="btn-gen-captions" class="flex-1 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">✨ Generate 5 captions</button>
+          <button id="btn-gen-hooks" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">🎣 Hooks</button>
+        </div>
+      </div>
+
+      <div id="hooks-block" class="mb-4 hidden">
+        <div class="mb-2 text-xs font-semibold text-slate-600">Opening-line hooks</div>
+        <div id="hooks-list" class="space-y-1"></div>
+      </div>
+
+      <div id="captions-list" class="space-y-3"></div>
+
+      <div class="mt-4">
+        <label class="mb-1 block text-xs font-semibold text-slate-600">Selected caption (edit freely)</label>
+        <textarea id="f-caption" rows="5" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"></textarea>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <button class="pill-btn mod" data-m="shorter">Shorter</button>
+          <button class="pill-btn mod" data-m="longer">Longer</button>
+          <button class="pill-btn mod" data-m="add_emojis">+ Emojis</button>
+          <button class="pill-btn mod" data-m="remove_emojis">− Emojis</button>
+          <button class="pill-btn mod" data-m="add_hashtags">+ Hashtags</button>
+          <button class="pill-btn mod" data-m="more_professional">More Professional</button>
+          <button class="pill-btn mod" data-m="more_playful">More Playful</button>
+          <button class="pill-btn mod" data-m="add_cta">+ CTA</button>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <label class="mb-1 block text-xs font-semibold text-slate-600">Hashtags</label>
+        <input id="f-hashtags" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="#realestate #openhouse" />
+      </div>
+    </section>
+
+    <!-- STEP 4: CAMPAIGN BUILDER -->
+    <section class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div class="mb-4 flex items-center gap-3">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">5</span>
+        <h2 class="text-2xl font-semibold">Campaign Builder</h2>
+      </div>
+      <p class="mb-4 text-sm text-slate-500">Publish a single post, or let AI build a full multi-day campaign with our Content Mix (40% tips · 30% listings · 20% engagement · 10% promos).</p>
+      <div class="grid gap-3 md:grid-cols-4">
+        <label class="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 hover:border-amber-400 [&:has(input:checked)]:border-amber-500 [&:has(input:checked)]:ring-2 [&:has(input:checked)]:ring-amber-300">
+          <input type="radio" name="mode" value="single" class="sr-only" checked />
+          <div class="text-sm font-semibold">Single post</div>
+          <div class="text-xs text-slate-500">One piece of content, one schedule.</div>
+        </label>
+        <label class="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 hover:border-amber-400 [&:has(input:checked)]:border-amber-500 [&:has(input:checked)]:ring-2 [&:has(input:checked)]:ring-amber-300">
+          <input type="radio" name="mode" value="7" class="sr-only" />
+          <div class="text-sm font-semibold">7-day campaign</div>
+          <div class="text-xs text-slate-500">Quick burst, 1 post / day.</div>
+        </label>
+        <label class="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 hover:border-amber-400 [&:has(input:checked)]:border-amber-500 [&:has(input:checked)]:ring-2 [&:has(input:checked)]:ring-amber-300">
+          <input type="radio" name="mode" value="14" class="sr-only" />
+          <div class="text-sm font-semibold">14-day campaign</div>
+          <div class="text-xs text-slate-500">Balanced reach-builder.</div>
+        </label>
+        <label class="cursor-pointer rounded-xl border border-slate-200 bg-white p-4 hover:border-amber-400 [&:has(input:checked)]:border-amber-500 [&:has(input:checked)]:ring-2 [&:has(input:checked)]:ring-amber-300">
+          <input type="radio" name="mode" value="30" class="sr-only" />
+          <div class="text-sm font-semibold">30-day campaign</div>
+          <div class="text-xs text-slate-500">Full monthly content plan.</div>
+        </label>
+      </div>
+
+      <div class="mt-5 grid gap-3 md:grid-cols-3">
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-slate-600">Publish platforms</label>
+          <div class="flex flex-wrap gap-2">
+            <label class="chip"><input type="checkbox" value="instagram" class="mr-1 plat" checked /> Instagram</label>
+            <label class="chip"><input type="checkbox" value="facebook" class="mr-1 plat" checked /> Facebook</label>
+            <label class="chip"><input type="checkbox" value="linkedin" class="mr-1 plat" /> LinkedIn</label>
+          </div>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-slate-600">Location (local context)</label>
+          <input id="f-location" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="e.g., Jersey City, NJ" />
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-slate-600">Start date</label>
+          <input id="f-start" type="date" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+        </div>
+        <div class="sm:col-span-2">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="mb-2 flex items-center justify-between">
+              <div>
+                <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600">Attach lead form (optional)</label>
+                <p class="mt-1 text-xs text-slate-500">Capture contacts when people click your CTA. The public form link is injected into captions where supported.</p>
+              </div>
+              <a href="/lead-forms.html" target="_blank" class="text-xs font-semibold text-amber-700 hover:underline">Manage forms ↗</a>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="f-lead-form" class="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                <option value="">— No lead form —</option>
+              </select>
+              <button id="btn-refresh-forms" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">↻</button>
+              <a id="lead-form-preview" class="hidden rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100" target="_blank">Preview ↗</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 5: PREVIEW & PUBLISH -->
+    <section class="step-card mb-24 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div class="mb-4 flex items-center gap-3">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">6</span>
+        <h2 class="text-2xl font-semibold">Preview &amp; Publish</h2>
+      </div>
+
+      <div class="grid gap-6 md:grid-cols-[1fr,260px]">
+        <!-- Live preview -->
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+          <div class="mb-2 flex items-center gap-2 text-xs text-slate-500">
+            <span class="inline-block h-6 w-6 rounded-full bg-slate-300"></span>
+            <span>your_brand • Sponsored</span>
+          </div>
+          <div id="preview-media" class="mb-3 aspect-video w-full overflow-hidden rounded-xl bg-slate-200 flex items-center justify-center text-xs text-slate-400">Media preview</div>
+          <p id="preview-caption" class="whitespace-pre-wrap text-sm text-slate-800"></p>
+          <p id="preview-hashtags" class="mt-1 text-xs text-sky-700"></p>
+        </div>
+
+        <!-- Predictive Performance Score -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-5">
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Predictive Performance</div>
+          <div class="mt-3 flex items-center gap-4">
+            <div class="score-ring h-20 w-20 rounded-full p-1.5" style="--p:0">
+              <div class="flex h-full w-full flex-col items-center justify-center rounded-full bg-white">
+                <div id="score-num" class="text-2xl font-bold text-emerald-600">—</div>
+                <div id="score-grade" class="text-[10px] font-semibold text-slate-500">grade</div>
+              </div>
+            </div>
+            <button id="btn-score" class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700">Score now</button>
+          </div>
+          <ul id="score-reasons" class="mt-3 list-disc space-y-1 pl-4 text-xs text-slate-600"></ul>
+          <div id="score-suggestions" class="mt-2 text-xs text-amber-700"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Sticky action bar -->
+  <div class="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
+      <a href="/dashboard.html" class="text-sm text-slate-500 hover:text-slate-700">← Cancel</a>
+      <div class="flex items-center gap-2">
+        <button id="btn-templates" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Templates">📁 Templates</button>
+        <button id="btn-save-template" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Save current settings as a reusable template">💾 Save as Template</button>
+        <button id="btn-save-draft" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Save draft</button>
+        <button id="btn-schedule" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">📅 Schedule</button>
+        <button id="btn-publish" class="rounded-lg bg-amber-500 px-5 py-2 text-sm font-bold text-white hover:bg-amber-600">🚀 Generate &amp; Publish</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
+    if (!token) { window.location.href = "/login.html?next=/wizard-v2.html"; }
+    const api = async (path, opts={}) => {
+      const res = await fetch(path, {
+        ...opts,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          ...(opts.headers||{})
+        }
+      });
+      const txt = await res.text();
+      let data; try { data = txt ? JSON.parse(txt) : {}; } catch { data = { raw: txt }; }
+      if (!res.ok) throw new Error(data.detail || data.error || res.statusText);
+      return data;
+    };
+    const toast = (msg, isErr=false) => {
+      const t = document.createElement("div");
+      t.className = `fixed right-6 top-20 z-50 rounded-lg px-4 py-2 text-sm text-white shadow-lg ${isErr?'bg-rose-600':'bg-slate-900'}`;
+      t.textContent = msg; document.body.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    };
+
+    // ---- chips ----
+    document.querySelectorAll("#goal-chips .chip").forEach(c => {
+      c.addEventListener("click", () => {
+        document.querySelectorAll("#goal-chips .chip").forEach(x => x.classList.remove("active"));
+        c.classList.add("active");
+      });
+    });
+
+    // ---- prefill ----
+    $("btn-prefill").addEventListener("click", async () => {
+      const prompt = $("f-prompt").value.trim();
+      if (prompt.length < 6) return toast("Write a longer prompt first", true);
+      $("btn-prefill").disabled = true; $("btn-prefill").textContent = "Thinking…";
+      try {
+        const d = await api("/campaigns/prefill-from-prompt", { method:"POST", body: JSON.stringify({ prompt }) });
+        if (!$("f-name").value) $("f-name").value = d.name || "";
+        $("f-objective").value = d.objective || "";
+        $("f-audience").value = d.target_audience || "";
+        $("tone-select").value = d.tone || "professional";
+        const ct = d.content_type || "single_image";
+        document.querySelectorAll(".ctype-card").forEach(x => x.classList.toggle("active", x.dataset.ctype === ct));
+        toggleMedia(ct);
+        if (Array.isArray(d.platforms)) {
+          document.querySelectorAll(".plat").forEach(cb => cb.checked = d.platforms.includes(cb.value));
+        }
+        $("prefill-note").textContent = "Pre-filled ✔︎ Edit anything before generating.";
+        $("prefill-note").classList.remove("hidden");
+      } catch (e) { toast(e.message, true); }
+      finally { $("btn-prefill").disabled = false; $("btn-prefill").textContent = "✨ Pre-fill"; }
+    });
+
+    // ---- content type ----
+    document.querySelectorAll(".ctype-card").forEach(c => {
+      c.addEventListener("click", () => {
+        document.querySelectorAll(".ctype-card").forEach(x => x.classList.remove("active"));
+        c.classList.add("active");
+        toggleMedia(c.dataset.ctype);
+      });
+    });
+    function toggleMedia(ct) {
+      $("media-image").classList.toggle("hidden", ct === "video" || ct === "text");
+      $("media-video").classList.toggle("hidden", ct !== "video");
+    }
+
+    // ---- unsplash ----
+    $("btn-unsplash").addEventListener("click", async () => {
+      const q = $("unsplash-q").value.trim() || $("f-objective").value.slice(0, 60) || "real estate";
+      try {
+        const d = await api(`/unsplash/search?q=${encodeURIComponent(q)}&per_page=12`);
+        const grid = $("unsplash-grid"); grid.innerHTML = "";
+        $("unsplash-empty").classList.toggle("hidden", (d.photos||[]).length > 0);
+        (d.photos || []).forEach(p => {
+          const img = document.createElement("img");
+          img.src = p.thumb_url; img.className = "aspect-square w-full cursor-pointer rounded-lg object-cover hover:ring-2 hover:ring-amber-400";
+          img.title = `Photo by ${p.author}`;
+          img.addEventListener("click", () => {
+            $("f-image-url").value = p.url;
+            $("preview-media").innerHTML = `<img src="${p.url}" class="h-full w-full object-cover" />`;
+          });
+          grid.appendChild(img);
+        });
+      } catch (e) { toast(e.message, true); }
+    });
+
+    // ---- Canva MCP (opens Canva in a new tab; deep MCP integration happens server-side when enabled) ----
+    $("btn-canva").addEventListener("click", () => {
+      const seed = encodeURIComponent(($("f-objective").value || $("f-name").value || "campaign").slice(0,80));
+      window.open(`https://www.canva.com/design/play?category=social&utm_source=brokerai&seed=${seed}`, "_blank");
+    });
+
+    // ---- brand kit ----
+    async function loadBrandKit() {
+      try {
+        const me = await api("/me");
+        if (me.brand_logo_url) $("bk-logo").value = me.brand_logo_url;
+        if (me.brand_primary_color) $("bk-primary").value = me.brand_primary_color;
+        if (me.brand_secondary_color) $("bk-secondary").value = me.brand_secondary_color;
+        if (me.brand_font) $("bk-font").value = me.brand_font;
+        if (me.brand_voice) $("bk-voice").value = me.brand_voice;
+      } catch {}
+    }
+    loadBrandKit();
+    $("btn-brand-save").addEventListener("click", async () => {
+      try {
+        await api("/me/brand-kit", { method:"PUT", body: JSON.stringify({
+          brand_logo_url: $("bk-logo").value, brand_primary_color: $("bk-primary").value,
+          brand_secondary_color: $("bk-secondary").value, brand_font: $("bk-font").value,
+          brand_voice: $("bk-voice").value, brand_source: "upload"
+        })});
+        toast("Brand kit saved ✔︎");
+      } catch (e) { toast(e.message, true); }
+    });
+    $("btn-brand-ai").addEventListener("click", async () => {
+      try {
+        const d = await api("/me/brand-kit/generate", { method:"POST", body: JSON.stringify({
+          industry:"Real Estate", vibe:"modern", primary_color_hint: $("bk-primary").value
+        })});
+        $("bk-primary").value = d.brand_primary_color || $("bk-primary").value;
+        $("bk-secondary").value = d.brand_secondary_color || $("bk-secondary").value;
+        $("bk-font").value = d.brand_font || $("bk-font").value;
+        $("bk-voice").value = d.brand_voice || "";
+        toast("AI brand kit generated ✔︎");
+      } catch (e) { toast(e.message, true); }
+    });
+    $("btn-brand-upload").addEventListener("click", () => {
+      const url = prompt("Paste your hosted logo URL (https://…)");
+      if (url) $("bk-logo").value = url;
+    });
+
+    // ---- video ----
+    $("btn-video").addEventListener("click", async () => {
+      const p = $("video-prompt").value.trim();
+      if (p.length < 6) return toast("Describe the video first", true);
+      $("btn-video").disabled = true; $("video-status").textContent = "Queued…";
+      try {
+        const d = await api("/video/generate", { method:"POST", body: JSON.stringify({
+          prompt: p, duration_seconds: +$("video-duration").value || 5, aspect_ratio: $("video-aspect").value
+        })});
+        if (d.video_url) { showVideo(d.video_url); return; }
+        if (d.status === "failed") { $("video-status").textContent = "Failed: " + (d.error||""); return; }
+        pollVideo(d.prediction_id);
+      } catch (e) { toast(e.message, true); $("video-status").textContent = "Failed"; }
+      finally { $("btn-video").disabled = false; }
+    });
+    async function pollVideo(id) {
+      for (let i = 0; i < 40; i++) {           // ~4 min max (40 * 6s)
+        await new Promise(r => setTimeout(r, 6000));
+        try {
+          const d = await api(`/video/status/${id}`);
+          $("video-status").textContent = `Status: ${d.status}…`;
+          if (d.video_url) { showVideo(d.video_url); return; }
+          if (d.status === "failed") { $("video-status").textContent = "Failed: " + (d.error||""); return; }
+        } catch (e) { $("video-status").textContent = "Error: " + e.message; return; }
+      }
+      $("video-status").textContent = "Timed out waiting for video.";
+    }
+    function showVideo(url) {
+      const v = $("video-preview"); v.src = url; v.classList.remove("hidden");
+      $("video-status").textContent = "Ready ✔︎";
+      $("f-image-url").value = url;
+      $("preview-media").innerHTML = `<video src="${url}" class="h-full w-full object-cover" controls></video>`;
+    }
+
+    // ---- captions / hooks / modifiers ----
+    function buildPayload() {
+      return {
+        objective: $("f-objective").value.trim() || $("f-prompt").value.trim(),
+        target_audience: $("f-audience").value.trim(),
+        tone: $("tone-select").value,
+        platform: $("platform-select").value,
+      };
+    }
+    $("btn-gen-captions").addEventListener("click", async () => {
+      const base = buildPayload();
+      if (!base.objective) return toast("Write an objective first", true);
+      $("btn-gen-captions").disabled = true; $("btn-gen-captions").textContent = "Generating…";
+      try {
+        const d = await api("/campaigns/captions", { method:"POST", body: JSON.stringify({ ...base, count: 5 })});
+        const list = $("captions-list"); list.innerHTML = "";
+        (d.captions || []).forEach((c, i) => {
+          const row = document.createElement("div");
+          row.className = "rounded-xl border border-slate-200 bg-slate-50 p-3";
+          row.innerHTML = `<div class="mb-1 text-[11px] font-semibold text-slate-500">Option ${i+1}</div><div class="text-sm text-slate-800 whitespace-pre-wrap">${c.replace(/</g,'&lt;')}</div><div class="mt-2"><button class="pill-btn pick">Use this</button></div>`;
+          row.querySelector(".pick").addEventListener("click", () => {
+            $("f-caption").value = c; updatePreview();
+          });
+          list.appendChild(row);
+        });
+        $("f-hashtags").value = (d.hashtags || []).map(h => h.startsWith("#")?h:`#${h}`).join(" ");
+        if ((d.captions||[]).length) { $("f-caption").value = d.captions[0]; updatePreview(); }
+      } catch (e) { toast(e.message, true); }
+      finally { $("btn-gen-captions").disabled = false; $("btn-gen-captions").textContent = "✨ Generate 5 captions"; }
+    });
+    $("btn-gen-hooks").addEventListener("click", async () => {
+      const base = buildPayload();
+      if (!base.objective) return toast("Write an objective first", true);
+      try {
+        const d = await api("/campaigns/hooks", { method:"POST", body: JSON.stringify({ objective: base.objective, target_audience: base.target_audience, count: 5 })});
+        const wrap = $("hooks-block"); wrap.classList.remove("hidden");
+        const list = $("hooks-list"); list.innerHTML = "";
+        (d.hooks || []).forEach(h => {
+          const row = document.createElement("div");
+          row.className = "flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-slate-800";
+          row.innerHTML = `<span class="flex-1">${h.replace(/</g,'&lt;')}</span><button class="pill-btn">Use</button>`;
+          row.querySelector("button").addEventListener("click", () => {
+            $("f-caption").value = h + "\n\n" + ($("f-caption").value || ""); updatePreview();
+          });
+          list.appendChild(row);
+        });
+      } catch (e) { toast(e.message, true); }
+    });
+    document.querySelectorAll(".mod").forEach(b => b.addEventListener("click", async () => {
+      const cap = $("f-caption").value.trim();
+      if (!cap) return toast("Pick or write a caption first", true);
+      try {
+        const d = await api("/campaigns/modify-caption", { method:"POST", body: JSON.stringify({
+          caption: cap, modifier: b.dataset.m, platform: $("platform-select").value
+        })});
+        $("f-caption").value = d.caption || cap; updatePreview();
+      } catch (e) { toast(e.message, true); }
+    }));
+
+    // ---- live preview ----
+    function updatePreview() {
+      $("preview-caption").textContent = $("f-caption").value;
+      $("preview-hashtags").textContent = $("f-hashtags").value;
+      const url = $("f-image-url").value;
+      if (url && !$("preview-media").innerHTML.includes("<video")) {
+        $("preview-media").innerHTML = `<img src="${url}" class="h-full w-full object-cover" />`;
+      }
+    }
+    $("f-caption").addEventListener("input", updatePreview);
+    $("f-hashtags").addEventListener("input", updatePreview);
+    $("f-image-url").addEventListener("input", updatePreview);
+
+    // ---- preview score ----
+    $("btn-score").addEventListener("click", async () => {
+      const plats = Array.from(document.querySelectorAll(".plat:checked")).map(x=>x.value);
+      try {
+        const d = await api("/campaigns/preview-score", { method:"POST", body: JSON.stringify({
+          caption: $("f-caption").value, platforms: plats, has_media: !!$("f-image-url").value,
+          objective: $("f-objective").value, target_audience: $("f-audience").value
+        })});
+        const ring = document.querySelector(".score-ring");
+        ring.style.setProperty("--p", d.score);
+        $("score-num").textContent = d.score;
+        $("score-grade").textContent = d.grade;
+        $("score-reasons").innerHTML = (d.reasons||[]).map(r => `<li>${r}</li>`).join("");
+        $("score-suggestions").innerHTML = (d.suggestions||[]).length
+          ? "<div class='font-semibold mb-1'>Suggestions:</div><ul class='list-disc pl-4'>" + d.suggestions.map(s=>`<li>${s}</li>`).join("") + "</ul>"
+          : "";
+      } catch (e) { toast(e.message, true); }
+    });
+
+    // ---- publish / schedule / save ----
+    function campaignPayload() {
+      const goalChip = document.querySelector("#goal-chips .chip.active");
+      const platforms = Array.from(document.querySelectorAll(".plat:checked")).map(x=>x.value);
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+      const freqMap = { "single": "1 per week", "7": "7 per week", "14": "7 per week", "30": "7 per week" };
+      return {
+        business_type: "Real Estate",
+        goal: (goalChip?.dataset.val || "Generate leads") + (" — " + ($("f-objective").value||"")).slice(0,300),
+        location: $("f-location").value.trim() || "local area",
+        platforms: platforms.length ? platforms : ["facebook"],
+        frequency: freqMap[mode] || "1 per week",
+        start_date: $("f-start").value || null,
+        audience: $("f-audience").value.trim() || null,
+        post_hour: 10,
+        ai_text_enabled: true,
+        ai_images_enabled: !$("f-image-url").value,   // skip DALL-E if user picked an image
+        video_scripts_enabled: true
+      };
+    }
+    async function submit(action) {
+      const body = campaignPayload();
+      if (!body.goal) return toast("Pick a goal first", true);
+      try {
+        const d = await api("/generate-campaign", { method:"POST", body: JSON.stringify(body) });
+        // Attach selected lead form (if any) to the newly created campaign.
+        const leadFormId = $("f-lead-form")?.value;
+        if (leadFormId && d.campaign_id) {
+          try {
+            await api(`/campaigns/${d.campaign_id}/lead-form`, {
+              method: "POST",
+              body: JSON.stringify({ lead_form_id: parseInt(leadFormId, 10) })
+            });
+          } catch (e) { /* non-fatal */ console.warn("attach lead form failed", e); }
+        }
+        toast(action === "publish" ? "Campaign queued ✔︎" : "Campaign saved ✔︎");
+        setTimeout(() => window.location.href = `/review.html?campaign=${d.campaign_id}`, 700);
+      } catch (e) { toast(e.message, true); }
+    }
+    $("btn-publish").addEventListener("click", () => submit("publish"));
+    $("btn-schedule").addEventListener("click", () => submit("schedule"));
+    $("btn-save-draft").addEventListener("click", () => submit("draft"));
+
+    // ---- lead forms: populate dropdown + live preview link ----
+    async function loadLeadForms() {
+      const sel = $("f-lead-form"); if (!sel) return;
+      try {
+        const d = await api("/lead-forms");
+        const prev = sel.value;
+        sel.innerHTML = '<option value="">— No lead form —</option>';
+        (d.items || []).forEach(f => {
+          const opt = document.createElement("option");
+          opt.value = String(f.id);
+          opt.textContent = `${f.name}${f.is_active ? '' : ' (inactive)'} — ${f.lead_count} leads`;
+          opt.dataset.slug = f.public_slug || "";
+          sel.appendChild(opt);
+        });
+        sel.value = prev;
+        updateLeadPreview();
+      } catch (e) { /* silent */ }
+    }
+    function updateLeadPreview() {
+      const sel = $("f-lead-form"); const link = $("lead-form-preview");
+      if (!sel || !link) return;
+      const opt = sel.selectedOptions[0];
+      const slug = opt?.dataset.slug || "";
+      if (slug) {
+        link.href = `/lead/${slug}`;
+        link.classList.remove("hidden");
+      } else {
+        link.classList.add("hidden");
+      }
+    }
+    $("f-lead-form").addEventListener("change", updateLeadPreview);
+    $("btn-refresh-forms").addEventListener("click", loadLeadForms);
+    loadLeadForms();
+
+    // ============================================================
+    // Templates — Save-as-template, Load, Delete
+    // ============================================================
+    function buildTemplatePayload() {
+      // Reuse the richer state collector defined below (hoisted by function decl)
+      return collectWizardState();
+    }
+
+    function applyTemplatePayload(payload) {
+      // Same mapping as assistant patch, with full-replace semantics for lists.
+      if (!payload || typeof payload !== "object") return;
+      if (payload.name) $("f-name").value = payload.name;
+      if (payload.prompt) $("f-prompt").value = payload.prompt;
+      if (payload.goal) {
+        const chips = document.querySelectorAll("#goal-chips .chip");
+        chips.forEach(c => {
+          if ((c.dataset.val || "").toLowerCase() === (payload.goal || "").toLowerCase()) {
+            chips.forEach(x => x.classList.remove("active"));
+            c.classList.add("active");
+          }
+        });
+      }
+      if (payload.content_type) {
+        const target = CT_FROM_SERVER[payload.content_type] || payload.content_type;
+        document.querySelectorAll(".ctype-card").forEach(x => x.classList.toggle("active", x.dataset.ctype === target));
+        toggleMedia(target);
+      }
+      if (payload.tone && $("tone-select")) $("tone-select").value = payload.tone;
+      if (Array.isArray(payload.platforms)) {
+        document.querySelectorAll(".plat").forEach(cb => cb.checked = payload.platforms.includes(cb.value));
+      }
+      if (payload.location && $("f-location")) $("f-location").value = payload.location;
+      if (payload.start_date && $("f-start")) $("f-start").value = payload.start_date;
+      if (payload.duration) {
+        const v = DURATION_FROM_SERVER[payload.duration] || payload.duration;
+        const r = document.querySelector(`input[name="mode"][value="${v}"]`);
+        if (r) r.checked = true;
+      }
+    }
+
+    $("btn-save-template").addEventListener("click", async () => {
+      const name = prompt("Template name:", $("f-name").value || "My Template");
+      if (!name) return;
+      const description = prompt("Short description (optional):", "") || "";
+      try {
+        await api("/templates", { method: "POST", body: JSON.stringify({
+          name: name.trim(), description: description.trim(), payload: buildTemplatePayload()
+        })});
+        toast("Template saved ✔︎");
+      } catch (e) { toast(e.message, true); }
+    });
+
+    $("btn-templates").addEventListener("click", async () => {
+      try {
+        const d = await api("/templates");
+        openTemplatesModal(d.items || []);
+      } catch (e) { toast(e.message, true); }
+    });
+
+    function openTemplatesModal(items) {
+      const modal = document.createElement("div");
+      modal.className = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4";
+      modal.innerHTML = `
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+          <div class="mb-4 flex items-center justify-between">
+            <h3 class="text-lg font-bold">Your Templates</h3>
+            <button id="tpl-close" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">✕</button>
+          </div>
+          <div id="tpl-list" class="max-h-96 space-y-2 overflow-y-auto">
+            ${items.length === 0 ? '<div class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">No templates yet. Build a campaign and click <b>Save as Template</b>.</div>' : ''}
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.querySelector("#tpl-close").addEventListener("click", () => modal.remove());
+      modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+
+      const list = modal.querySelector("#tpl-list");
+      items.forEach(t => {
+        const row = document.createElement("div");
+        row.className = "flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-3";
+        row.innerHTML = `
+          <div class="min-w-0">
+            <div class="truncate text-sm font-semibold text-slate-900">${t.name}</div>
+            <div class="truncate text-xs text-slate-500">${t.description || "No description"}</div>
+          </div>
+          <div class="flex gap-2">
+            <button class="tpl-load rounded-md bg-amber-500 px-3 py-1 text-xs font-bold text-white hover:bg-amber-600">Load</button>
+            <button class="tpl-del rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50" title="Delete">🗑</button>
+          </div>`;
+        row.querySelector(".tpl-load").addEventListener("click", () => {
+          applyTemplatePayload(t.payload || {});
+          toast(`Loaded "${t.name}" ✔︎`);
+          modal.remove();
+        });
+        row.querySelector(".tpl-del").addEventListener("click", async () => {
+          if (!confirm(`Delete template "${t.name}"?`)) return;
+          try {
+            await api(`/templates/${t.id}`, { method: "DELETE" });
+            row.remove();
+            toast("Template deleted");
+          } catch (e) { toast(e.message, true); }
+        });
+        list.appendChild(row);
+      });
+    }
+
+    // ============================================================
+    // AI Campaign Assistant — sidebar chat
+    // ============================================================
+    const CT_TO_SERVER = { single_image: "image", carousel: "carousel", video: "video", story: "story", text: "image" };
+    const CT_FROM_SERVER = { image: "single_image", carousel: "carousel", video: "video", reel: "video", story: "story" };
+    const DURATION_TO_SERVER = { "single": "single", "7": "7d", "14": "14d", "30": "30d" };
+    const DURATION_FROM_SERVER = { "single": "single", "7d": "7", "14d": "14", "30d": "30" };
+
+    function collectWizardState() {
+      const goalChip = document.querySelector("#goal-chips .chip.active");
+      const ctCard = document.querySelector(".ctype-card.active");
+      const mode = (document.querySelector('input[name="mode"]:checked') || {}).value || "single";
+      const selCap = document.querySelector(".caption-row.active .caption-text");
+      return {
+        name: $("f-name").value || "",
+        goal: (goalChip?.dataset.val || ""),
+        prompt: $("f-prompt").value || "",
+        content_type: CT_TO_SERVER[ctCard?.dataset.ctype || "single_image"] || "image",
+        tone: $("tone-select").value || "professional",
+        platforms: Array.from(document.querySelectorAll(".plat:checked")).map(x => x.value),
+        location: $("f-location").value || "",
+        start_date: $("f-start").value || "",
+        duration: DURATION_TO_SERVER[mode] || "single",
+        captions: Array.from(document.querySelectorAll("#captions-list .caption-text")).map(el => el.textContent),
+        hooks: Array.from(document.querySelectorAll("#hooks-list > *")).map(el => el.textContent),
+        selected_caption: selCap ? selCap.textContent : ($("f-caption")?.value || ""),
+        brand_primary_color: $("bk-primary")?.value || "",
+        brand_secondary_color: $("bk-secondary")?.value || "",
+        brand_font: $("bk-font")?.value || "",
+        brand_voice: $("bk-voice")?.value || "",
+      };
+    }
+
+    function applyPatch(patch) {
+      if (!patch) return [];
+      const changed = [];
+      if (patch.name) { $("f-name").value = patch.name; changed.push("name"); }
+      if (patch.goal) {
+        const chips = document.querySelectorAll("#goal-chips .chip");
+        let matched = false;
+        chips.forEach(c => {
+          if (c.dataset.val && c.dataset.val.toLowerCase() === patch.goal.toLowerCase()) {
+            chips.forEach(x => x.classList.remove("active"));
+            c.classList.add("active"); matched = true;
+          }
+        });
+        if (matched) changed.push("goal");
+      }
+      if (patch.prompt) { $("f-prompt").value = patch.prompt; changed.push("prompt"); }
+      if (patch.content_type) {
+        const target = CT_FROM_SERVER[patch.content_type] || "single_image";
+        const cards = document.querySelectorAll(".ctype-card");
+        cards.forEach(x => x.classList.toggle("active", x.dataset.ctype === target));
+        toggleMedia(target); changed.push("content type");
+      }
+      if (patch.tone) { $("tone-select").value = patch.tone; changed.push("tone"); }
+      if (Array.isArray(patch.platforms)) {
+        document.querySelectorAll(".plat").forEach(cb => cb.checked = patch.platforms.includes(cb.value));
+        changed.push("platforms");
+      }
+      if (patch.location) { $("f-location").value = patch.location; changed.push("location"); }
+      if (patch.start_date) { $("f-start").value = patch.start_date; changed.push("start date"); }
+      if (patch.duration) {
+        const v = DURATION_FROM_SERVER[patch.duration] || "single";
+        const r = document.querySelector(`input[name="mode"][value="${v}"]`);
+        if (r) { r.checked = true; changed.push("duration"); }
+      }
+      if (Array.isArray(patch.captions_append) && patch.captions_append.length) {
+        const list = $("captions-list");
+        patch.captions_append.forEach(text => {
+          const row = document.createElement("div");
+          row.className = "caption-row rounded-lg border border-slate-200 p-3 text-sm cursor-pointer hover:border-amber-400";
+          row.innerHTML = `<div class="caption-text whitespace-pre-wrap">${text}</div>`;
+          row.addEventListener("click", () => {
+            document.querySelectorAll(".caption-row").forEach(x => x.classList.remove("active", "border-amber-500"));
+            row.classList.add("active", "border-amber-500");
+            if ($("f-caption")) $("f-caption").value = text;
+          });
+          list.appendChild(row);
+        });
+        changed.push(`${patch.captions_append.length} caption(s)`);
+      }
+      if (Array.isArray(patch.hooks_append) && patch.hooks_append.length) {
+        const list = $("hooks-list");
+        patch.hooks_append.forEach(h => {
+          const row = document.createElement("div");
+          row.className = "rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700";
+          row.textContent = h; list.appendChild(row);
+        });
+        changed.push(`${patch.hooks_append.length} hook(s)`);
+      }
+      if (patch.selected_caption && $("f-caption")) {
+        $("f-caption").value = patch.selected_caption; changed.push("selected caption");
+      }
+      return changed;
+    }
+
+    // Sidebar UI
+    const assistantBtn = document.createElement("button");
+    assistantBtn.id = "assistant-toggle";
+    assistantBtn.innerHTML = "✨ AI Assistant";
+    assistantBtn.className = "fixed bottom-20 right-6 z-30 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-5 py-3 text-sm font-bold text-white shadow-xl hover:scale-105 transition";
+    document.body.appendChild(assistantBtn);
+
+    const panel = document.createElement("div");
+    panel.id = "assistant-panel";
+    panel.className = "fixed right-0 top-0 z-40 hidden h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl";
+    panel.innerHTML = `
+      <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+        <div>
+          <div class="text-sm font-bold text-slate-900">✨ Campaign Assistant</div>
+          <div class="text-[11px] text-slate-500">Ask me to edit anything in your wizard</div>
+        </div>
+        <button id="assistant-close" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">✕</button>
+      </div>
+      <div id="assistant-messages" class="flex-1 space-y-3 overflow-y-auto px-5 py-4 text-sm"></div>
+      <div id="assistant-suggestions" class="flex flex-wrap gap-2 border-t border-slate-100 px-5 py-2"></div>
+      <div class="border-t border-slate-200 p-3">
+        <form id="assistant-form" class="flex items-end gap-2">
+          <textarea id="assistant-input" rows="2" placeholder="e.g. Make captions more playful and target first-time buyers"
+            class="flex-1 resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-amber-400 focus:outline-none"></textarea>
+          <button type="submit" id="assistant-send" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600 disabled:opacity-60">Send</button>
+        </form>
+      </div>`;
+    panel.style.display = "none";
+    document.body.appendChild(panel);
+
+    const panelMsgs = panel.querySelector("#assistant-messages");
+    const panelSugg = panel.querySelector("#assistant-suggestions");
+    const panelInput = panel.querySelector("#assistant-input");
+    const panelSend = panel.querySelector("#assistant-send");
+    const panelForm = panel.querySelector("#assistant-form");
+    const history = [];
+
+    function openPanel() {
+      panel.style.display = "flex";
+      panel.classList.remove("hidden");
+      if (!panelMsgs.dataset.inited) {
+        addMsg("assistant", "Hey! I can read everything you've filled in and help you refine it. Try: “write 3 more captions with a bold tone” or “switch to LinkedIn and make it professional”.");
+        renderSuggestions([
+          "Give me 3 caption options for a new listing",
+          "Make the tone more playful",
+          "Add 5 scroll-stopping hooks",
+          "Switch to Reel + 14-day campaign"
+        ]);
+        panelMsgs.dataset.inited = "1";
+      }
+      setTimeout(() => panelInput.focus(), 50);
+    }
+    function closePanel() { panel.style.display = "none"; }
+
+    assistantBtn.addEventListener("click", openPanel);
+    panel.querySelector("#assistant-close").addEventListener("click", closePanel);
+
+    function addMsg(role, text, meta) {
+      const wrap = document.createElement("div");
+      wrap.className = role === "user"
+        ? "ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-amber-500 px-4 py-2 text-white"
+        : "mr-auto max-w-[90%] rounded-2xl rounded-bl-sm bg-slate-100 px-4 py-2 text-slate-800";
+      wrap.textContent = text;
+      panelMsgs.appendChild(wrap);
+      if (meta && meta.length) {
+        const tag = document.createElement("div");
+        tag.className = "mr-auto max-w-[90%] text-[11px] text-emerald-700";
+        tag.textContent = "✓ Applied: " + meta.join(", ");
+        panelMsgs.appendChild(tag);
+      }
+      panelMsgs.scrollTop = panelMsgs.scrollHeight;
+    }
+
+    function renderSuggestions(list) {
+      panelSugg.innerHTML = "";
+      (list || []).forEach(s => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] text-slate-700 hover:border-amber-400 hover:bg-amber-50";
+        b.textContent = s;
+        b.addEventListener("click", () => { panelInput.value = s; panelInput.focus(); });
+        panelSugg.appendChild(b);
+      });
+    }
+
+    panelForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = panelInput.value.trim();
+      if (!msg) return;
+      addMsg("user", msg);
+      history.push({ role: "user", content: msg });
+      panelInput.value = "";
+      panelSend.disabled = true;
+      const thinking = document.createElement("div");
+      thinking.className = "mr-auto max-w-[90%] text-xs italic text-slate-500";
+      thinking.textContent = "Thinking…";
+      panelMsgs.appendChild(thinking); panelMsgs.scrollTop = panelMsgs.scrollHeight;
+      try {
+        const d = await api("/assistant/chat", {
+          method: "POST",
+          body: JSON.stringify({ message: msg, state: collectWizardState(), history })
+        });
+        thinking.remove();
+        const changed = applyPatch(d.patch || {});
+        addMsg("assistant", d.reply || "Done.", changed);
+        history.push({ role: "assistant", content: d.reply || "" });
+        renderSuggestions(d.suggestions || []);
+      } catch (err) {
+        thinking.remove();
+        addMsg("assistant", "Error: " + err.message);
+      } finally {
+        panelSend.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -79,6 +79,10 @@ def _sqlite_migrate() -> None:
         statements.append("ALTER TABLE posts ADD COLUMN next_publish_attempt_at DATETIME")
     if "last_error" not in cols:
         statements.append("ALTER TABLE posts ADD COLUMN last_error TEXT DEFAULT ''")
+    if "slides" not in cols:
+        statements.append("ALTER TABLE posts ADD COLUMN slides TEXT DEFAULT '[]'")
+    if "is_carousel" not in cols:
+        statements.append("ALTER TABLE posts ADD COLUMN is_carousel INTEGER DEFAULT 0")
 
     with engine.begin() as conn:
         for sql in statements:
@@ -322,6 +326,22 @@ def _sqlite_migrate() -> None:
             conn.execute(
                 text("UPDATE users SET role = 'owner' WHERE role IS NULL OR trim(role) = ''")
             )
+            # Brand kit columns (wizard Media & Design step)
+            for col, default in [
+                ("brand_logo_url", "''"),
+                ("brand_primary_color", "''"),
+                ("brand_secondary_color", "''"),
+                ("brand_font", "''"),
+                ("brand_voice", "''"),
+                ("brand_source", "''"),
+            ]:
+                if col not in ucols:
+                    conn.execute(
+                        text(f"ALTER TABLE users ADD COLUMN {col} TEXT DEFAULT {default}")
+                    )
+                conn.execute(
+                    text(f"UPDATE users SET {col} = '' WHERE {col} IS NULL")
+                )
 
     # Campaign RBAC columns migration
     if insp2.has_table("campaigns"):
@@ -342,6 +362,10 @@ def _sqlite_migrate() -> None:
             if "approved_by" not in ccols2:
                 conn.execute(
                     text("ALTER TABLE campaigns ADD COLUMN approved_by INTEGER")
+                )
+            if "lead_form_id" not in ccols2:
+                conn.execute(
+                    text("ALTER TABLE campaigns ADD COLUMN lead_form_id INTEGER")
                 )
 
     # team_invites table

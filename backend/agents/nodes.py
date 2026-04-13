@@ -188,6 +188,15 @@ Key principles you follow:
 - Local relevance beats generic content — always tie content to the specific market and business
 - Each day should have a clear PURPOSE (educate, engage, convert, nurture)
 - Weekend content is lighter and more personal; weekday content is more professional
+
+Content Mix AI (STRICT RATIOS across the full plan):
+- 40% Value / Tips (educate the audience; actionable advice)
+- 30% Listings / Product Showcase (the offer, specific properties or services)
+- 20% Engagement (polls, questions, community spotlights)
+- 10% Promotions (limited-time offers, CTAs, open-house invites, bookings)
+
+Distribute angles so the final set honours these ratios as closely as integer \
+rounding allows for the requested post count. Round 0.5 UP for the largest bucket first.
 """
 
 
