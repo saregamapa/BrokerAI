@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -23,6 +24,10 @@ from backend.integrations.ayrshare import (
     publish_post,
 )
 from backend.models import Post, User
+from backend.services.ayrshare_service import (
+    fetch_active_social_accounts,
+    linked_social_slugs,
+)
 from backend.services.team_service import resolve_ayrshare_subject_user
 from backend.services.analytics import fetch_post_analytics
 from backend.workflow.post_state import (
@@ -286,7 +291,17 @@ def _finalize_publish_result(
 
     row.is_locked = False
     row.lock_timestamp = None
-    row.platform_response = platform_response_json(last_result or {})
+    to_store: Dict[str, Any] = dict(last_result or {})
+    body_store = to_store.get("body")
+    if (
+        to_store.get("ok")
+        and isinstance(body_store, dict)
+        and body_store.get("partial_success")
+    ):
+        body_copy = dict(body_store)
+        body_copy["status"] = "success"
+        to_store["body"] = body_copy
+    row.platform_response = platform_response_json(to_store)
 
     if last_result.get("ok"):
         try:
@@ -396,6 +411,54 @@ async def safe_publish_post(post_id: int, *, force_immediate: bool = False) -> D
         profile_key = (
             (subject.ayrshare_profile_key or "").strip() if subject is not None else ""
         )
+
+    single_primary = os.getenv("AYRSHARE_SINGLE_ACCOUNT_PUBLISH", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    if not single_primary and profile_key:
+        active = fetch_active_social_accounts(profile_key)
+        if active is not None:
+            linked = linked_social_slugs(active)
+            if linked:
+                before = list(pl)
+                pl = [p for p in pl if p in linked]
+                if len(pl) < len(before):
+                    log.info(
+                        "publish_platforms_filtered post_id=%s before=%s after=%s linked=%s",
+                        post_id,
+                        before,
+                        pl,
+                        sorted(linked),
+                    )
+            else:
+                pl = []
+            if not pl:
+                last_result = {
+                    "ok": False,
+                    "status_code": 0,
+                    "body": {
+                        "error": "not_connected",
+                        "detail": "No Ayrshare-linked networks match this post's platforms.",
+                        "user_message": (
+                            "Connect the networks you want on Connect Accounts, "
+                            "or edit the post to use only linked platforms."
+                        ),
+                        "retryable": False,
+                        "action": "reconnect",
+                    },
+                }
+                now_naive = _utc_now_naive()
+                with Session(engine) as session:
+                    _finalize_publish_result(session, post_id, last_result, now_naive=now_naive)
+                with Session(engine) as session:
+                    row = session.get(Post, post_id)
+                    return {
+                        "ok": False,
+                        "status": row.status if row else None,
+                    }
 
     try:
         last_result = await publish_post(

@@ -302,24 +302,6 @@
           <label class="mb-1 block text-xs font-semibold text-slate-600">Start date</label>
           <input id="f-start" type="date" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
         </div>
-        <div class="sm:col-span-2">
-          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div class="mb-2 flex items-center justify-between">
-              <div>
-                <label class="block text-xs font-semibold uppercase tracking-wide text-slate-600">Attach lead form (optional)</label>
-                <p class="mt-1 text-xs text-slate-500">Capture contacts when people click your CTA. The public form link is injected into captions where supported.</p>
-              </div>
-              <a href="/lead-forms.html" target="_blank" class="text-xs font-semibold text-amber-700 hover:underline">Manage forms ↗</a>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <select id="f-lead-form" class="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-                <option value="">— No lead form —</option>
-              </select>
-              <button id="btn-refresh-forms" type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">↻</button>
-              <a id="lead-form-preview" class="hidden rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100" target="_blank">Preview ↗</a>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -667,16 +649,6 @@
       ], 2200);
       try {
         const d = await api("/generate-campaign", { method:"POST", body: JSON.stringify(body) });
-        // Attach selected lead form (if any) to the newly created campaign.
-        const leadFormId = $("f-lead-form")?.value;
-        if (leadFormId && d.campaign_id) {
-          try {
-            await api(`/campaigns/${d.campaign_id}/lead-form`, {
-              method: "POST",
-              body: JSON.stringify({ lead_form_id: parseInt(leadFormId, 10) })
-            });
-          } catch (e) { /* non-fatal */ console.warn("attach lead form failed", e); }
-        }
         progress.stop();
         BrokerAI.setLoadingText("Done ✔︎");
         toast(action === "publish" ? "Campaign queued ✔︎" : "Campaign saved ✔︎");
@@ -691,40 +663,6 @@
     $("btn-publish").addEventListener("click", () => submit("publish"));
     $("btn-schedule").addEventListener("click", () => submit("schedule"));
     $("btn-save-draft").addEventListener("click", () => submit("draft"));
-
-    // ---- lead forms: populate dropdown + live preview link ----
-    async function loadLeadForms() {
-      const sel = $("f-lead-form"); if (!sel) return;
-      try {
-        const d = await api("/lead-forms");
-        const prev = sel.value;
-        sel.innerHTML = '<option value="">— No lead form —</option>';
-        (d.items || []).forEach(f => {
-          const opt = document.createElement("option");
-          opt.value = String(f.id);
-          opt.textContent = `${f.name}${f.is_active ? '' : ' (inactive)'} — ${f.lead_count} leads`;
-          opt.dataset.slug = f.public_slug || "";
-          sel.appendChild(opt);
-        });
-        sel.value = prev;
-        updateLeadPreview();
-      } catch (e) { /* silent */ }
-    }
-    function updateLeadPreview() {
-      const sel = $("f-lead-form"); const link = $("lead-form-preview");
-      if (!sel || !link) return;
-      const opt = sel.selectedOptions[0];
-      const slug = opt?.dataset.slug || "";
-      if (slug) {
-        link.href = `/lead/${slug}`;
-        link.classList.remove("hidden");
-      } else {
-        link.classList.add("hidden");
-      }
-    }
-    $("f-lead-form").addEventListener("change", updateLeadPreview);
-    $("btn-refresh-forms").addEventListener("click", loadLeadForms);
-    loadLeadForms();
 
     // ============================================================
     // Templates — Save-as-template, Load, Delete

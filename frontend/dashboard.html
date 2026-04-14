@@ -62,60 +62,10 @@
             </div>
           </div>
 
-          <!-- Onboarding checklist (hidden until data loads; auto-hides when all 4 steps done) -->
-          <div id="onboarding-card" class="hidden ba-onboard-card mb-6" aria-label="Getting started checklist">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-xs font-bold uppercase tracking-wider text-amber-700">Getting started</p>
-                <h2 class="mt-1 text-lg font-bold text-slate-900">Your first 4 steps to publish</h2>
-                <p id="onboarding-progress-label" class="mt-1 text-sm text-slate-600">0 of 4 complete</p>
-              </div>
-              <button id="onboarding-dismiss" type="button" class="text-xs font-medium text-slate-500 hover:text-slate-700 focus:outline-none" aria-label="Dismiss checklist">Dismiss</button>
-            </div>
-            <div class="ba-onboard-progress" aria-hidden="true">
-              <div id="onboarding-progress-bar" class="ba-onboard-progress-bar" style="width: 0%"></div>
-            </div>
-            <ol class="mt-4 space-y-1" id="onboarding-steps">
-              <li><a href="/connect.html" class="ba-onboard-step" data-step="connect">
-                <span class="ba-onboard-check" aria-hidden="true">1</span>
-                <span><span class="ba-onboard-label">Connect a social account</span><span class="ba-onboard-sub">Link Facebook, Instagram, or LinkedIn via Ayrshare.</span></span>
-              </a></li>
-              <li><a href="/wizard-v2.html" class="ba-onboard-step" data-step="campaign">
-                <span class="ba-onboard-check" aria-hidden="true">2</span>
-                <span><span class="ba-onboard-label">Create your first campaign</span><span class="ba-onboard-sub">AI builds a month of posts in minutes.</span></span>
-              </a></li>
-              <li><a href="/review.html" class="ba-onboard-step" data-step="review">
-                <span class="ba-onboard-check" aria-hidden="true">3</span>
-                <span><span class="ba-onboard-label">Review &amp; edit your posts</span><span class="ba-onboard-sub">Tweak captions, swap images, approve.</span></span>
-              </a></li>
-              <li><a href="/review.html" class="ba-onboard-step" data-step="publish">
-                <span class="ba-onboard-check" aria-hidden="true">4</span>
-                <span><span class="ba-onboard-label">Publish or schedule</span><span class="ba-onboard-sub">Go live on every connected platform.</span></span>
-              </a></li>
-            </ol>
-          </div>
+          <!-- Team/org role badge mounts here (no duplicate page title — title is in top nav) -->
+          <div id="dashboard-title-row" class="mb-2 flex min-h-0 flex-wrap items-center gap-2"></div>
 
-          <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h1
-                id="dashboard-main-title"
-                class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl"
-              >
-                Dashboard
-              </h1>
-              <p class="mt-1 text-sm text-slate-600">Your content calendar and campaign overview.</p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <a href="/lead-forms.html" class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">📋 Lead Forms</a>
-              <a href="/comment-automations.html" class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">💬 Comment-to-DM</a>
-              <a href="/wizard-v2.html" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-105 hover:shadow-xl active:scale-95">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                New campaign
-              </a>
-            </div>
-          </div>
-
-          <div class="mt-8">
+          <div class="mt-6">
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Overview</h2>
             <div id="analytics-bar" class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
               <div
@@ -756,64 +706,6 @@
         }
       }
 
-      // --- Onboarding checklist -------------------------------------------
-      async function renderOnboarding(analytics, posts) {
-        var card = document.getElementById("onboarding-card");
-        if (!card) return;
-        if (localStorage.getItem("brokerai_onboarding_dismissed") === "1") return;
-
-        var hasCampaign = (analytics && (analytics.total_campaigns || 0) > 0) || (posts && posts.length > 0);
-        var hasReviewed = (posts || []).some(function (p) {
-          var s = String(p.status || "").toLowerCase();
-          return s === "approved" || s === "scheduled" || s === "published" || s === "review";
-        });
-        var hasPublished = (analytics && (analytics.posts_published || 0) > 0) ||
-          (posts || []).some(function (p) { return String(p.status || "").toLowerCase() === "published"; });
-
-        // Probe social connection (best-effort; don't block on failure).
-        var hasConnected = false;
-        try {
-          var s = await BrokerAI.apiJson("/social/status", { method: "GET" });
-          hasConnected = !!(s && (s.connected || s.ready || s.status === "connected"));
-        } catch (e) { /* ignore — leave as false */ }
-
-        var states = {
-          connect: hasConnected,
-          campaign: hasCampaign,
-          review: hasReviewed,
-          publish: hasPublished,
-        };
-        var done = 0;
-        Object.keys(states).forEach(function (k) { if (states[k]) done++; });
-
-        // If everything's done, don't show the card.
-        if (done >= 4) return;
-        card.classList.remove("hidden");
-
-        card.querySelectorAll(".ba-onboard-step").forEach(function (el) {
-          var key = el.getAttribute("data-step");
-          if (states[key]) {
-            el.classList.add("is-done");
-            var chk = el.querySelector(".ba-onboard-check");
-            if (chk) chk.textContent = "\u2713";
-          }
-        });
-        var pct = Math.round((done / 4) * 100);
-        var bar = document.getElementById("onboarding-progress-bar");
-        if (bar) bar.style.width = pct + "%";
-        var lbl = document.getElementById("onboarding-progress-label");
-        if (lbl) lbl.textContent = done + " of 4 complete";
-
-        var dismissBtn = document.getElementById("onboarding-dismiss");
-        if (dismissBtn && !dismissBtn._bound) {
-          dismissBtn._bound = true;
-          dismissBtn.addEventListener("click", function () {
-            localStorage.setItem("brokerai_onboarding_dismissed", "1");
-            card.classList.add("hidden");
-          });
-        }
-      }
-
       function fmtAnalyticsDate(iso) {
         if (!iso) return "—";
         var d = BrokerAI.parseUtcIso(iso);
@@ -864,7 +756,7 @@
 
           // Role badge next to dashboard title (target main title only — not other h1s)
           if (userAccountType !== "individual") {
-            var titleEl = document.getElementById("dashboard-main-title");
+            var titleRow = document.getElementById("dashboard-title-row");
             var existingBadge = document.getElementById("dashboard-role-badge");
             if (existingBadge) existingBadge.remove();
             var roleBadgeText = "";
@@ -875,22 +767,23 @@
             } else if (roleLower === "owner") {
               roleBadgeText = userAccountType === "org" ? "Organisation owner" : "Team owner";
             }
-            if (titleEl && roleBadgeText) {
+            if (titleRow && roleBadgeText) {
               var badge = document.createElement("span");
               badge.id = "dashboard-role-badge";
               badge.className =
-                "ml-2 inline-block align-middle rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800";
+                "inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800";
               badge.textContent = roleBadgeText;
-              titleEl.appendChild(document.createTextNode(" "));
-              titleEl.appendChild(badge);
+              titleRow.appendChild(badge);
             }
           }
 
           // Hide "New Campaign" creation button for members (can't approve/publish anyway)
           if (isMember) {
-            document.querySelectorAll('a[href="/wizard-v2.html"]').forEach(function(el) {
-              el.style.display = "none";
-            });
+            document
+              .querySelectorAll('a[href="/wizard-v2.html"], a[href="/wizard.html"]')
+              .forEach(function (el) {
+                el.style.display = "none";
+              });
             // Insert info note
             var memberNote = document.createElement("div");
             memberNote.className = "rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900 mb-4";
@@ -917,8 +810,6 @@
             if (banner) banner.classList.remove("hidden");
           }
 
-          // Render onboarding checklist based on what the user has done.
-          try { await renderOnboarding(an, allPosts); } catch (e) { /* non-fatal */ }
           var insightCamp = pickInsightsCampaignId(allPosts);
           await loadAiInsights(insightCamp);
         } catch (err) {

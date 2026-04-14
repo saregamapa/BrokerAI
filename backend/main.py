@@ -561,7 +561,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     when the UI migrates to a bundled frontend.
     """
 
-    def __init__(self, app: ASGIApp, *, csp: str | None = None) -> None:
+    def __init__(self, app: ASGIApp, *, csp: Optional[str] = None) -> None:
         super().__init__(app)
         self.csp = csp or (
             "default-src 'self'; "
@@ -1879,7 +1879,7 @@ async def _openai_json(
     client = AsyncOpenAI(api_key=key, timeout=timeout)
     model = "gpt-4o-mini"
 
-    last_exc: Exception | None = None
+    last_exc: Optional[Exception] = None
     for attempt in range(max_retries + 1):
         _t0 = time.perf_counter()
         try:

@@ -83,6 +83,34 @@ def coerce_ayrshare_platforms(stored: Union[None, str, List[Any]]) -> List[str]:
     return normalize_platforms(pl)
 
 
+def _post_ids_list_has_success(entries: Any) -> bool:
+    """True if Ayrshare postIds array contains at least one non-error published id."""
+    if not isinstance(entries, list):
+        return False
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("status") or "").lower() == "error":
+            continue
+        pid = entry.get("id")
+        if isinstance(pid, str) and pid.strip():
+            return True
+    return False
+
+
+def _has_any_successful_publish(data: Dict[str, Any]) -> bool:
+    """
+    Ayrshare sometimes returns top-level status \"error\" while one or more networks
+    succeeded (e.g. Facebook ok, Instagram not linked). Treat as partial success.
+    """
+    posts_inner = data.get("posts")
+    if isinstance(posts_inner, list):
+        for block in posts_inner:
+            if isinstance(block, dict) and _post_ids_list_has_success(block.get("postIds")):
+                return True
+    return _post_ids_list_has_success(data.get("postIds"))
+
+
 async def publish_post(
     caption: str,
     platforms: List[str],
@@ -234,7 +262,18 @@ async def publish_post(
     if isinstance(data, dict):
         st = str(data.get("status") or "").lower()
         if st == "error":
-            ok = False
+            if _has_any_successful_publish(data):
+                ok = True
+                data.setdefault(
+                    "partial_success",
+                    True,
+                )
+                data.setdefault(
+                    "user_message",
+                    "Published to linked networks. Platforms that are not connected were skipped.",
+                )
+            else:
+                ok = False
         elif st == "success" or st == "scheduled":
             # Partial platform failures may still return 200 with errors[]
             errs = data.get("errors")
@@ -267,7 +306,7 @@ async def publish_post(
                 if (
                     isinstance(inner_errs, list)
                     and inner_errs
-                    and not (isinstance(inner_pids, list) and len(inner_pids) > 0)
+                    and not _post_ids_list_has_success(inner_pids)
                 ):
                     ok = False
 

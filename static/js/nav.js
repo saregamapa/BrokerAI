@@ -23,7 +23,7 @@
       { href: "/wizard.html",    label: "New Campaign",    key: "wizard"    },
       { href: "/review.html",    label: "Review Posts",    key: "review"    },
       { href: "/analytics.html", label: "Performance",     key: "analytics" },
-      { href: "/connect.html",   label: "Connect Accounts",key: "connect"   },
+      { href: "/connect.html",   label: "User Profile",    key: "connect"   },
     ];
 
     function active(k) {
@@ -76,7 +76,7 @@
         '<div class="mx-auto flex max-w-6xl items-center justify-center gap-2">' +
           '<svg class="h-4 w-4 shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>' +
           '<span>Connect your social accounts to enable publishing.</span>' +
-          '<a href="/connect.html" class="ml-1 font-semibold text-amber-900 underline decoration-amber-600/60 underline-offset-2 hover:text-amber-950">Connect now →</a>' +
+          '<a href="/connect.html" class="ml-1 font-semibold text-amber-900 underline decoration-amber-600/60 underline-offset-2 hover:text-amber-950">User Profile →</a>' +
         '</div>' +
       '</div>' +
       // Top bar
@@ -96,7 +96,7 @@
       '</div>';
 
     // Set page title in topbar
-    var pageTitles = { dashboard: 'Dashboard', wizard: 'New Campaign', review: 'Review Posts', analytics: 'Performance', connect: 'Connect Accounts' };
+    var pageTitles = { dashboard: 'Dashboard', wizard: 'New Campaign', review: 'Review Posts', analytics: 'Performance', connect: 'User Profile' };
     var titleEl = document.getElementById('nav-page-title');
     if (titleEl && pageTitles[page]) titleEl.textContent = pageTitles[page];
 

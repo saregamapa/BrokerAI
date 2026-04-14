@@ -66,7 +66,7 @@ Grouped by concern. Only the ones marked **required** must be set for the app to
 | `AYRSHARE_API_KEY` | Primary API key from Ayrshare dashboard. |
 | `AYRSHARE_SSO_DOMAIN` | App id from Business onboarding (`id-xxxxxx`, **not** your hostname). |
 | `AYRSHARE_PRIVATE_KEY` **or** `AYRSHARE_PRIVATE_KEY_PATH` | PKCS#8 PEM for JWT SSO. |
-| `AYRSHARE_MIN_LINKED_PLATFORMS` | `1`–`3`, default `3`. How many of FB/IG/LinkedIn must be linked before wizard unlocks. |
+| `AYRSHARE_MIN_LINKED_PLATFORMS` | `1`–`3`, default `1`. How many of FB/IG/LinkedIn count as “fully connected” for gates that use it. |
 | `AYRSHARE_SINGLE_ACCOUNT_PUBLISH` | `true` to post without Profile-Key (local single-account dev only). |
 | `PUBLIC_APP_URL` | Public HTTPS origin used as JWT `redirect` after Ayrshare link. |
 

@@ -499,11 +499,11 @@ def is_social_connection_satisfied(active_accounts: Optional[List[str]]) -> bool
     """
     True when enough of Facebook / Instagram / LinkedIn are linked for this app.
 
-    Default requires all three. Set AYRSHARE_MIN_LINKED_PLATFORMS=1 or 2 on Render if you want
-    a softer gate while onboarding (wizard + publish still use whatever platforms are linked).
+    Default is one linked network. Set AYRSHARE_MIN_LINKED_PLATFORMS=2 or 3 if you require
+    more networks before treating the workspace as fully connected.
     """
     linked = linked_social_slugs(active_accounts) & REQUIRED_LINKED_SOCIAL_PLATFORMS
-    raw = (os.getenv("AYRSHARE_MIN_LINKED_PLATFORMS") or "3").strip()
+    raw = (os.getenv("AYRSHARE_MIN_LINKED_PLATFORMS") or "1").strip()
     try:
         need = int(raw)
     except ValueError:
@@ -520,5 +520,5 @@ def is_social_connection_satisfied(active_accounts: Optional[List[str]]) -> bool
 
 
 def has_all_target_platforms_linked(active_accounts: Optional[List[str]]) -> bool:
-    """Backward-compatible name: satisfied when MIN_LINKED_PLATFORMS threshold is met (default 3)."""
+    """Backward-compatible name: satisfied when MIN_LINKED_PLATFORMS threshold is met (default 1)."""
     return is_social_connection_satisfied(active_accounts)
