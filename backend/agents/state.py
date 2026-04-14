@@ -11,3 +11,6 @@ class AgentState(TypedDict, total=False):
     strategy_plan: Dict[str, Any]
     posts: List[Dict[str, Any]]
     step_log: Annotated[List[str], operator.add]
+    # Lead capture: populated by wizard Step 5 data, consumed by lead_capture_node
+    lead_form_config: Dict[str, Any]      # e.g. {enabled, form_type, fields, cta_text}
+    automation_config: Dict[str, Any]     # e.g. {enabled, trigger_keyword, reply_dm, platforms}

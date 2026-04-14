@@ -23,6 +23,9 @@ class GenerateCampaignRequest(BaseModel):
     ai_text_enabled: bool = True
     ai_images_enabled: bool = True
     video_scripts_enabled: bool = True
+    # Lead capture config collected by wizard Step 5 (optional)
+    lead_form_config: Optional[Dict[str, Any]] = None
+    automation_config: Optional[Dict[str, Any]] = None
 
     @field_validator("platforms")
     @classmethod
@@ -447,6 +450,21 @@ class ModifyCaptionRequest(BaseModel):
 
 class ModifyCaptionResponse(BaseModel):
     caption: str
+
+
+class PreviewCaptionsRequest(BaseModel):
+    """Lightweight pre-generation caption preview (wizard Step 3)."""
+    bucket: str = "real_estate"        # content bucket / industry
+    persona: str = ""                   # persona label chosen in wizard
+    goal: str = ""                      # campaign goal / objective
+    location: str = ""                  # city/market e.g. "Austin, TX"
+    platforms: List[str] = Field(default_factory=list)
+    tone: str = "professional"          # professional | friendly | luxury | bold
+    count: int = 3                      # number of captions to return (max 5)
+
+
+class PreviewCaptionsResponse(BaseModel):
+    captions: List[str] = Field(default_factory=list)
 
 
 class PreviewScoreRequest(BaseModel):

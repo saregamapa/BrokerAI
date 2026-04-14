@@ -775,3 +775,98 @@ def publishing_node(state: AgentState) -> Dict[str, Any]:
                 coerce_ayrshare_platforms(sample.publish_platforms),
             )
     return {"step_log": ["publishing: posts approved for Ayrshare scheduler"]}
+
+
+def lead_capture_node(state: AgentState) -> Dict[str, Any]:
+    """9th node — auto-creates a LeadForm and/or CommentAutomation in the DB
+    using the configuration collected in wizard Step 5.
+
+    This runs after publishing_node so the campaign_id is fully persisted.
+    Both configs are optional: if the wizard user didn't enable them the node
+    is a no-op.
+    """
+    from backend.models import CommentAutomation, LeadForm  # local import avoids circular
+
+    cid = state.get("campaign_id")
+    uid = state.get("user_id")
+    lf_cfg: Dict[str, Any] = state.get("lead_form_config") or {}
+    auto_cfg: Dict[str, Any] = state.get("automation_config") or {}
+
+    step_messages: List[str] = []
+
+    if not (lf_cfg or auto_cfg):
+        return {"step_log": ["lead_capture: skipped (no config)"]}
+
+    lead_form_id: Optional[int] = None
+
+    with Session(engine) as session:
+        # ── 1. Create lead form ────────────────────────────────────────────────
+        if lf_cfg.get("enabled"):
+            import secrets as _secrets
+
+            fields_default = [
+                {"key": "name",  "label": "Full Name",    "type": "text",  "required": True},
+                {"key": "email", "label": "Email",         "type": "email", "required": True},
+                {"key": "phone", "label": "Phone Number",  "type": "tel",   "required": False},
+            ]
+            custom_fields = lf_cfg.get("fields") or fields_default
+
+            lf = LeadForm(
+                user_id=uid,
+                name=lf_cfg.get("form_name") or f"Campaign {cid} Lead Form",
+                headline=lf_cfg.get("headline") or "Get More Info",
+                description=lf_cfg.get("description") or "",
+                fields=json.dumps(custom_fields),
+                thank_you_message=lf_cfg.get("thank_you_message")
+                    or "Thanks! We'll be in touch soon.",
+                redirect_url=lf_cfg.get("redirect_url") or "",
+                public_slug=f"c{cid}-{_secrets.token_urlsafe(6)}",
+                is_active=True,
+            )
+            session.add(lf)
+            session.flush()          # get lf.id before commit
+            lead_form_id = lf.id
+            step_messages.append(f"lead_capture: created lead_form id={lead_form_id}")
+            log.info("[agent:lead_capture] created LeadForm id=%s campaign_id=%s", lead_form_id, cid)
+
+        # ── 2. Create comment automation ───────────────────────────────────────
+        if auto_cfg.get("enabled"):
+            keyword = auto_cfg.get("trigger_keyword") or "info"
+            keywords_list = [k.strip().lower() for k in keyword.split(",") if k.strip()]
+
+            platforms: List[str] = auto_cfg.get("platforms") or ["instagram"]
+            reply_dm: str = auto_cfg.get("reply_dm") or (
+                "Hi {handle}! Here's the info you requested: {link}"
+            )
+            public_comment_reply: str = auto_cfg.get("public_reply") or (
+                "Thanks for the interest! Just sent you a DM 📩"
+            )
+
+            # Create one automation per platform
+            for plat in platforms:
+                auto = CommentAutomation(
+                    user_id=uid,
+                    name=f"Campaign {cid} — {plat.title()} automation",
+                    platform=plat,
+                    keywords=json.dumps(keywords_list),
+                    match_mode=auto_cfg.get("match_mode") or "any",
+                    reply_comment_enabled=True,
+                    reply_comment_template=public_comment_reply,
+                    dm_enabled=True,
+                    dm_template=reply_dm,
+                    lead_form_id=lead_form_id,
+                    link_url=auto_cfg.get("link_url") or "",
+                    is_active=True,
+                )
+                session.add(auto)
+                step_messages.append(
+                    f"lead_capture: created comment_automation platform={plat}"
+                )
+                log.info(
+                    "[agent:lead_capture] created CommentAutomation platform=%s campaign_id=%s",
+                    plat, cid,
+                )
+
+        session.commit()
+
+    return {"step_log": step_messages or ["lead_capture: completed"]}

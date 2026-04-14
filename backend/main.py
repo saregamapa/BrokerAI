@@ -86,6 +86,8 @@ from backend.schemas import (
     PostOut,
     PrefillFromPromptRequest,
     PrefillFromPromptResponse,
+    PreviewCaptionsRequest,
+    PreviewCaptionsResponse,
     PreviewScoreRequest,
     PreviewScoreResponse,
     SignupRequest,
@@ -1176,6 +1178,9 @@ async def generate_campaign(
         "approved": False,
         "campaign_data": campaign_data,
         "step_log": [],
+        # Lead capture data from wizard Step 5 — consumed by lead_capture_node
+        "lead_form_config": body.lead_form_config or {},
+        "automation_config": body.automation_config or {},
     }
     log.info(
         "Campaign generation started user_id=%s campaign_id=%s goal=%s",
@@ -2072,6 +2077,53 @@ async def campaigns_modify_caption(
     )
     data = await _openai_json(system, f"Original caption:\n{body.caption}", temperature=0.5)
     return ModifyCaptionResponse(caption=str(data.get("caption") or body.caption))
+
+
+@app.post("/campaigns/preview-captions", response_model=PreviewCaptionsResponse)
+async def campaigns_preview_captions(
+    body: PreviewCaptionsRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Return 2-4 draft captions for wizard Step 3 preview (pre-generation).
+
+    These are lightweight GPT-4o-mini outputs — they give the user a flavour
+    of what the full campaign will look like before they hit Launch.
+    """
+    if not _openai_api_key():
+        # Return static placeholder captions so the wizard still works without OpenAI
+        placeholders = [
+            f"Discover your dream home in {body.location or 'your area'} — expert guidance from listing to keys. 🏡 DM us to get started!",
+            f"Looking to {body.goal or 'grow your business'} in {body.location or 'your market'}? We make it simple. Ask us how!",
+            f"Your next chapter starts here. Serving {body.location or 'the local area'} with trusted expertise. #RealEstate #HomeGoals",
+        ]
+        return PreviewCaptionsResponse(captions=placeholders[: max(1, min(body.count, 5))])
+
+    platform_hint = ", ".join(body.platforms) if body.platforms else "social media"
+    count = max(1, min(body.count, 5))
+
+    system = (
+        "You are an expert social media copywriter specialised in real estate and local business marketing. "
+        "Return ONLY valid JSON with a single key 'captions' containing an array of caption strings. "
+        "Each caption must be punchy, platform-native, include 2-4 relevant emojis and 2-5 hashtags. "
+        f"Tone: {body.tone}. Platform(s): {platform_hint}. "
+        "No preamble, no markdown fences, just the JSON object."
+    )
+    user_msg = json.dumps({
+        "industry": body.bucket.replace("_", " "),
+        "persona": body.persona,
+        "goal": body.goal,
+        "location": body.location,
+        "count": count,
+    })
+    data = await _openai_json(system, user_msg, temperature=0.75)
+    raw = data.get("captions") or []
+    captions = [str(c) for c in raw if isinstance(c, str)][:count]
+    # Pad with fallback if model returned fewer than requested
+    while len(captions) < count:
+        captions.append(
+            f"Helping clients in {body.location or 'your area'} achieve their {body.goal or 'goals'}. Reach out today!"
+        )
+    return PreviewCaptionsResponse(captions=captions)
 
 
 @app.post("/campaigns/preview-score", response_model=PreviewScoreResponse)
@@ -3340,38 +3392,123 @@ def canva_status(current_user: User = Depends(get_current_user)) -> CanvaStatusR
 
 
 @app.post("/canva/designs", response_model=CanvaDesignOut)
-def create_canva_design(
+async def create_canva_design(
     body: CanvaDesignCreateRequest,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> CanvaDesignOut:
-    """Create a design record. In link-out mode, we return a deep link that
-    opens Canva's editor for the chosen design type, prefilled with the
-    prompt/title so the user can build it manually. When CANVA_API_TOKEN is
-    set, we'd call Canva Connect here to autofill a template — left as a TODO
-    hook for later."""
+    """Create a design record.
+
+    Modes:
+    - **link-out** (default): returns a deep link to Canva's editor with title +
+      prompt pre-encoded in the URL, so the user can build the design manually.
+    - **API autofill** (when CANVA_API_TOKEN is set + template_id provided):
+      calls Canva Connect `/v1/autofills` to programmatically fill a brand
+      template with the caption / caption fields, then returns the resulting
+      edit URL.
+    """
     if body.post_id is not None:
         _assert_post_owner(body.post_id, current_user.id, session)
-    base_url = _CANVA_DESIGN_TYPE_TO_URL.get(body.design_type, "https://www.canva.com/")
-    # Encode title + prompt into the URL fragment (Canva ignores unknown params)
-    from urllib.parse import urlencode, quote
-    query = urlencode({
-        "title": body.title or f"BrokerAI {body.design_type}",
-        "prompt": (body.prompt or "")[:500],
-    })
-    edit_url = f"{base_url}&{query}" if "?" in base_url else f"{base_url}?{query}"
+
+    from urllib.parse import urlencode
+
+    canva_token = (os.getenv("CANVA_API_TOKEN") or "").strip()
+    template_id = (body.template_id or "").strip()
+
+    edit_url = ""
+    external_id = ""
+    autofill_status = "pending"
+    autofill_error = ""
+    resolved_autofill_data: dict = body.autofill_data or {}
+
+    # ── API autofill path ─────────────────────────────────────────────────────
+    if canva_token and template_id:
+        try:
+            import httpx
+
+            # Build autofill data payload from body fields + caption
+            # The caller may pass arbitrary key→value pairs in autofill_data;
+            # we wrap each as a Canva "text" field.
+            data_fields: dict = {}
+            for field_key, field_value in (resolved_autofill_data or {}).items():
+                if isinstance(field_value, str):
+                    data_fields[field_key] = {"type": "text", "text": field_value[:5000]}
+
+            # Add prompt/caption as a "headline" field if not already present
+            if body.prompt and "headline" not in data_fields:
+                data_fields["headline"] = {"type": "text", "text": body.prompt[:5000]}
+            if body.title and "title" not in data_fields:
+                data_fields["title"] = {"type": "text", "text": body.title[:500]}
+
+            canva_payload = {
+                "brand_template_id": template_id,
+                "title": body.title or f"BrokerAI {body.design_type}",
+                "data": data_fields,
+            }
+
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.post(
+                    "https://api.canva.com/rest/v1/autofills",
+                    json=canva_payload,
+                    headers={
+                        "Authorization": f"Bearer {canva_token}",
+                        "Content-Type": "application/json",
+                    },
+                )
+
+            if resp.status_code in (200, 201):
+                resp_data = resp.json()
+                # Canva returns { "job": { "id": "...", "status": "..." } }
+                job = resp_data.get("job") or {}
+                external_id = job.get("id") or ""
+                autofill_status = "autofill_submitted"
+                # The edit URL is available after the job completes; poll or
+                # store the job ID so the client can fetch it later.
+                # For now we return the job ID as a placeholder edit_url so the
+                # frontend can query /canva/designs/{id}/status.
+                edit_url = job.get("urls", {}).get("edit_url") or ""
+                log.info(
+                    "[canva] autofill job submitted external_id=%s user_id=%s",
+                    external_id, current_user.id,
+                )
+            else:
+                log.warning(
+                    "[canva] autofill API error status=%s body=%s",
+                    resp.status_code, resp.text[:300],
+                )
+                autofill_error = f"Canva API {resp.status_code}: {resp.text[:200]}"
+                autofill_status = "error"
+                # Fall through to link-out below
+
+        except Exception as exc:
+            log.exception("[canva] autofill call failed: %s", exc)
+            autofill_error = str(exc)[:300]
+            autofill_status = "error"
+
+    # ── Link-out path (fallback / no token) ───────────────────────────────────
+    if not edit_url:
+        base_url = _CANVA_DESIGN_TYPE_TO_URL.get(body.design_type, "https://www.canva.com/")
+        query = urlencode({
+            "title": body.title or f"BrokerAI {body.design_type}",
+            "prompt": (body.prompt or "")[:500],
+        })
+        edit_url = f"{base_url}&{query}" if "?" in base_url else f"{base_url}?{query}"
+        if autofill_status == "pending":
+            autofill_status = "link-out"
+
     d = CanvaDesign(
         user_id=current_user.id,
         post_id=body.post_id,
         campaign_id=body.campaign_id,
-        external_id="",
-        template_id=body.template_id or "",
+        external_id=external_id,
+        template_id=template_id,
         title=body.title or "",
         design_type=body.design_type,
         edit_url=edit_url,
         prompt=body.prompt or "",
-        autofill_data=json.dumps(body.autofill_data or {}),
-        status="pending",
+        autofill_data=json.dumps(resolved_autofill_data),
+        status=autofill_status,
+        error=autofill_error,
     )
     session.add(d); session.commit(); session.refresh(d)
     return _canva_design_out(d)
