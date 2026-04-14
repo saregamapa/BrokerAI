@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BrokerAI — AI-powered social media campaigns for any business. Generate, schedule, and publish a month of content in minutes." />
+    <meta name="og:site_name" content="BrokerAI" />
+    <meta property="og:type" content="website" />
     <title>Review Posts — BrokerAI</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
@@ -207,7 +210,12 @@
         root.innerHTML = "";
         if (!posts.length) {
           root.innerHTML =
-            '<p class="text-slate-600">No posts yet. <a href="/wizard.html" class="font-medium text-amber-600 hover:underline">Run the wizard</a>.</p>';
+            '<div class="brokerai-empty">' +
+              '<div class="text-3xl mb-2">📝</div>' +
+              '<h3 class="text-base font-semibold text-slate-800">No posts in this campaign yet</h3>' +
+              '<p class="mt-1 text-sm text-slate-500">Generate content with AI or build posts manually to get started.</p>' +
+              '<a href="/wizard.html" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition hover:scale-[1.02]">✨ Run the wizard</a>' +
+            '</div>';
           return;
         }
 
@@ -534,7 +542,12 @@
         var defaultName = (document.querySelector("#campaign-meta")?.textContent || "Campaign") + " (Copy)";
         var newName = prompt("Name for the duplicate:", defaultName.slice(0, 120));
         if (newName === null) return;
-        var includePosts = confirm("Also copy the posts? Click OK for yes, Cancel for metadata-only.");
+        var includePosts = await BrokerAI.confirmDialog({
+          title: "Include posts?",
+          message: "Copy this campaign's posts into the duplicate, or duplicate metadata only?",
+          confirmLabel: "Copy posts",
+          cancelLabel: "Metadata only",
+        });
         btn.disabled = true;
         btn.textContent = "Duplicating…";
         try {

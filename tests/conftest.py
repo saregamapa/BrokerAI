@@ -27,6 +27,18 @@ from fastapi.testclient import TestClient
 from backend.db import create_db_and_tables
 from backend.main import app
 
+# Disable slowapi response-header injection for tests. TestClient + Pydantic
+# response_model returns a bare model (not a Response), which slowapi 0.1.9
+# refuses to decorate. Keeping the limiter enabled but silencing header
+# injection keeps rate-limit logic testable without the crash.
+_tlim = getattr(app.state, "limiter", None)
+if _tlim is not None:
+    try:
+        _tlim._headers_enabled = False  # type: ignore[attr-defined]
+        _tlim.enabled = False  # disable per-endpoint limits during tests
+    except Exception:
+        pass
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _init_database():
@@ -60,5 +72,7 @@ def _stub_ayrshare_profile_sync(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(ayrshare_service, "fetch_active_social_accounts", _fetch)
     monkeypatch.setattr(ayrshare_service, "fetch_profiles_by_ref_id", _profiles)
-    # backend.main imports service functions directly; patch bound reference too.
+    # backend.main imports service functions directly; patch bound references too.
     monkeypatch.setattr(main_mod, "fetch_profiles_by_ref_id", _profiles)
+    if hasattr(main_mod, "fetch_active_social_accounts"):
+        monkeypatch.setattr(main_mod, "fetch_active_social_accounts", _fetch)

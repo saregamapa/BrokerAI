@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BrokerAI — AI-powered social media campaigns for any business. Generate, schedule, and publish a month of content in minutes." />
+    <meta name="og:site_name" content="BrokerAI" />
+    <meta property="og:type" content="website" />
   <title>New Campaign · BrokerAI</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -654,6 +657,14 @@
     async function submit(action) {
       const body = campaignPayload();
       if (!body.goal) return toast("Pick a goal first", true);
+      BrokerAI.setLoading(true, "Building your strategy…");
+      const progress = BrokerAI.progressCycle([
+        "Building your strategy…",
+        "Writing captions…",
+        "Generating image prompts…",
+        "Running compliance checks…",
+        "Finalizing schedule…",
+      ], 2200);
       try {
         const d = await api("/generate-campaign", { method:"POST", body: JSON.stringify(body) });
         // Attach selected lead form (if any) to the newly created campaign.
@@ -666,9 +677,16 @@
             });
           } catch (e) { /* non-fatal */ console.warn("attach lead form failed", e); }
         }
+        progress.stop();
+        BrokerAI.setLoadingText("Done ✔︎");
         toast(action === "publish" ? "Campaign queued ✔︎" : "Campaign saved ✔︎");
         setTimeout(() => window.location.href = `/review.html?campaign=${d.campaign_id}`, 700);
-      } catch (e) { toast(e.message, true); }
+      } catch (e) {
+        progress.stop();
+        toast(e.message, true);
+      } finally {
+        BrokerAI.setLoading(false);
+      }
     }
     $("btn-publish").addEventListener("click", () => submit("publish"));
     $("btn-schedule").addEventListener("click", () => submit("schedule"));
@@ -803,7 +821,13 @@
           modal.remove();
         });
         row.querySelector(".tpl-del").addEventListener("click", async () => {
-          if (!confirm(`Delete template "${t.name}"?`)) return;
+          const ok = await BrokerAI.confirmDialog({
+            title: `Delete template "${t.name}"?`,
+            message: "This template will be permanently removed. This cannot be undone.",
+            confirmLabel: "Delete template",
+            danger: true,
+          });
+          if (!ok) return;
           try {
             await api(`/templates/${t.id}`, { method: "DELETE" });
             row.remove();
@@ -1026,5 +1050,6 @@
       }
     });
   </script>
+<script src="/static/js/app.js" defer></script>
 </body>
 </html>

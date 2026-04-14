@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BrokerAI — AI-powered social media campaigns for any business. Generate, schedule, and publish a month of content in minutes." />
+    <meta name="og:site_name" content="BrokerAI" />
+    <meta property="og:type" content="website" />
     <title>Sign up — BrokerAI</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
@@ -255,29 +258,52 @@
       updateTeamNameVisibility();
 
       // ── Form submit ───────────────────────────────────────────────────
-      document.getElementById("signup-form").addEventListener("submit", async function (e) {
+      var signupForm = document.getElementById("signup-form");
+      var signupBtn = document.getElementById("signup-btn");
+      var signupBtnText = signupBtn.textContent;
+
+      signupForm.addEventListener("submit", async function (e) {
         e.preventDefault();
         var fd = new FormData(e.target);
         var tz;
         try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (_) { tz = "UTC"; }
 
-        var body = {
-          email: fd.get("email"),
-          password: fd.get("password"),
-          timezone: tz,
-        };
+        var email = (fd.get("email") || "").toString().trim();
+        var password = (fd.get("password") || "").toString();
 
-        if (_inviteToken) {
-          // Invite signup path
-          body.invite_token = _inviteToken;
-        } else {
-          // Normal signup path
+        // Client-side validation (inline errors, no alerts)
+        BrokerAI.clearFieldErrors(["email", "password", "team_name"]);
+        var hasErr = false;
+        var eErr = BrokerAI.validateEmail(email);
+        if (eErr) { BrokerAI.setFieldError("email", eErr); hasErr = true; }
+        var pErr = BrokerAI.validatePassword(password);
+        if (pErr) { BrokerAI.setFieldError("password", pErr); hasErr = true; }
+
+        if (!_inviteToken) {
           var accountType = fd.get("account_type") || "individual";
           var teamName = (fd.get("team_name") || "").trim();
-          body.account_type = accountType;
-          if (teamName) body.team_name = teamName;
+          if ((accountType === "team" || accountType === "org") && !teamName) {
+            BrokerAI.setFieldError("team_name", (accountType === "org" ? "Organisation" : "Team") + " name is required.");
+            hasErr = true;
+          }
+        }
+        if (hasErr) return;
+
+        var body = {
+          email: email,
+          password: password,
+          timezone: tz,
+        };
+        if (_inviteToken) {
+          body.invite_token = _inviteToken;
+        } else {
+          body.account_type = fd.get("account_type") || "individual";
+          var tName = (fd.get("team_name") || "").trim();
+          if (tName) body.team_name = tName;
         }
 
+        signupBtn.disabled = true;
+        signupBtn.textContent = "Creating account…";
         BrokerAI.setLoading(true);
         try {
           var res = await BrokerAI.apiJson("/signup", {
@@ -291,8 +317,14 @@
           );
           window.location.href = "/dashboard.html";
         } catch (err) {
-          BrokerAI.showToast(err.message || "Sign up failed", "error");
+          // Surface server-side field errors inline when possible
+          var msg = err.message || "Sign up failed";
+          if (/email/i.test(msg)) BrokerAI.setFieldError("email", msg);
+          else if (/password/i.test(msg)) BrokerAI.setFieldError("password", msg);
+          BrokerAI.showToast(msg, "error");
         } finally {
+          signupBtn.disabled = false;
+          signupBtn.textContent = signupBtnText;
           BrokerAI.setLoading(false);
         }
       });

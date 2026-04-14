@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BrokerAI — AI-powered social media campaigns for any business. Generate, schedule, and publish a month of content in minutes." />
+    <meta name="og:site_name" content="BrokerAI" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg" />
+    <link rel="apple-touch-icon" href="/static/img/favicon.svg" />
+    <meta name="theme-color" content="#f59e0b" />
   <title>Leads — BrokerAI</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -87,7 +93,7 @@
           const blob = await res.blob();
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob); a.download = `leads_form_${currentFormId}.csv`; a.click();
-        } catch (err) { alert(err.message || "Export failed"); }
+        } catch (err) { BrokerAI.showToast(err.message || "Export failed", "error"); }
       });
 
       // Build header
@@ -121,7 +127,8 @@
       });
     }
 
-    init().catch(e => { alert(e.message); });
+    init().catch(e => { BrokerAI.showToast(e.message || "Failed to load leads.", "error"); });
   </script>
+<script src="/static/js/app.js" defer></script>
 </body>
 </html>

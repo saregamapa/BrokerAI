@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BrokerAI — AI-powered social media campaigns for any business. Generate, schedule, and publish a month of content in minutes." />
+    <meta name="og:site_name" content="BrokerAI" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg" />
+    <link rel="apple-touch-icon" href="/static/img/favicon.svg" />
+    <meta name="theme-color" content="#f59e0b" />
   <title>Comment Automations — BrokerAI</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -106,7 +112,7 @@
         <button id="btn-test" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Test with a comment…</button>
         <div class="flex gap-2">
           <button id="mcancel" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
-          <button id="msave" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600">Save</button>
+          <button id="msave" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600">Save automation</button>
         </div>
       </div>
     </div>
@@ -237,9 +243,21 @@ async function load() {
     openModal(a);
   });
   list.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
-    if (!confirm("Delete this automation and all its triggers?")) return;
-    await api("/comment-automations/" + b.dataset.del, { method: "DELETE" });
-    load();
+    var ok = await BrokerAI.confirmDialog({
+      title: "Delete automation?",
+      message: "This will remove the automation and all its trigger history. This cannot be undone.",
+      confirmLabel: "Delete",
+      cancelLabel: "Keep",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api("/comment-automations/" + b.dataset.del, { method: "DELETE" });
+      BrokerAI.showToast("Automation deleted.", "success");
+      load();
+    } catch (e) {
+      BrokerAI.showToast("Delete failed: " + e.message, "error");
+    }
   });
   list.querySelectorAll("[data-toggle]").forEach(b => b.onclick = async () => {
     const active = b.dataset.active === "true";
@@ -267,7 +285,7 @@ async function load() {
 
 async function save() {
   const keywords = $("f-keywords").value.split(",").map(s => s.trim()).filter(Boolean);
-  if (!keywords.length) { alert("Enter at least one keyword."); return; }
+  if (!keywords.length) { BrokerAI.showToast("Enter at least one keyword.", "error"); return; }
   const leadFormVal = $("f-leadform").value;
   const body = {
     name: $("f-name").value.trim() || "Untitled",
@@ -291,9 +309,10 @@ async function save() {
       await api("/comment-automations", { method: "POST", body: JSON.stringify(body) });
     }
     closeModal();
+    BrokerAI.showToast("Automation saved.", "success");
     load();
   } catch(e) {
-    alert("Save failed: " + e.message);
+    BrokerAI.showToast("Save failed: " + e.message, "error");
   }
 }
 
@@ -303,7 +322,7 @@ $("mcancel").onclick = closeModal;
 $("msave").onclick = save;
 
 $("btn-test").onclick = () => {
-  if (!state.editing) { alert("Save first, then test."); return; }
+  if (!state.editing) { BrokerAI.showToast("Save first, then test.", "info"); return; }
   $("t-text").value = ""; $("t-result").classList.add("hidden");
   $("testmodal").classList.remove("hidden"); $("testmodal").classList.add("flex");
 };
@@ -331,11 +350,12 @@ $("trun").onclick = async () => {
       : '<p class="text-slate-600">No match — try different keywords or comment text.</p>';
     if ($("t-execute").checked) load();
   } catch(e) {
-    alert("Test failed: " + e.message);
+    BrokerAI.showToast("Test failed: " + e.message, "error");
   }
 };
 
 loadLeadForms().then(load);
 </script>
+<script src="/static/js/app.js" defer></script>
 </body>
 </html>

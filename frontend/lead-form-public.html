@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BrokerAI — AI-powered social media campaigns for any business. Generate, schedule, and publish a month of content in minutes." />
+    <meta name="og:site_name" content="BrokerAI" />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg" />
+    <link rel="apple-touch-icon" href="/static/img/favicon.svg" />
+    <meta name="theme-color" content="#f59e0b" />
   <title>Lead Capture</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -85,13 +91,13 @@
           const btn = document.createElement("button");
           btn.type = "submit";
           btn.className = "w-full rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-white shadow-md hover:bg-amber-600";
-          btn.textContent = "Submit";
+          btn.textContent = "Send";
           f.appendChild(btn);
 
           f.addEventListener("submit", async (e) => {
             e.preventDefault();
             err.classList.add("hidden");
-            btn.disabled = true; btn.textContent = "Submitting…";
+            btn.disabled = true; btn.textContent = "Sending…";
             const data = {};
             (form.fields || []).forEach(fld => {
               const el = f.querySelector(`[name="${fld.key}"]`);
@@ -112,8 +118,8 @@
               document.getElementById("thanks-msg").textContent = d.thank_you_message || "We'll be in touch soon.";
               if (d.redirect_url) setTimeout(() => { window.location.href = d.redirect_url; }, 1200);
             } catch (ex) {
-              showErr(ex.message || "Something went wrong.");
-              btn.disabled = false; btn.textContent = "Submit";
+              showErr(ex.message || "Couldn't submit — please try again.");
+              btn.disabled = false; btn.textContent = "Send";
             }
           });
         })

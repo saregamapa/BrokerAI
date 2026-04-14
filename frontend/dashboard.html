@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BrokerAI — AI-powered social media campaigns for any business. Generate, schedule, and publish a month of content in minutes." />
+    <meta name="og:site_name" content="BrokerAI" />
+    <meta property="og:type" content="website" />
     <title>Dashboard — BrokerAI</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
@@ -57,6 +60,39 @@
                 Create first campaign
               </a>
             </div>
+          </div>
+
+          <!-- Onboarding checklist (hidden until data loads; auto-hides when all 4 steps done) -->
+          <div id="onboarding-card" class="hidden ba-onboard-card mb-6" aria-label="Getting started checklist">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-amber-700">Getting started</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-900">Your first 4 steps to publish</h2>
+                <p id="onboarding-progress-label" class="mt-1 text-sm text-slate-600">0 of 4 complete</p>
+              </div>
+              <button id="onboarding-dismiss" type="button" class="text-xs font-medium text-slate-500 hover:text-slate-700 focus:outline-none" aria-label="Dismiss checklist">Dismiss</button>
+            </div>
+            <div class="ba-onboard-progress" aria-hidden="true">
+              <div id="onboarding-progress-bar" class="ba-onboard-progress-bar" style="width: 0%"></div>
+            </div>
+            <ol class="mt-4 space-y-1" id="onboarding-steps">
+              <li><a href="/connect.html" class="ba-onboard-step" data-step="connect">
+                <span class="ba-onboard-check" aria-hidden="true">1</span>
+                <span><span class="ba-onboard-label">Connect a social account</span><span class="ba-onboard-sub">Link Facebook, Instagram, or LinkedIn via Ayrshare.</span></span>
+              </a></li>
+              <li><a href="/wizard-v2.html" class="ba-onboard-step" data-step="campaign">
+                <span class="ba-onboard-check" aria-hidden="true">2</span>
+                <span><span class="ba-onboard-label">Create your first campaign</span><span class="ba-onboard-sub">AI builds a month of posts in minutes.</span></span>
+              </a></li>
+              <li><a href="/review.html" class="ba-onboard-step" data-step="review">
+                <span class="ba-onboard-check" aria-hidden="true">3</span>
+                <span><span class="ba-onboard-label">Review &amp; edit your posts</span><span class="ba-onboard-sub">Tweak captions, swap images, approve.</span></span>
+              </a></li>
+              <li><a href="/review.html" class="ba-onboard-step" data-step="publish">
+                <span class="ba-onboard-check" aria-hidden="true">4</span>
+                <span><span class="ba-onboard-label">Publish or schedule</span><span class="ba-onboard-sub">Go live on every connected platform.</span></span>
+              </a></li>
+            </ol>
           </div>
 
           <div class="flex flex-wrap items-center justify-between gap-4">
@@ -720,6 +756,64 @@
         }
       }
 
+      // --- Onboarding checklist -------------------------------------------
+      async function renderOnboarding(analytics, posts) {
+        var card = document.getElementById("onboarding-card");
+        if (!card) return;
+        if (localStorage.getItem("brokerai_onboarding_dismissed") === "1") return;
+
+        var hasCampaign = (analytics && (analytics.total_campaigns || 0) > 0) || (posts && posts.length > 0);
+        var hasReviewed = (posts || []).some(function (p) {
+          var s = String(p.status || "").toLowerCase();
+          return s === "approved" || s === "scheduled" || s === "published" || s === "review";
+        });
+        var hasPublished = (analytics && (analytics.posts_published || 0) > 0) ||
+          (posts || []).some(function (p) { return String(p.status || "").toLowerCase() === "published"; });
+
+        // Probe social connection (best-effort; don't block on failure).
+        var hasConnected = false;
+        try {
+          var s = await BrokerAI.apiJson("/social/status", { method: "GET" });
+          hasConnected = !!(s && (s.connected || s.ready || s.status === "connected"));
+        } catch (e) { /* ignore — leave as false */ }
+
+        var states = {
+          connect: hasConnected,
+          campaign: hasCampaign,
+          review: hasReviewed,
+          publish: hasPublished,
+        };
+        var done = 0;
+        Object.keys(states).forEach(function (k) { if (states[k]) done++; });
+
+        // If everything's done, don't show the card.
+        if (done >= 4) return;
+        card.classList.remove("hidden");
+
+        card.querySelectorAll(".ba-onboard-step").forEach(function (el) {
+          var key = el.getAttribute("data-step");
+          if (states[key]) {
+            el.classList.add("is-done");
+            var chk = el.querySelector(".ba-onboard-check");
+            if (chk) chk.textContent = "\u2713";
+          }
+        });
+        var pct = Math.round((done / 4) * 100);
+        var bar = document.getElementById("onboarding-progress-bar");
+        if (bar) bar.style.width = pct + "%";
+        var lbl = document.getElementById("onboarding-progress-label");
+        if (lbl) lbl.textContent = done + " of 4 complete";
+
+        var dismissBtn = document.getElementById("onboarding-dismiss");
+        if (dismissBtn && !dismissBtn._bound) {
+          dismissBtn._bound = true;
+          dismissBtn.addEventListener("click", function () {
+            localStorage.setItem("brokerai_onboarding_dismissed", "1");
+            card.classList.add("hidden");
+          });
+        }
+      }
+
       function fmtAnalyticsDate(iso) {
         if (!iso) return "—";
         var d = BrokerAI.parseUtcIso(iso);
@@ -822,6 +916,9 @@
             var banner = document.getElementById("welcome-banner");
             if (banner) banner.classList.remove("hidden");
           }
+
+          // Render onboarding checklist based on what the user has done.
+          try { await renderOnboarding(an, allPosts); } catch (e) { /* non-fatal */ }
           var insightCamp = pickInsightsCampaignId(allPosts);
           await loadAiInsights(insightCamp);
         } catch (err) {

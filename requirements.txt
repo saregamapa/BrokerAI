@@ -13,4 +13,5 @@ langchain-core>=0.3.0
 langchain-openai>=0.2.0
 langgraph>=0.2.20
 langgraph-checkpoint-sqlite>=2.0.0
+slowapi>=0.1.9
 pytest>=8.0.0

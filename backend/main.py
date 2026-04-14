@@ -1,6 +1,8 @@
 import asyncio
 import json
+import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,10 +12,10 @@ from dotenv import load_dotenv
 
 import backend.env_loader  # noqa: F401 — loads project root .env before agent imports
 
-from backend.core.logger import configure_logging, get_logger
+from backend.core.logger import configure_logging, get_logger, log_event, time_block
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -178,6 +180,10 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")  # refresh if neede
 
 configure_logging()
 log = get_logger("brokerai")
+
+# Boot timestamp and app version, used by /health.
+APP_BOOT_TIME = time.time()
+APP_VERSION = os.getenv("APP_VERSION", os.getenv("RENDER_GIT_COMMIT", "dev"))[:12]
 
 # Per-user daily cap on campaign generation (UTC day). Cleared on process restart.
 _MAX_CAMPAIGNS_PER_USER_PER_DAY = 10
@@ -501,15 +507,37 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="BrokerAI", lifespan=lifespan)
 
-# CORS: Allow all origins in dev, restrict in production via ALLOWED_ORIGINS env var.
-# Merge BROKERAI_PUBLIC_ORIGIN so the app's own frontend is always permitted.
+# CORS: In strict/prod mode, ALLOWED_ORIGINS must be an explicit allowlist
+# (wildcards are rejected). In local dev, default to "*" for convenience.
+def _is_strict_env() -> bool:
+    mode = (os.getenv("BROKERAI_ENV") or os.getenv("ENVIRONMENT") or "").strip().lower()
+    if mode in ("prod", "production", "staging"):
+        return True
+    return (os.getenv("BROKERAI_STRICT_ENV") or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _build_cors_origins() -> list[str]:
     raw = os.environ.get("ALLOWED_ORIGINS", "").strip()
-    origins = [o.strip() for o in raw.split(",") if o.strip()] if raw else ["*"]
+    strict = _is_strict_env()
+
+    if raw:
+        origins = [o.strip() for o in raw.split(",") if o.strip()]
+    else:
+        origins = [] if strict else ["*"]
+
+    # Merge the app's own public origin so the frontend is always permitted.
     pub = _public_app_origin()
     if pub and pub not in origins and "*" not in origins:
         origins.append(pub)
+
+    if strict and ("*" in origins or not origins):
+        # Fail loud — running in prod with "*" is dangerous.
+        raise RuntimeError(
+            "CORS misconfigured: set ALLOWED_ORIGINS to an explicit comma-separated list "
+            "(wildcards are forbidden in prod/strict mode)."
+        )
     return origins
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -519,7 +547,105 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# --- Security headers ------------------------------------------------------
+from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
+from starlette.types import ASGIApp  # noqa: E402
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Attach a conservative set of security headers to every response.
+
+    CSP is intentionally permissive for 'unsafe-inline'/'unsafe-eval' because
+    the current frontend is vanilla HTML with inline scripts/styles. Tighten
+    when the UI migrates to a bundled frontend.
+    """
+
+    def __init__(self, app: ASGIApp, *, csp: str | None = None) -> None:
+        super().__init__(app)
+        self.csp = csp or (
+            "default-src 'self'; "
+            "img-src 'self' data: blob: https:; "
+            "media-src 'self' blob: https:; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; "
+            "style-src 'self' 'unsafe-inline' https:; "
+            "font-src 'self' data: https:; "
+            "connect-src 'self' https:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self';"
+        )
+
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        headers = response.headers
+        headers.setdefault("X-Content-Type-Options", "nosniff")
+        headers.setdefault("X-Frame-Options", "DENY")
+        headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        headers.setdefault(
+            "Permissions-Policy",
+            "geolocation=(), microphone=(), camera=(), payment=()",
+        )
+        # HSTS only makes sense over HTTPS — harmless for local http but
+        # useful once the app is behind TLS.
+        if _is_strict_env():
+            headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+        headers.setdefault("Content-Security-Policy", self.csp)
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+
+# --- Rate limiting ---------------------------------------------------------
+# slowapi is optional — if missing, we no-op so local dev still works.
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler  # type: ignore
+    from slowapi.errors import RateLimitExceeded  # type: ignore
+    from slowapi.middleware import SlowAPIMiddleware  # type: ignore
+    from slowapi.util import get_remote_address  # type: ignore
+
+    limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=[],  # per-route only
+        headers_enabled=True,
+    )
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
+    _RATE_LIMITS_ENABLED = True
+except Exception as _rl_exc:  # pragma: no cover
+    log.warning("slowapi not available, rate limits disabled: %s", _rl_exc)
+
+    class _NoopLimiter:
+        def limit(self, *_args, **_kwargs):
+            def deco(fn):
+                return fn
+            return deco
+
+    limiter = _NoopLimiter()  # type: ignore[assignment]
+    _RATE_LIMITS_ENABLED = False
+
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
+
+@app.get("/favicon.ico")
+async def serve_favicon():
+    # Serve the SVG favicon for /favicon.ico requests (modern browsers accept SVG).
+    return FileResponse(BASE_DIR / "static" / "img" / "favicon.svg", media_type="image/svg+xml")
+
+
+@app.get("/favicon.svg")
+async def serve_favicon_svg():
+    return FileResponse(BASE_DIR / "static" / "img" / "favicon.svg", media_type="image/svg+xml")
+
+
+@app.get("/robots.txt")
+async def serve_robots():
+    return PlainTextResponse("User-agent: *\nAllow: /\n", media_type="text/plain")
 
 
 @app.get("/")
@@ -560,6 +686,11 @@ async def serve_login():
 @app.get("/signup.html")
 async def serve_signup():
     return FileResponse(BASE_DIR / "frontend" / "signup.html")
+
+
+@app.get("/forgot-password.html")
+async def serve_forgot_password():
+    return FileResponse(BASE_DIR / "frontend" / "forgot-password.html")
 
 
 @app.get("/connect.html")
@@ -763,7 +894,8 @@ def social_connected_callback(
 
 
 @app.post("/signup", response_model=TokenResponse)
-def signup(body: SignupRequest, session: Session = Depends(get_session)):
+@limiter.limit("10/hour")
+def signup(request: Request, body: SignupRequest, session: Session = Depends(get_session)):
     email = body.email.strip().lower()
     tz = normalize_iana_timezone(getattr(body, "timezone", None))
     invite_token = (getattr(body, "invite_token", None) or "").strip() or None
@@ -793,9 +925,13 @@ def signup(body: SignupRequest, session: Session = Depends(get_session)):
 
         # Commit invite redemption (is_used=True was set in validate_and_redeem_invite)
         session.refresh(user)
-        log.info(
-            "invite_signup user_id=%s team_id=%s invite_id=%s",
-            user.id, invite.team_id, invite.id,
+        log_event(
+            "signup",
+            kind="invite",
+            user_id=user.id,
+            team_id=invite.team_id,
+            invite_id=invite.id,
+            email=email,
         )
         return TokenResponse(access_token=create_access_token(user.id))
 
@@ -831,16 +967,59 @@ def signup(body: SignupRequest, session: Session = Depends(get_session)):
         create_team(session, name=team_name, account_type=account_type, owner=user)
         session.refresh(user)
 
+    log_event(
+        "signup",
+        kind="direct",
+        user_id=user.id,
+        account_type=account_type,
+        email=email,
+    )
     return TokenResponse(access_token=create_access_token(user.id))
 
 
 @app.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, session: Session = Depends(get_session)):
+@limiter.limit("20/minute")
+def login(request: Request, body: LoginRequest, session: Session = Depends(get_session)):
     email = body.email.strip().lower()
     user = get_user_by_email(session, email)
     if not user or not verify_password(body.password, user.password_hash):
+        log_event("login_failed", email=email, reason="bad_credentials", level=logging.WARNING)
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    log_event("login", user_id=user.id, email=email)
     return TokenResponse(access_token=create_access_token(user.id))
+
+
+@app.post("/auth/forgot-password")
+@limiter.limit("5/hour")
+def forgot_password(request: Request, body: Dict[str, Any]):
+    """Stub password-reset entrypoint.
+
+    Until full email-based reset is wired up we always return a generic
+    success message (to avoid email-enumeration) and log the request so
+    support can follow up manually.
+    """
+    email = str((body or {}).get("email") or "").strip().lower()
+    support = os.getenv("SUPPORT_EMAIL", "support@brokerai.app")
+    if not email or "@" not in email:
+        # Intentionally the same response shape as the success path — do not
+        # leak whether the account exists.
+        return {
+            "ok": True,
+            "message": (
+                "If that email exists, we'll send reset instructions shortly. "
+                f"You can also email {support} for help."
+            ),
+        }
+    log.info("password_reset_request email=%s", email)
+    # TODO: generate a signed reset token and email it. For now we just return
+    # a neutral message and the support contact.
+    return {
+        "ok": True,
+        "message": (
+            "If that email exists, we'll send reset instructions shortly. "
+            f"In the meantime, email {support} and we'll help you recover your account."
+        ),
+    }
 
 
 @app.get("/me", response_model=UserOut)
@@ -884,7 +1063,9 @@ PLAN_LIMITS = {
 
 
 @app.post("/generate-campaign", response_model=GenerateCampaignResponse)
+@limiter.limit("30/hour")
 async def generate_campaign(
+    request: Request,
     body: GenerateCampaignRequest,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -1270,15 +1451,51 @@ async def publish_post_now(
             status_code=400,
             detail=f"Post not ready to publish (status={row.status})",
         )
+    _pub_t0 = time.perf_counter()
+    log_event(
+        "publish.request",
+        post_id=post_id,
+        user_id=current_user.id,
+        platform=row.platform,
+    )
     out = await safe_publish_post(post_id, force_immediate=True)
+    _pub_dur_ms = int((time.perf_counter() - _pub_t0) * 1000)
     if out.get("no_op"):
+        log_event(
+            "publish.complete",
+            post_id=post_id,
+            user_id=current_user.id,
+            platform=row.platform,
+            status=out.get("status"),
+            no_op=True,
+            duration_ms=_pub_dur_ms,
+        )
         return {"ok": True, "no_op": True, "status": out.get("status")}
     if not out.get("ok") and out.get("error") == "not_eligible":
+        log_event(
+            "publish.failed",
+            level=logging.WARNING,
+            post_id=post_id,
+            user_id=current_user.id,
+            platform=row.platform,
+            reason="not_eligible",
+            duration_ms=_pub_dur_ms,
+        )
         raise HTTPException(
             status_code=409,
             detail="Could not claim post for publish (in progress, max attempts, or not eligible)",
         )
-    return {"ok": bool(out.get("ok")), "status": out.get("status")}
+    ok = bool(out.get("ok"))
+    log_event(
+        "publish.complete" if ok else "publish.failed",
+        level=logging.INFO if ok else logging.WARNING,
+        post_id=post_id,
+        user_id=current_user.id,
+        platform=row.platform,
+        status=out.get("status"),
+        duration_ms=_pub_dur_ms,
+    )
+    return {"ok": ok, "status": out.get("status")}
 
 
 @app.post("/update-post/{post_id}", response_model=PostOut)
@@ -1624,31 +1841,141 @@ def remove_team_member(
 # New Campaign Wizard (Phase 1) endpoints
 # ---------------------------------------------------------------------------
 
-async def _openai_json(system: str, user: str, *, temperature: float = 0.7) -> Dict[str, Any]:
-    """Small helper — runs an OpenAI chat completion with JSON mode."""
-    from openai import AsyncOpenAI
+async def _openai_json(
+    system: str,
+    user: str,
+    *,
+    temperature: float = 0.7,
+    max_retries: int = 2,
+    timeout: float = 30.0,
+) -> Dict[str, Any]:
+    """Run an OpenAI chat completion with JSON mode.
+
+    Hardened for production:
+      - 503 on missing API key (clear message)
+      - timeout on slow calls (default 30s)
+      - automatic retries on transient errors (rate limits, timeouts, 5xx)
+      - friendly HTTPException on final failure — never leaks a 500
+      - always returns a dict (bad JSON yields {})
+    """
     key = _openai_api_key()
     if not key:
-        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured")
-    client = AsyncOpenAI(api_key=key)
-    resp = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        response_format={"type": "json_object"},
-        temperature=temperature,
+        raise HTTPException(
+            status_code=503,
+            detail="AI generation is not configured. Please set OPENAI_API_KEY.",
+        )
+
+    # Lazy import so tests without openai installed don't crash at import.
+    from openai import (
+        APIConnectionError,
+        APIError,
+        APITimeoutError,
+        AsyncOpenAI,
+        AuthenticationError,
+        BadRequestError,
+        RateLimitError,
     )
-    raw = (resp.choices[0].message.content or "{}").strip()
-    try:
-        return json.loads(raw) or {}
-    except json.JSONDecodeError:
-        return {}
+
+    client = AsyncOpenAI(api_key=key, timeout=timeout)
+    model = "gpt-4o-mini"
+
+    last_exc: Exception | None = None
+    for attempt in range(max_retries + 1):
+        _t0 = time.perf_counter()
+        try:
+            resp = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                response_format={"type": "json_object"},
+                temperature=temperature,
+            )
+            raw = (resp.choices[0].message.content or "{}").strip()
+            _dur_ms = int((time.perf_counter() - _t0) * 1000)
+            usage = getattr(resp, "usage", None)
+            log_event(
+                "ai.openai_json",
+                status="ok",
+                model=model,
+                attempt=attempt,
+                duration_ms=_dur_ms,
+                response_len=len(raw),
+                prompt_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
+                completion_tokens=getattr(usage, "completion_tokens", None) if usage else None,
+                total_tokens=getattr(usage, "total_tokens", None) if usage else None,
+            )
+            try:
+                parsed = json.loads(raw)
+                return parsed if isinstance(parsed, dict) else {}
+            except json.JSONDecodeError:
+                log.warning("openai returned non-JSON payload (len=%s)", len(raw))
+                return {}
+        except AuthenticationError as exc:
+            log.error("openai auth failed: %s", exc)
+            raise HTTPException(
+                status_code=503,
+                detail="AI provider rejected the API key. Please check OPENAI_API_KEY.",
+            )
+        except BadRequestError as exc:
+            # Non-retryable — bad prompt / model name / request shape.
+            log.error("openai bad request: %s", exc)
+            raise HTTPException(
+                status_code=502,
+                detail="AI request was invalid. Please try rephrasing your prompt.",
+            )
+        except (RateLimitError, APITimeoutError, APIConnectionError) as exc:
+            last_exc = exc
+            _dur_ms = int((time.perf_counter() - _t0) * 1000)
+            log_event(
+                "ai.openai_json",
+                level=logging.WARNING,
+                status="transient_error",
+                model=model,
+                attempt=attempt,
+                duration_ms=_dur_ms,
+                error=type(exc).__name__,
+            )
+            if attempt < max_retries:
+                # Exponential backoff: 0.5s, 1s, 2s...
+                await asyncio.sleep(0.5 * (2 ** attempt))
+                continue
+            log.warning("openai transient failure after %s retries: %s", max_retries, exc)
+            raise HTTPException(
+                status_code=503,
+                detail="AI service is busy. Please try again in a moment.",
+            )
+        except APIError as exc:
+            # 5xx from OpenAI — retry once
+            last_exc = exc
+            if attempt < max_retries:
+                await asyncio.sleep(0.5 * (2 ** attempt))
+                continue
+            log.exception("openai API error")
+            raise HTTPException(
+                status_code=502,
+                detail="AI generation failed. Please try again.",
+            )
+        except Exception as exc:  # noqa: BLE001 — defensive catch-all for the user path
+            log.exception("openai unexpected error: %s", exc)
+            raise HTTPException(
+                status_code=502,
+                detail="AI generation failed unexpectedly. Please try again.",
+            )
+
+    # Should be unreachable, but just in case.
+    log.error("openai exhausted retries: %s", last_exc)
+    raise HTTPException(
+        status_code=503,
+        detail="AI service is unavailable. Please try again shortly.",
+    )
 
 
 @app.post("/campaigns/prefill-from-prompt", response_model=PrefillFromPromptResponse)
+@limiter.limit("60/hour")
 async def campaigns_prefill_from_prompt(
+    request: Request,
     body: PrefillFromPromptRequest,
     current_user: User = Depends(get_current_user),
 ):
@@ -3138,14 +3465,37 @@ def delete_canva_design(
 
 
 @app.get("/health")
+@app.get("/healthz")
 async def health():
-    return {
-        "status": "ok",
-        "ok": True,
+    """Liveness + readiness probe. Kept small and fast for UptimeRobot.
+
+    Pings the DB (SELECT 1); if that fails we return 503 so monitors alert.
+    """
+    db_ok = True
+    db_error: Optional[str] = None
+    try:
+        with Session(engine) as s:
+            s.exec(select(1)).one()
+    except Exception as exc:  # noqa: BLE001
+        db_ok = False
+        db_error = type(exc).__name__
+        log_event("health.db_fail", level=logging.ERROR, error=db_error)
+
+    payload: Dict[str, Any] = {
+        "status": "ok" if db_ok else "degraded",
+        "ok": db_ok,
+        "version": APP_VERSION,
+        "uptime_seconds": int(time.time() - APP_BOOT_TIME),
+        "db": "ok" if db_ok else "fail",
         "openai_configured": bool(_openai_api_key()),
         "unsplash_configured": bool(os.getenv("UNSPLASH_ACCESS_KEY", "").strip()),
         "replicate_configured": bool(os.getenv("REPLICATE_API_TOKEN", "").strip()),
     }
+    if db_error:
+        payload["db_error"] = db_error
+    if not db_ok:
+        return JSONResponse(status_code=503, content=payload)
+    return payload
 
 
 if __name__ == "__main__":

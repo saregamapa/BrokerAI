@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: pytest smoke + unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run pytest
+        env:
+          # Required by tests/conftest.py. No real secrets — DB is ephemeral SQLite.
+          JWT_SECRET_KEY: ci-test-jwt-secret-key-32-characters-min
+          OPENAI_API_KEY: sk-test-ci-key-not-a-real-secret-0001
+          BROKERAI_DISABLE_SCHEDULER: "1"
+        run: pytest -q tests/test_smoke_journey.py tests/test_auth.py tests/test_approval.py tests/test_campaign.py tests/test_analytics_intel.py tests/test_invites.py

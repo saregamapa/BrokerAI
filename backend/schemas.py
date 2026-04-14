@@ -230,14 +230,26 @@ class UpdatePostRequest(BaseModel):
 
 class SignupRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=6, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
     timezone: Optional[str] = None
     # RBAC: account type chosen at signup (ignored when invite_token is present)
     account_type: str = Field(default="individual")
     # Team/org name (required when account_type != "individual" and no invite_token)
-    team_name: Optional[str] = None
+    team_name: Optional[str] = Field(default=None, max_length=120)
     # Invite token — when present, bypasses normal account_type logic
     invite_token: Optional[str] = None
+
+    @field_validator("password")
+    @classmethod
+    def _password_strength(cls, v: str) -> str:
+        if not isinstance(v, str):
+            raise ValueError("Password is required.")
+        s = v  # do not strip — spaces may be meaningful
+        if len(s) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        if s.lower() in {"password", "12345678", "qwertyui", "abc12345", "password1"}:
+            raise ValueError("Password is too common. Please choose a stronger password.")
+        return s
 
     @field_validator("account_type")
     @classmethod
@@ -246,6 +258,14 @@ class SignupRequest(BaseModel):
         if v not in ("individual", "team", "org"):
             raise ValueError("account_type must be 'individual', 'team', or 'org'")
         return v
+
+    @field_validator("team_name")
+    @classmethod
+    def _team_name_sanitize(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        s = str(v).strip()
+        return s or None
 
     @field_validator("timezone")
     @classmethod

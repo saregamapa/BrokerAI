@@ -61,13 +61,25 @@
       data = { detail: text || "Invalid JSON" };
     }
     if (res.status === 401) {
+      var hadToken = !!getToken();
       clearToken();
-      var onLoginPage =
+      var onAuthPage =
         typeof window !== "undefined" &&
         (window.location.pathname.indexOf("login") !== -1 ||
-          window.location.pathname.indexOf("signup") !== -1);
-      if (!onLoginPage && typeof window !== "undefined") {
-        window.location.href = "/login.html";
+          window.location.pathname.indexOf("signup") !== -1 ||
+          window.location.pathname.indexOf("forgot-password") !== -1);
+      if (!onAuthPage && typeof window !== "undefined") {
+        // Preserve where the user was trying to go + tell login page why.
+        try {
+          if (hadToken) {
+            sessionStorage.setItem("brokerai_session_expired", "1");
+          }
+          sessionStorage.setItem(
+            "brokerai_return_to",
+            window.location.pathname + window.location.search
+          );
+        } catch (e) {}
+        window.location.href = "/login.html" + (hadToken ? "?expired=1" : "");
       }
     }
     if (!res.ok) {
@@ -106,10 +118,155 @@
     }, 4200);
   }
 
-  function setLoading(visible, elId) {
-    var wrap = document.getElementById(elId || "brokerai-loading");
+  function setLoading(visible, textOrElId) {
+    // Back-compat: 2nd arg can be either a loading element id OR a status text.
+    // If it looks like a DOM id that exists, treat as elId; otherwise treat as text.
+    var elId = "brokerai-loading";
+    var text = null;
+    if (typeof textOrElId === "string") {
+      if (textOrElId && document.getElementById(textOrElId)) {
+        elId = textOrElId;
+      } else if (textOrElId) {
+        text = textOrElId;
+      }
+    }
+    var wrap = document.getElementById(elId);
     if (!wrap) return;
     wrap.classList.toggle("hidden", !visible);
+    if (visible && text) setLoadingText(text, elId);
+  }
+
+  /**
+   * Update the text inside a loading overlay (e.g. "Writing captions…" → "Generating images…").
+   */
+  function setLoadingText(text, elId) {
+    var wrap = document.getElementById(elId || "brokerai-loading");
+    if (!wrap) return;
+    var p = wrap.querySelector("[data-brokerai-loading-text]") || wrap.querySelector("p");
+    if (p) p.textContent = text;
+  }
+
+  /**
+   * Cycle through progress messages while a long-running task runs.
+   * Returns an object with `.stop()`.
+   */
+  function progressCycle(steps, intervalMs, elId) {
+    if (!Array.isArray(steps) || !steps.length) return { stop: function () {} };
+    var i = 0;
+    setLoadingText(steps[0], elId);
+    var t = setInterval(function () {
+      i = Math.min(i + 1, steps.length - 1);
+      setLoadingText(steps[i], elId);
+    }, intervalMs || 3500);
+    return {
+      stop: function () { try { clearInterval(t); } catch (e) {} },
+      advance: function (idx) { if (steps[idx]) setLoadingText(steps[idx], elId); },
+    };
+  }
+
+  /**
+   * Promise-based confirm dialog. Returns true if the user confirms, false otherwise.
+   * Options: {title, message, confirmLabel, cancelLabel, danger}
+   */
+  function confirmDialog(opts) {
+    opts = opts || {};
+    var title = opts.title || "Are you sure?";
+    var message = opts.message || "This action cannot be undone.";
+    var confirmLabel = opts.confirmLabel || "Confirm";
+    var cancelLabel = opts.cancelLabel || "Cancel";
+    var danger = !!opts.danger;
+
+    return new Promise(function (resolve) {
+      var host = document.createElement("div");
+      host.className =
+        "fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm px-4";
+      host.setAttribute("role", "dialog");
+      host.setAttribute("aria-modal", "true");
+      var btnClass = danger
+        ? "bg-red-600 hover:bg-red-700 focus:ring-red-500"
+        : "bg-amber-500 hover:bg-amber-600 focus:ring-amber-400";
+      host.innerHTML =
+        '<div class="brokerai-modal-card w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-slate-200 p-6">' +
+        '<h3 class="text-lg font-semibold text-slate-900"></h3>' +
+        '<p class="mt-2 text-sm text-slate-600"></p>' +
+        '<div class="mt-6 flex justify-end gap-2">' +
+        '<button type="button" data-brokerai-cancel class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"></button>' +
+        '<button type="button" data-brokerai-confirm class="rounded-lg px-4 py-2 text-sm font-semibold text-white shadow focus:outline-none focus:ring-2 ' + btnClass + '"></button>' +
+        "</div></div>";
+      host.querySelector("h3").textContent = title;
+      host.querySelector("p").textContent = message;
+      var cancelBtn = host.querySelector("[data-brokerai-cancel]");
+      var okBtn = host.querySelector("[data-brokerai-confirm]");
+      cancelBtn.textContent = cancelLabel;
+      okBtn.textContent = confirmLabel;
+
+      function cleanup(val) {
+        document.removeEventListener("keydown", onKey);
+        if (host.parentNode) host.parentNode.removeChild(host);
+        resolve(val);
+      }
+      function onKey(e) {
+        if (e.key === "Escape") cleanup(false);
+        if (e.key === "Enter") cleanup(true);
+      }
+      cancelBtn.addEventListener("click", function () { cleanup(false); });
+      okBtn.addEventListener("click", function () { cleanup(true); });
+      host.addEventListener("click", function (e) { if (e.target === host) cleanup(false); });
+      document.addEventListener("keydown", onKey);
+      document.body.appendChild(host);
+      setTimeout(function () { try { okBtn.focus(); } catch (e) {} }, 10);
+    });
+  }
+
+  // ---- Form validation helpers -----------------------------------------
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function validateEmail(v) {
+    if (!v || typeof v !== "string") return "Email is required.";
+    if (v.length > 254) return "Email is too long.";
+    if (!EMAIL_RE.test(v.trim())) return "Please enter a valid email.";
+    return null;
+  }
+
+  function validatePassword(v) {
+    if (!v || typeof v !== "string") return "Password is required.";
+    if (v.length < 8) return "Password must be at least 8 characters.";
+    if (v.length > 200) return "Password is too long.";
+    return null;
+  }
+
+  function validateRequired(v, label) {
+    if (v == null || String(v).trim() === "")
+      return (label || "This field") + " is required.";
+    return null;
+  }
+
+  /**
+   * Set an inline error message under an input.
+   * Expects a sibling element with [data-error-for="<inputId>"] or appends one.
+   */
+  function setFieldError(inputId, message) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    input.classList.toggle("brokerai-input-error", !!message);
+    if (message) {
+      input.setAttribute("aria-invalid", "true");
+    } else {
+      input.removeAttribute("aria-invalid");
+    }
+    var slot = document.querySelector('[data-error-for="' + inputId + '"]');
+    if (!slot) {
+      slot = document.createElement("p");
+      slot.setAttribute("data-error-for", inputId);
+      slot.className = "mt-1 text-xs font-medium text-red-600";
+      if (input.parentNode) input.parentNode.appendChild(slot);
+    }
+    slot.textContent = message || "";
+    slot.classList.toggle("hidden", !message);
+  }
+
+  function clearFieldErrors(inputIds) {
+    (inputIds || []).forEach(function (id) { setFieldError(id, null); });
   }
 
   function requireAuth() {
@@ -194,11 +351,58 @@
     }
   }
 
+  /**
+   * Inject a shared legal/trust footer into pages that don't already have one.
+   * Keeps Terms/Privacy/Cookies/Contact + support email + social links on every page
+   * without editing 20 HTML files. Opt out with <body data-skip-footer>.
+   */
+  function injectFooter() {
+    try {
+      if (document.querySelector("footer")) return; // page has its own footer
+      if (document.body && document.body.hasAttribute("data-skip-footer")) return;
+      var year = new Date().getFullYear();
+      var html =
+        '<footer id="ba-footer" class="mt-12 border-t border-slate-200 bg-[#0f172a] py-10 text-sm text-slate-400" role="contentinfo">' +
+          '<div class="mx-auto max-w-6xl px-6 flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">' +
+            '<a href="/" class="font-bold text-white">Broker<span class="text-amber-400">AI</span></a>' +
+            '<nav class="flex flex-wrap justify-center gap-x-5 gap-y-2" aria-label="Footer">' +
+              '<a href="/terms.html" class="hover:text-white transition">Terms</a>' +
+              '<a href="/privacy.html" class="hover:text-white transition">Privacy</a>' +
+              '<a href="/cookies.html" class="hover:text-white transition">Cookies</a>' +
+              '<a href="/contact.html" class="hover:text-white transition">Contact</a>' +
+              '<a href="mailto:support@brokerai.app" class="hover:text-white transition">support@brokerai.app</a>' +
+              '<a href="https://twitter.com/brokerai" target="_blank" rel="noopener" class="hover:text-white transition" aria-label="BrokerAI on Twitter">Twitter</a>' +
+              '<a href="https://www.linkedin.com/company/brokerai" target="_blank" rel="noopener" class="hover:text-white transition" aria-label="BrokerAI on LinkedIn">LinkedIn</a>' +
+            '</nav>' +
+            '<p class="text-slate-500">© ' + year + ' BrokerAI</p>' +
+          '</div>' +
+        '</footer>';
+      var holder = document.createElement("div");
+      holder.innerHTML = html;
+      document.body.appendChild(holder.firstChild);
+    } catch (e) { /* never break the page */ }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", injectFooter);
+  } else {
+    injectFooter();
+  }
+
   window.BrokerAI = {
     apiUrl: apiUrl,
     apiJson: apiJson,
     showToast: showToast,
     setLoading: setLoading,
+    setLoadingText: setLoadingText,
+    progressCycle: progressCycle,
+    confirmDialog: confirmDialog,
+    confirm: confirmDialog, // alias
+    validateEmail: validateEmail,
+    validatePassword: validatePassword,
+    validateRequired: validateRequired,
+    setFieldError: setFieldError,
+    clearFieldErrors: clearFieldErrors,
     getToken: getToken,
     setToken: setToken,
     clearToken: clearToken,
@@ -207,5 +411,6 @@
     parseUtcIso: parseUtcIso,
     formatScheduleInUserTz: formatScheduleInUserTz,
     dateKeyFromUtcInTz: dateKeyFromUtcInTz,
+    injectFooter: injectFooter,
   };
 })();

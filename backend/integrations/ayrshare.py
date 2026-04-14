@@ -1,10 +1,13 @@
+import asyncio
 import json
+import logging
 import os
+import time
 from typing import Any, Dict, List, Optional, Union
 
 import httpx
 
-from backend.core.logger import get_logger
+from backend.core.logger import get_logger, log_event
 
 # Official API host (matches publish docs; app.* may 404 or redirect for some keys)
 AYRSHARE_POST_URL = "https://api.ayrshare.com/api/post"
@@ -136,18 +139,90 @@ async def publish_post(
         )
     elif pk:
         headers["Profile-Key"] = pk
-    try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            resp = await client.post(
-                AYRSHARE_POST_URL,
-                json=payload,
-                headers=headers,
+    # Retry transient failures: network errors, timeouts, 429, 5xx. Exponential backoff.
+    max_attempts = 3
+    resp = None
+    last_exc: Optional[Exception] = None
+    _ayr_t0 = time.perf_counter()
+    attempts_used = 0
+    for attempt in range(1, max_attempts + 1):
+        attempts_used = attempt
+        _attempt_t0 = time.perf_counter()
+        try:
+            async with httpx.AsyncClient(timeout=45.0) as client:
+                resp = await client.post(
+                    AYRSHARE_POST_URL,
+                    json=payload,
+                    headers=headers,
+                )
+            log_event(
+                "publish.ayrshare.attempt",
+                attempt=attempt,
+                status_code=resp.status_code,
+                duration_ms=int((time.perf_counter() - _attempt_t0) * 1000),
+                platforms=",".join(normalized),
             )
-    except httpx.RequestError as e:
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.RemoteProtocolError) as e:
+            last_exc = e
+            log_event(
+                "publish.ayrshare.attempt",
+                level=logging.WARNING,
+                attempt=attempt,
+                status="network_error",
+                error=type(e).__name__,
+                duration_ms=int((time.perf_counter() - _attempt_t0) * 1000),
+            )
+            log.warning(
+                "ayrshare_transient_network_error attempt=%s/%s err=%s",
+                attempt, max_attempts, e,
+            )
+            if attempt < max_attempts:
+                await asyncio.sleep(0.75 * (2 ** (attempt - 1)))
+                continue
+            return {
+                "ok": False,
+                "status_code": 0,
+                "body": {
+                    "error": "network_error",
+                    "detail": f"Could not reach Ayrshare: {e}",
+                    "user_message": "Network issue reaching the publisher. Please try again.",
+                    "retryable": True,
+                },
+            }
+        except httpx.RequestError as e:
+            log.exception("ayrshare_request_error")
+            return {
+                "ok": False,
+                "status_code": 0,
+                "body": {
+                    "error": "request_error",
+                    "detail": str(e),
+                    "user_message": "Publishing failed unexpectedly. Please try again.",
+                    "retryable": True,
+                },
+            }
+
+        # Retry on rate limit / server error
+        if resp is not None and (resp.status_code == 429 or 500 <= resp.status_code < 600):
+            log.warning(
+                "ayrshare_retryable_status attempt=%s/%s status=%s",
+                attempt, max_attempts, resp.status_code,
+            )
+            if attempt < max_attempts:
+                await asyncio.sleep(0.75 * (2 ** (attempt - 1)))
+                continue
+        break
+
+    if resp is None:
         return {
             "ok": False,
             "status_code": 0,
-            "body": {"error": "request_error", "detail": str(e)},
+            "body": {
+                "error": "network_error",
+                "detail": str(last_exc or "Unknown network failure"),
+                "user_message": "Could not reach the publisher. Please try again.",
+                "retryable": True,
+            },
         }
 
     try:
@@ -196,7 +271,99 @@ async def publish_post(
                 ):
                     ok = False
 
+    # Annotate the body with a UI-friendly classification so the frontend
+    # can render actionable messages without parsing raw Ayrshare payloads.
+    if not ok and isinstance(data, dict):
+        classification = _classify_ayrshare_failure(resp.status_code, data, normalized)
+        # Do not overwrite values already set (e.g. by the retry layer).
+        for k, v in classification.items():
+            data.setdefault(k, v)
+
     return {"ok": ok, "status_code": resp.status_code, "body": data}
+
+
+def _classify_ayrshare_failure(
+    status_code: int, body: Dict[str, Any], platforms: List[str]
+) -> Dict[str, Any]:
+    """Turn an Ayrshare error payload into a UI-friendly classification.
+
+    Returns keys:
+      error         — stable machine code (e.g. "not_connected", "rate_limited")
+      user_message  — short human-readable message for UI toasts
+      retryable     — bool, whether a retry may help
+      action        — optional UI action hint: "reconnect" | "retry" | "contact_support"
+    """
+    msg_blob = json.dumps(body, default=str).lower()
+
+    # Auth / key problems
+    if status_code in (401, 403):
+        return {
+            "error": "auth_failed",
+            "user_message": "Publishing credentials were rejected. Please reconnect.",
+            "retryable": False,
+            "action": "reconnect",
+        }
+
+    # Rate limit / quota
+    if status_code == 429 or "rate limit" in msg_blob or "quota" in msg_blob:
+        return {
+            "error": "rate_limited",
+            "user_message": "Publishing quota hit. Please try again in a few minutes.",
+            "retryable": True,
+            "action": "retry",
+        }
+
+    # Account not linked / expired token / needs reconnect
+    reconnect_signals = (
+        "not connected",
+        "no social accounts",
+        "no accounts",
+        "social network not linked",
+        "link your",
+        "please link",
+        "token expired",
+        "reauthorize",
+        "re-authorize",
+        "re-authenticate",
+        "reconnect",
+    )
+    if any(s in msg_blob for s in reconnect_signals):
+        hint = ""
+        for p in platforms:
+            if p in msg_blob:
+                hint = f" Please reconnect {p.title()}."
+                break
+        return {
+            "error": "not_connected",
+            "user_message": f"A social account needs to be reconnected.{hint}".strip(),
+            "retryable": False,
+            "action": "reconnect",
+        }
+
+    # Validation / caption issues
+    if status_code == 400 or "invalid" in msg_blob or "validation" in msg_blob:
+        return {
+            "error": "invalid_post",
+            "user_message": "This post was rejected by the platform. Please edit and try again.",
+            "retryable": False,
+            "action": "edit",
+        }
+
+    # 5xx (should mostly be handled by retry layer, but classify last attempt)
+    if 500 <= status_code < 600:
+        return {
+            "error": "provider_unavailable",
+            "user_message": "Publisher is temporarily unavailable. Please try again.",
+            "retryable": True,
+            "action": "retry",
+        }
+
+    return {
+        "error": "publish_failed",
+        "user_message": "Publishing failed. Please try again.",
+        "retryable": True,
+        "action": "retry",
+    }
 
 
 def platform_response_json(result: Dict[str, Any]) -> str:
