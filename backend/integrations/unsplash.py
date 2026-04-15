@@ -73,3 +73,56 @@ async def search_photos(
         })
     total = int(data.get("total") or len(photos))
     return photos, total
+
+
+def search_photos_sync(
+    query: str,
+    per_page: int = 12,
+    orientation: str = "landscape",
+) -> Tuple[List[Dict[str, Any]], int]:
+    """Synchronous Unsplash search for LangGraph nodes (no event loop)."""
+    key = _access_key()
+    if not key:
+        return [], 0
+
+    per_page = max(1, min(int(per_page or 12), 30))
+    orientation = orientation if orientation in ("landscape", "portrait", "squarish") else "landscape"
+    params = {
+        "query": (query or "business").strip() or "business",
+        "per_page": per_page,
+        "orientation": orientation,
+        "content_filter": "high",
+    }
+    headers = {"Authorization": f"Client-ID {key}", "Accept-Version": "v1"}
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            resp = client.get(UNSPLASH_SEARCH_URL, params=params, headers=headers)
+    except Exception as e:
+        log.warning("unsplash_search_sync_failed err=%s", e)
+        return [], 0
+
+    if resp.status_code >= 400:
+        log.warning("unsplash_search_sync status=%s", resp.status_code)
+        return [], 0
+
+    data = resp.json() if resp.content else {}
+    results = data.get("results") or []
+    photos: List[Dict[str, Any]] = []
+    for r in results:
+        if not isinstance(r, dict):
+            continue
+        urls = r.get("urls") or {}
+        user = r.get("user") or {}
+        user_links = user.get("links") or {}
+        photos.append(
+            {
+                "id": str(r.get("id") or ""),
+                "url": str(urls.get("regular") or urls.get("full") or ""),
+                "thumb_url": str(urls.get("thumb") or urls.get("small") or ""),
+                "download_url": str(urls.get("full") or urls.get("regular") or ""),
+                "author": str(user.get("name") or ""),
+                "author_url": str(user_links.get("html") or ""),
+            }
+        )
+    total = int(data.get("total") or len(photos))
+    return photos, total

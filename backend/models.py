@@ -275,6 +275,23 @@ class CommentTrigger(SQLModel, table=True):
     triggered_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class BrandAsset(SQLModel, table=True):
+    """User-uploaded brand files (logos, templates, guidelines) from the wizard."""
+
+    __tablename__ = "brand_assets"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    # logo | template | document
+    kind: str = Field(default="document", index=True)
+    original_filename: str = Field(default="", sa_column=Column(Text))
+    # Stored basename only (UUID + allowed extension), under uploads/brand/{user_id}/
+    stored_filename: str = Field(default="", sa_column=Column(Text))
+    content_type: str = Field(default="application/octet-stream")
+    size_bytes: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class CanvaDesign(SQLModel, table=True):
     """A Canva design generated for (or imported into) a post.
 

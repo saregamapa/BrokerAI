@@ -20,6 +20,7 @@ from backend.services.ai_media_service import (
     generate_video_script,
     video_script_to_storage_value,
 )
+from backend.integrations.unsplash import search_photos_sync
 from backend.db import engine
 from backend.integrations.ayrshare import coerce_ayrshare_platforms, normalize_platforms
 from backend.models import Campaign, Post
@@ -82,6 +83,97 @@ class DayPlan(BaseModel):
 
 class StrategyPlan(BaseModel):
     days: List[DayPlan]
+    unsplash_search_keywords: List[str] = Field(
+        default_factory=list,
+        description="5–14 short search phrases for Unsplash stock photography",
+    )
+    visual_style_brief: str = Field(
+        default="",
+        description="How the user's selected template/brand should look across post visuals",
+    )
+
+
+def _default_unsplash_keywords(goal: str, location: str, biz: str) -> List[str]:
+    """Fallback stock search terms when the strategy model omits keywords."""
+    blob = f"{goal} {biz} {location}".replace(",", " ")
+    parts = [p.strip().lower() for p in blob.split() if len(p.strip()) > 2]
+    out: List[str] = []
+    for p in parts:
+        if p not in out:
+            out.append(p)
+        if len(out) >= 10:
+            break
+    for extra in ("small business", "community", "professional workspace", "local life"):
+        if extra not in out:
+            out.append(extra)
+        if len(out) >= 12:
+            break
+    return out[:14]
+
+
+def _coerce_strategy_plan(
+    plan: StrategyPlan,
+    num_posts: int,
+    day_labels: List[str],
+    *,
+    goal: str,
+    location: str,
+    biz: str,
+) -> StrategyPlan:
+    """Align day count with frequency and ensure Unsplash keyword coverage."""
+    days_in = list(plan.days)
+    labels = list(day_labels)
+    if len(labels) < num_posts:
+        labels = (labels + ["Day"])[:num_posts]
+    fixed_days: List[DayPlan] = []
+    for i in range(num_posts):
+        label = labels[i] if i < len(labels) else labels[-1]
+        if i < len(days_in):
+            d = days_in[i]
+            if isinstance(d, DayPlan):
+                theme_s = str(d.theme or "Theme")
+                angle_s = str(d.angle or "Engaging post")
+            elif isinstance(d, dict):
+                theme_s = str(d.get("theme") or "Theme")
+                angle_s = str(d.get("angle") or "Engaging post")
+            else:
+                theme_s, angle_s = "Theme", "Engaging post"
+            fixed_days.append(DayPlan(day=label, theme=theme_s, angle=angle_s))
+        else:
+            fixed_days.append(
+                DayPlan(
+                    day=label,
+                    theme="Value & trust",
+                    angle="Share helpful, locally relevant insight for the audience.",
+                )
+            )
+    kws: List[str] = []
+    for x in plan.unsplash_search_keywords or []:
+        try:
+            s = str(x).strip()
+            if s and "MagicMock" not in s and not s.startswith("<"):
+                kws.append(s)
+        except Exception:
+            continue
+    if len(kws) < 4:
+        kws = _default_unsplash_keywords(goal, location, biz)
+    try:
+        raw_b = plan.visual_style_brief
+        if isinstance(raw_b, str):
+            brief = raw_b.strip()
+        elif raw_b is not None:
+            brief = str(raw_b).strip()
+            if "MagicMock" in brief:
+                brief = ""
+        else:
+            brief = ""
+    except Exception:
+        brief = ""
+    return StrategyPlan(
+        days=fixed_days[:num_posts],
+        unsplash_search_keywords=kws[:20],
+        visual_style_brief=brief,
+    )
 
 
 class OnePost(BaseModel):
@@ -223,13 +315,29 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
     num_posts = _num_posts_for_frequency(freq)
     day_labels = _days_for_frequency(freq)
     day_list_str = ", ".join(day_labels)
+    location = data.get("location", "the local area")
+    audience = data.get("audience") or "potential customers in the local area"
+    goal = data.get("goal", "grow brand awareness")
+    biz = data.get("business_type", "small business")
+    sel_tpl = (data.get("selected_template") or "").strip()
+    wt = data.get("wizard_template") or {}
+    tpl_note = ""
+    if sel_tpl or wt:
+        tpl_disp = sel_tpl or str(wt.get("name") or "")
+        tpl_note = (
+            f"\n\nVISUAL TEMPLATE (user chose in wizard): name={tpl_disp!r} "
+            f"style_hint={wt.get('bg') or wt.get('id') or ''}\n"
+            "Plan should assume all posts will share this cohesive visual identity in downstream imagery."
+        )
+    brand_docs = data.get("brand_asset_summaries") or []
+    brand_note = ""
+    if brand_docs:
+        brand_note = "\n\nBRAND DOCUMENTS ON FILE: " + ", ".join(
+            f"{b.get('kind','doc')}:{b.get('filename','')}" for b in brand_docs[:12]
+        )
 
     try:
         llm = _llm(key).with_structured_output(StrategyPlan)
-        location = data.get("location", "the local area")
-        audience = data.get("audience") or "potential customers in the local area"
-        goal = data.get("goal", "grow brand awareness")
-        biz = data.get("business_type", "small business")
         msg = (
             f"Build a {num_posts}-post social media content plan for a {biz} in {location}.\n\n"
             f"PRIMARY GOAL: {goal}\n"
@@ -242,7 +350,13 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
             f"- Make angles SPECIFIC to {location} — reference neighborhoods, local landmarks, "
             "local culture, or seasonal relevance when possible\n"
             "- At least one post should include a clear call-to-action\n"
-            "- All content must be inclusive and welcoming to all audiences"
+            "- All content must be inclusive and welcoming to all audiences\n\n"
+            "Also return:\n"
+            "- unsplash_search_keywords: 5–14 SHORT search phrases (2–5 words each) for stock photography "
+            f"that match this campaign, goal, and locale ({location}). Think like a marketer doing keyword research.\n"
+            "- visual_style_brief: 2–4 sentences describing how imagery should look to stay consistent with the "
+            "selected template/brand (colors, mood, composition, level of polish).\n"
+            f"{tpl_note}{brand_note}"
         )
         plan: StrategyPlan = llm.invoke(
             [
@@ -257,9 +371,14 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
         raise CampaignPipelineError(f"Strategy generation failed: {e}") from e
 
     if len(plan.days) != num_posts:
-        raise CampaignPipelineError(
-            f"Strategy must return exactly {num_posts} posts; got {len(plan.days)}."
+        log.warning(
+            "[agent:strategy] model returned %s days, expected %s — coercing",
+            len(plan.days),
+            num_posts,
         )
+    plan = _coerce_strategy_plan(
+        plan, num_posts, day_labels, goal=goal, location=location, biz=biz
+    )
     return {
         "num_posts": num_posts,
         "strategy_plan": plan.model_dump(),
@@ -385,13 +504,49 @@ def content_node(state: AgentState) -> Dict[str, Any]:
     biz = data.get("business_type", "small business")
     social_block = _social_presence_prompt_block(data)
     ctx = json.dumps({"campaign": data, "strategy_days": day_rows[:num_posts]})
+    sp = state.get("strategy_plan") or {}
+    strat_block = ""
+    if (sp.get("visual_style_brief") or "").strip():
+        strat_block += f"\nVISUAL STYLE (strategy): {sp.get('visual_style_brief')}\n"
+    uk = sp.get("unsplash_search_keywords") or []
+    if uk:
+        strat_block += "STOCK PHOTO KEYWORDS (use in image_prompt mood/subject): " + ", ".join(
+            str(x) for x in uk[:16]
+        ) + "\n"
+
+    tmpl_ctx = ""
+    if (data.get("selected_template") or "").strip() or data.get("wizard_template"):
+        tmpl_ctx = (
+            f"\nUSER-SELECTED VISUAL TEMPLATE: {data.get('selected_template') or ''} "
+            f"meta={json.dumps(data.get('wizard_template') or {}, ensure_ascii=False)[:400]}\n"
+            "Each image_prompt must reinforce the SAME cohesive brand look (palette, lighting, composition).\n"
+        )
+    brand_ctx = ""
+    summaries = data.get("brand_asset_summaries") or []
+    if summaries:
+        brand_ctx = "\nBRAND DOCUMENTS ON FILE: " + ", ".join(
+            f"{s.get('kind')}:{s.get('filename')}" for s in summaries[:16]
+        )
+    hook_ctx = ""
+    if (data.get("selected_caption_hook") or "").strip():
+        hook_ctx = (
+            "\nPREFERRED HOOK ENERGY (from wizard; do not copy verbatim): "
+            f"{data.get('selected_caption_hook')}\n"
+        )
+    wiz_caps = data.get("wizard_ai_captions") or []
+    cap_hint = ""
+    if isinstance(wiz_caps, list) and wiz_caps:
+        cap_hint = (
+            "\nWIZARD CAPTIONS the user liked (match tone/themes; still write fresh full captions):\n"
+            + "\n---\n".join(str(c)[:500] for c in wiz_caps[:6])
+        )
 
     msg = (
         f"Write exactly {num_posts} social media posts for a {biz} in {location}.\n\n"
         f"GOAL: {goal}\n"
         f"AUDIENCE: {audience}\n"
         f"PLATFORMS: {platform_str}\n\n"
-        f"{social_block}\n\n"
+        f"{social_block}{strat_block}{tmpl_ctx}{brand_ctx}{hook_ctx}{cap_hint}\n\n"
         "For each post, provide: day (matching strategy), caption, hashtags (array), "
         'image_prompt (detailed DALL·E-oriented prompt), video_script (always "").\n\n'
         "IMPORTANT: Make every caption feel like it was written by someone who LIVES in "
@@ -481,15 +636,26 @@ def media_node(state: AgentState) -> Dict[str, Any]:
         raise CampaignPipelineError(
             "AI images are required. Enable AI images in the campaign wizard."
         )
-    if not _openai_api_key():
-        raise OpenAINotConfiguredError(
-            "OPENAI_API_KEY is required for DALL·E image generation."
-        )
 
     theme_for_day: Dict[str, str] = {}
     for d in day_rows:
         if isinstance(d, dict) and d.get("day"):
             theme_for_day[str(d["day"])] = f"{d.get('theme', '')} — {d.get('angle', '')}"
+
+    keywords = list(strat.get("unsplash_search_keywords") or [])
+    us_sel = data.get("unsplash_selection") or {}
+    pref_url = (us_sel.get("url") or us_sel.get("download_url") or "").strip()
+    has_unsplash = bool(os.getenv("UNSPLASH_ACCESS_KEY", "").strip())
+    openai_ok = bool(_openai_api_key())
+    if _video_scripts_on(state) and not openai_ok:
+        raise OpenAINotConfiguredError(
+            "OPENAI_API_KEY is required for video script generation in the media step."
+        )
+    if not pref_url and not has_unsplash and not openai_ok:
+        raise OpenAINotConfiguredError(
+            "Configure OPENAI_API_KEY for AI images, or UNSPLASH_ACCESS_KEY (and strategy keywords) "
+            "for stock imagery, or pick a stock image in the wizard."
+        )
 
     out: List[Dict[str, Any]] = []
     for i, p in enumerate(posts):
@@ -500,22 +666,44 @@ def media_node(state: AgentState) -> Dict[str, Any]:
             )
         day_key = str(p.get("day") or DAYS[i % len(DAYS)])
         theme = theme_for_day.get(day_key, "")
-        full_prompt = build_image_prompt(
-            cap,
-            campaign_theme=theme,
-            content_image_prompt=str(p.get("image_prompt") or ""),
-            location=str(data.get("location") or ""),
-            goal=str(data.get("goal") or ""),
-        )
-        url = generate_image(full_prompt)
-        u = str(url).strip()
-        if not u.lower().startswith("https://"):
+        img_url = ""
+
+        if pref_url and i == 0:
+            img_url = pref_url
+        if not img_url and has_unsplash and keywords:
+            q = keywords[i % len(keywords)]
+            photos, _ = search_photos_sync(q, per_page=12)
+            if photos:
+                pick = photos[i % len(photos)]
+                img_url = (pick.get("url") or pick.get("download_url") or "").strip()
+        if not img_url and has_unsplash:
+            fallback_q = (theme or cap[:120] or str(data.get("goal") or "business")).strip()
+            photos2, _ = search_photos_sync(fallback_q[:100], per_page=12)
+            if photos2:
+                pick2 = photos2[i % len(photos2)]
+                img_url = (pick2.get("url") or pick2.get("download_url") or "").strip()
+
+        if not img_url:
+            if not openai_ok:
+                raise OpenAINotConfiguredError(
+                    "OPENAI_API_KEY is required for DALL·E when Unsplash returns no images."
+                )
+            full_prompt = build_image_prompt(
+                cap,
+                campaign_theme=theme,
+                content_image_prompt=str(p.get("image_prompt") or ""),
+                location=str(data.get("location") or ""),
+                goal=str(data.get("goal") or ""),
+            )
+            img_url = str(generate_image(full_prompt)).strip()
+
+        if not img_url.lower().startswith("http"):
             raise CampaignPipelineError(
-                f"Post index {i}: image generation returned a non-https URL."
+                f"Post index {i}: image URL must be http(s); got {img_url[:80]!r}."
             )
 
         np = dict(p)
-        np["image_url"] = u
+        np["image_url"] = img_url
         if _video_scripts_on(state):
             script = generate_video_script(
                 topic=cap[:800],
@@ -523,15 +711,18 @@ def media_node(state: AgentState) -> Dict[str, Any]:
                 location=str(data.get("location") or ""),
                 goal=str(data.get("goal") or ""),
             )
+            if i == 0 and (data.get("wizard_video_url") or "").strip():
+                script = dict(script)
+                script["wizard_external_video_url"] = str(data.get("wizard_video_url")).strip()
             np["video_script"] = video_script_to_storage_value(script)
         else:
             np["video_script"] = ""
         out.append(np)
-        log.info("[agent:media] post %s OpenAI image + script ok", i)
+        log.info("[agent:media] post %s image ok source=%s", i, "wizard" if pref_url and i == 0 else "mixed")
 
     return {
         "posts": out,
-        "step_log": ["media: OpenAI images and video scripts applied"],
+        "step_log": ["media: imagery (Unsplash/DALL·E) and video scripts applied"],
     }
 
 
@@ -634,6 +825,15 @@ def scheduling_node(state: AgentState) -> Dict[str, Any]:
     return {"posts": out, "step_log": [f"scheduling: timestamps set (tz={user_tz_name})"]}
 
 
+def _is_allowed_post_image_url(url: str) -> bool:
+    u = (url or "").strip().lower()
+    if u.startswith("https://"):
+        return True
+    if u.startswith("http://127.0.0.1") or u.startswith("http://localhost"):
+        return True
+    return False
+
+
 def persist_posts_node(state: AgentState) -> Dict[str, Any]:
     cid = state["campaign_id"]
     uid = state["user_id"]
@@ -681,9 +881,9 @@ def persist_posts_node(state: AgentState) -> Dict[str, Any]:
                     f"Cannot persist post {i + 1}: caption is empty."
                 )
             img = str(p.get("image_url") or "").strip()
-            if not img or not img.lower().startswith("https://"):
+            if not img or not _is_allowed_post_image_url(img):
                 raise CampaignPipelineError(
-                    f"Cannot persist post {i + 1}: image_url must be a non-empty https URL."
+                    f"Cannot persist post {i + 1}: image_url must be a non-empty http(s) URL."
                 )
             primary_plat = plats[0] if plats else "facebook"
             row = Post(
@@ -778,19 +978,18 @@ def publishing_node(state: AgentState) -> Dict[str, Any]:
 
 
 def lead_capture_node(state: AgentState) -> Dict[str, Any]:
-    """9th node — auto-creates a LeadForm and/or CommentAutomation in the DB
-    using the configuration collected in wizard Step 5.
+    """Creates LeadForm / CommentAutomation from wizard Step 5 using a LangChain agent.
 
-    This runs after publishing_node so the campaign_id is fully persisted.
-    Both configs are optional: if the wizard user didn't enable them the node
-    is a no-op.
+    Runs after posts are persisted, before the approval gate, so assets exist during review.
     """
-    from backend.models import CommentAutomation, LeadForm  # local import avoids circular
+    from backend.agents.lead_capture_agent import run_lead_capture_agent
+    from backend.models import Campaign, CommentAutomation, LeadForm
 
     cid = state.get("campaign_id")
     uid = state.get("user_id")
-    lf_cfg: Dict[str, Any] = state.get("lead_form_config") or {}
-    auto_cfg: Dict[str, Any] = state.get("automation_config") or {}
+    lf_cfg: Dict[str, Any] = dict(state.get("lead_form_config") or {})
+    auto_cfg: Dict[str, Any] = dict(state.get("automation_config") or {})
+    data = _campaign_data(state)
 
     step_messages: List[str] = []
 
@@ -800,14 +999,37 @@ def lead_capture_node(state: AgentState) -> Dict[str, Any]:
     lead_form_id: Optional[int] = None
 
     with Session(engine) as session:
-        # ── 1. Create lead form ────────────────────────────────────────────────
+        camp = session.get(Campaign, cid) if cid else None
+        if camp is not None and camp.lead_form_id:
+            return {"step_log": ["lead_capture: skipped (campaign already has lead_form_id)"]}
+
+        plan = None
+        if lf_cfg.get("enabled") or auto_cfg.get("enabled"):
+            plan = run_lead_capture_agent(
+                campaign_goal=str(data.get("goal") or ""),
+                business_type=str(data.get("business_type") or ""),
+                audience=str(data.get("audience") or ""),
+                lead_form_config=lf_cfg if lf_cfg.get("enabled") else None,
+                automation_config=auto_cfg if auto_cfg.get("enabled") else None,
+            )
+
+        if lf_cfg.get("enabled") and plan is not None:
+            lf_cfg["headline"] = plan.form_headline or lf_cfg.get("headline") or "Get in touch"
+            lf_cfg["description"] = plan.form_description or lf_cfg.get("description") or ""
+            lf_cfg["thank_you_message"] = plan.thank_you_message or lf_cfg.get(
+                "thank_you_message"
+            )
+        if auto_cfg.get("enabled") and plan is not None:
+            auto_cfg["reply_dm"] = plan.dm_template or auto_cfg.get("reply_dm")
+            auto_cfg["public_reply"] = plan.public_comment_reply or auto_cfg.get("public_reply")
+
         if lf_cfg.get("enabled"):
             import secrets as _secrets
 
             fields_default = [
-                {"key": "name",  "label": "Full Name",    "type": "text",  "required": True},
-                {"key": "email", "label": "Email",         "type": "email", "required": True},
-                {"key": "phone", "label": "Phone Number",  "type": "tel",   "required": False},
+                {"key": "name", "label": "Full Name", "type": "text", "required": True},
+                {"key": "email", "label": "Email", "type": "email", "required": True},
+                {"key": "phone", "label": "Phone Number", "type": "tel", "required": False},
             ]
             custom_fields = lf_cfg.get("fields") or fields_default
 
@@ -818,21 +1040,23 @@ def lead_capture_node(state: AgentState) -> Dict[str, Any]:
                 description=lf_cfg.get("description") or "",
                 fields=json.dumps(custom_fields),
                 thank_you_message=lf_cfg.get("thank_you_message")
-                    or "Thanks! We'll be in touch soon.",
+                or "Thanks! We'll be in touch soon.",
                 redirect_url=lf_cfg.get("redirect_url") or "",
                 public_slug=f"c{cid}-{_secrets.token_urlsafe(6)}",
                 is_active=True,
             )
             session.add(lf)
-            session.flush()          # get lf.id before commit
+            session.flush()
             lead_form_id = lf.id
+            if camp is not None:
+                camp.lead_form_id = lead_form_id
+                session.add(camp)
             step_messages.append(f"lead_capture: created lead_form id={lead_form_id}")
             log.info("[agent:lead_capture] created LeadForm id=%s campaign_id=%s", lead_form_id, cid)
 
-        # ── 2. Create comment automation ───────────────────────────────────────
         if auto_cfg.get("enabled"):
             keyword = auto_cfg.get("trigger_keyword") or "info"
-            keywords_list = [k.strip().lower() for k in keyword.split(",") if k.strip()]
+            keywords_list = [k.strip().lower() for k in str(keyword).split(",") if k.strip()]
 
             platforms: List[str] = auto_cfg.get("platforms") or ["instagram"]
             reply_dm: str = auto_cfg.get("reply_dm") or (
@@ -842,7 +1066,6 @@ def lead_capture_node(state: AgentState) -> Dict[str, Any]:
                 "Thanks for the interest! Just sent you a DM 📩"
             )
 
-            # Create one automation per platform
             for plat in platforms:
                 auto = CommentAutomation(
                     user_id=uid,
@@ -859,12 +1082,11 @@ def lead_capture_node(state: AgentState) -> Dict[str, Any]:
                     is_active=True,
                 )
                 session.add(auto)
-                step_messages.append(
-                    f"lead_capture: created comment_automation platform={plat}"
-                )
+                step_messages.append(f"lead_capture: created comment_automation platform={plat}")
                 log.info(
                     "[agent:lead_capture] created CommentAutomation platform=%s campaign_id=%s",
-                    plat, cid,
+                    plat,
+                    cid,
                 )
 
         session.commit()

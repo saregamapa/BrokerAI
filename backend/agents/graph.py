@@ -81,7 +81,7 @@ def build_campaign_graph() -> StateGraph:
     g.add_node("persist", persist_posts_node)
     g.add_node("approval_gate", approval_gate_node)
     g.add_node("publishing", publishing_node)
-    g.add_node("lead_capture", lead_capture_node)  # 9th node — runs after publishing
+    g.add_node("lead_capture", lead_capture_node)  # after persist — lead + DM setup before approval
 
     g.set_entry_point("strategy")
     g.add_edge("strategy", "content")
@@ -89,10 +89,11 @@ def build_campaign_graph() -> StateGraph:
     g.add_edge("media", "compliance")
     g.add_edge("compliance", "scheduling")
     g.add_edge("scheduling", "persist")
-    g.add_edge("persist", "approval_gate")
+    # Lead capture runs before approval so forms exist during review; publishing is last.
+    g.add_edge("persist", "lead_capture")
+    g.add_edge("lead_capture", "approval_gate")
     g.add_edge("approval_gate", "publishing")
-    g.add_edge("publishing", "lead_capture")
-    g.add_edge("lead_capture", END)
+    g.add_edge("publishing", END)
     return g
 
 

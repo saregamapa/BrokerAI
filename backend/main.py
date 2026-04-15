@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 import backend.env_loader  # noqa: F401 — loads project root .env before agent imports
 
 from backend.core.logger import configure_logging, get_logger, log_event, time_block
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
@@ -52,7 +52,21 @@ from backend.workflow.post_state import (
     transition_post_status,
 )
 from backend.timeutil import is_valid_iana_timezone, normalize_iana_timezone
-from backend.models import Campaign, CampaignTemplate, CanvaDesign, CommentAutomation, CommentTrigger, Lead, LeadForm, Post, SocialAccount, Team, TeamInvite, User
+from backend.models import (
+    BrandAsset,
+    Campaign,
+    CampaignTemplate,
+    CanvaDesign,
+    CommentAutomation,
+    CommentTrigger,
+    Lead,
+    LeadForm,
+    Post,
+    SocialAccount,
+    Team,
+    TeamInvite,
+    User,
+)
 from backend.permissions import check_permission, require_permission
 from backend.schemas import (
     AnalyticsBulkUpdateOut,
@@ -60,6 +74,8 @@ from backend.schemas import (
     AnalyticsPostRow,
     AnalyticsSummaryOut,
     ApproveCampaignRequest,
+    BrandAssetListResponse,
+    BrandAssetOut,
     BrandKitAIRequest,
     BrandKitUpdateRequest,
     CampaignInsightsOut,
@@ -151,6 +167,15 @@ from backend.services.team_service import (
     remove_member,
     resolve_ayrshare_subject_user,
     update_member_role,
+)
+from backend.services.brand_asset_service import (
+    assert_owned_asset_ids,
+    brand_dir_for_user,
+    disk_path,
+    guess_content_type,
+    new_stored_filename,
+    normalize_kind,
+    validate_upload,
 )
 from backend.services.invite_service import (
     create_invite,
@@ -1064,6 +1089,34 @@ PLAN_LIMITS = {
 }
 
 
+def _attach_brand_asset_summaries(
+    session: Session, user_id: int, campaign_data: Dict[str, Any]
+) -> None:
+    """Populate brand_asset_summaries for LangGraph (filenames + kinds; no file bytes)."""
+    raw_ids = campaign_data.get("brand_asset_ids") or []
+    if not raw_ids:
+        campaign_data["brand_asset_summaries"] = []
+        return
+    rows: List[BrandAsset] = []
+    for raw in raw_ids:
+        try:
+            aid = int(raw)
+        except (TypeError, ValueError):
+            continue
+        row = session.get(BrandAsset, aid)
+        if row is not None and int(row.user_id or 0) == int(user_id):
+            rows.append(row)
+    campaign_data["brand_asset_summaries"] = [
+        {
+            "id": r.id,
+            "kind": r.kind or "document",
+            "filename": r.original_filename or "",
+            "content_type": r.content_type or "",
+        }
+        for r in rows
+    ]
+
+
 @app.post("/generate-campaign", response_model=GenerateCampaignResponse)
 @limiter.limit("30/hour")
 async def generate_campaign(
@@ -1140,6 +1193,11 @@ async def generate_campaign(
     if not check_permission(current_user, "create_campaign"):
         raise HTTPException(status_code=403, detail="You do not have permission to create campaigns")
 
+    try:
+        assert_owned_asset_ids(session, current_user.id, body.brand_asset_ids)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     fb_u = (getattr(db_user, "facebook_url", None) or "").strip()
     ig_u = (getattr(db_user, "instagram_url", None) or "").strip()
     li_u = (getattr(db_user, "linkedin_url", None) or "").strip()
@@ -1172,6 +1230,7 @@ async def generate_campaign(
         "instagram_url": ig_u,
         "linkedin_url": li_u,
     }
+    _attach_brand_asset_summaries(session, int(current_user.id or 0), campaign_data)
     initial = {
         "user_id": current_user.id,
         "campaign_id": camp.id,
@@ -2374,6 +2433,124 @@ def _template_to_out(t: CampaignTemplate) -> TemplateOut:
         created_at=t.created_at,
         updated_at=t.updated_at,
     )
+
+
+def _brand_asset_to_out(row: BrandAsset) -> BrandAssetOut:
+    return BrandAssetOut(
+        id=int(row.id or 0),
+        user_id=int(row.user_id or 0),
+        kind=row.kind or "document",
+        original_filename=row.original_filename or "",
+        content_type=row.content_type or "application/octet-stream",
+        size_bytes=int(row.size_bytes or 0),
+        created_at=row.created_at,
+    )
+
+
+@app.post("/brand-assets/upload", response_model=BrandAssetOut)
+async def upload_brand_asset(
+    file: UploadFile = File(...),
+    kind: str = Form("document"),
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Store a brand file (logo, template, guidelines). Allowed: png, jpg, webp, gif, pdf, docx."""
+    raw = await file.read()
+    size = len(raw)
+    try:
+        ext = validate_upload(file.filename or "upload", size)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    stored_name = new_stored_filename(ext)
+    out_dir = brand_dir_for_user(BASE_DIR, int(current_user.id or 0))
+    dest = out_dir / stored_name
+    ct = file.content_type or guess_content_type(ext)
+    if not ct or ct == "application/octet-stream":
+        ct = guess_content_type(ext)
+
+    try:
+        dest.write_bytes(raw)
+    except OSError:
+        raise HTTPException(status_code=500, detail="Could not save file") from None
+
+    row = BrandAsset(
+        user_id=int(current_user.id or 0),
+        kind=normalize_kind(kind),
+        original_filename=(file.filename or stored_name)[:512],
+        stored_filename=stored_name,
+        content_type=(ct or guess_content_type(ext))[:255],
+        size_bytes=size,
+    )
+    try:
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+    except Exception:
+        session.rollback()
+        try:
+            if dest.is_file():
+                dest.unlink()
+        except OSError:
+            pass
+        raise
+    return _brand_asset_to_out(row)
+
+
+@app.get("/brand-assets", response_model=BrandAssetListResponse)
+def list_brand_assets(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    stmt = (
+        select(BrandAsset)
+        .where(BrandAsset.user_id == current_user.id)
+        .order_by(BrandAsset.created_at.desc())
+    )
+    rows = list(session.exec(stmt).all())
+    return BrandAssetListResponse(items=[_brand_asset_to_out(r) for r in rows])
+
+
+@app.get("/brand-assets/{asset_id}/file")
+def download_brand_asset(
+    asset_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    row = session.get(BrandAsset, asset_id)
+    if not row or int(row.user_id) != int(current_user.id or 0):
+        raise HTTPException(status_code=404, detail="File not found")
+    try:
+        path = disk_path(BASE_DIR, int(current_user.id or 0), row.stored_filename or "")
+    except ValueError:
+        raise HTTPException(status_code=404, detail="File not found") from None
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File missing on disk")
+    return FileResponse(
+        path,
+        media_type=row.content_type or "application/octet-stream",
+        filename=row.original_filename or path.name,
+    )
+
+
+@app.delete("/brand-assets/{asset_id}")
+def delete_brand_asset(
+    asset_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    row = session.get(BrandAsset, asset_id)
+    if not row or int(row.user_id) != int(current_user.id or 0):
+        raise HTTPException(status_code=404, detail="File not found")
+    try:
+        path = disk_path(BASE_DIR, int(current_user.id or 0), row.stored_filename or "")
+        if path.is_file():
+            path.unlink()
+    except OSError:
+        pass
+    session.delete(row)
+    session.commit()
+    return {"ok": True, "deleted": asset_id}
 
 
 @app.post("/templates", response_model=TemplateOut)

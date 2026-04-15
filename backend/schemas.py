@@ -26,6 +26,18 @@ class GenerateCampaignRequest(BaseModel):
     # Lead capture config collected by wizard Step 5 (optional)
     lead_form_config: Optional[Dict[str, Any]] = None
     automation_config: Optional[Dict[str, Any]] = None
+    # Brand files uploaded in wizard Step 2 (optional); stored server-side as BrandAsset rows
+    brand_asset_ids: Optional[List[int]] = None
+    # New wizard: visual + template context (optional)
+    selected_template: Optional[str] = None
+    selected_caption_hook: Optional[str] = None
+    persona: Optional[str] = None
+    bucket: Optional[str] = None
+    wizard_template: Optional[Dict[str, Any]] = None  # {id, name, bg}
+    unsplash_selection: Optional[Dict[str, Any]] = None  # {id, url, thumb_url, download_url}
+    wizard_video_url: Optional[str] = None
+    # Step 3 AI captions from wizard (optional hints for the content agent)
+    wizard_ai_captions: Optional[List[str]] = None
 
     @field_validator("platforms")
     @classmethod
@@ -46,6 +58,22 @@ class GenerateCampaignRequest(BaseModel):
         if not is_valid_iana_timezone(s):
             raise ValueError(f"Invalid IANA timezone: {s!r}")
         return s
+
+
+class BrandAssetOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    kind: str
+    original_filename: str
+    content_type: str
+    size_bytes: int
+    created_at: Optional[datetime] = None
+
+
+class BrandAssetListResponse(BaseModel):
+    items: List[BrandAssetOut] = Field(default_factory=list)
 
 
 class PostOut(BaseModel):

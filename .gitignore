@@ -20,6 +20,9 @@ __pycache__/
 *.db-wal
 *-journal
 
+# User-uploaded brand files (wizard)
+/uploads/
+
 # Ayrshare onboarding exports (often contain API keys / PEM in JSON)
 integration-aayrshare/
 

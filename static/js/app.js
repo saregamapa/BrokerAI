@@ -95,6 +95,54 @@
   }
 
   /**
+   * POST multipart/form-data (e.g. file upload). Do not set Content-Type — browser sets boundary.
+   * @param {string} path
+   * @param {FormData} formData
+   */
+  async function apiForm(path, formData) {
+    var t = getToken();
+    var headers = { Accept: "application/json" };
+    if (t) headers.Authorization = "Bearer " + t;
+    var res = await fetch(apiUrl(path), { method: "POST", body: formData, headers: headers });
+    var text = await res.text();
+    var data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (e) {
+      data = { detail: text || "Invalid JSON" };
+    }
+    if (res.status === 401) {
+      var hadToken2 = !!getToken();
+      clearToken();
+      var onAuthPage2 =
+        typeof window !== "undefined" &&
+        (window.location.pathname.indexOf("login") !== -1 ||
+          window.location.pathname.indexOf("signup") !== -1 ||
+          window.location.pathname.indexOf("forgot-password") !== -1);
+      if (!onAuthPage2 && typeof window !== "undefined") {
+        try {
+          if (hadToken2) sessionStorage.setItem("brokerai_session_expired", "1");
+          sessionStorage.setItem(
+            "brokerai_return_to",
+            window.location.pathname + window.location.search
+          );
+        } catch (e2) {}
+        window.location.href = "/login.html" + (hadToken2 ? "?expired=1" : "");
+      }
+    }
+    if (!res.ok) {
+      var msg2 =
+        (data && (data.detail || data.message)) ||
+        res.statusText ||
+        "Request failed";
+      var err2 = new Error(typeof msg2 === "string" ? msg2 : JSON.stringify(msg2));
+      err2.status = res.status;
+      throw err2;
+    }
+    return data;
+  }
+
+  /**
    * @param {string} message
    * @param {"success"|"error"|"info"|"ok"} type — "ok" maps to success
    */
@@ -392,6 +440,7 @@
   window.BrokerAI = {
     apiUrl: apiUrl,
     apiJson: apiJson,
+    apiForm: apiForm,
     showToast: showToast,
     setLoading: setLoading,
     setLoadingText: setLoadingText,
