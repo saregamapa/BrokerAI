@@ -386,6 +386,109 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Research Node — platform-specific content insights
+# ---------------------------------------------------------------------------
+
+_RESEARCH_SYSTEM = """\
+You are a social media content strategist who deeply understands each platform's \
+algorithm, audience behavior, and content trends.
+
+For each platform requested, provide SPECIFIC, ACTIONABLE insights:
+
+1. TRENDING FORMATS: What content types are performing best right now on this \
+platform (carousels, reels, stories, polls, text-only, threads, etc.)? Be specific \
+about dimensions, lengths, and structures.
+
+2. ENGAGEMENT PATTERNS: What drives engagement on this platform? (question CTAs, \
+controversial takes, educational content, personal stories, data visualizations, etc.)
+
+3. HOOK STYLES: What type of opening lines/visuals stop the scroll on THIS specific \
+platform? Give concrete examples of hook patterns, not generic advice.
+
+4. AVOID: What's overused, penalized by the algorithm, or causing audience fatigue? \
+(specific trends, formats, phrases, posting behaviors)
+
+CRITICAL: Be platform-specific. Instagram carousels ≠ LinkedIn carousels. A Facebook \
+hook ≠ a Reddit hook. Tailor every recommendation to the platform's unique culture and \
+algorithm.
+
+Base your analysis on the specific business type, audience, and goal provided.
+"""
+
+
+class PlatformInsight(BaseModel):
+    platform: str = Field(description="Platform name (instagram, facebook, linkedin, reddit, etc.)")
+    trending_formats: List[str] = Field(default_factory=list, description="Top 3-5 performing content formats right now")
+    engagement_patterns: List[str] = Field(default_factory=list, description="Top 3-4 engagement drivers")
+    hook_styles: List[str] = Field(default_factory=list, description="Top 3-4 scroll-stopping hook patterns")
+    avoid: List[str] = Field(default_factory=list, description="Top 2-3 things to avoid")
+
+
+class ResearchPlan(BaseModel):
+    insights: List[PlatformInsight] = Field(default_factory=list)
+    overall_content_direction: str = Field(default="", description="One-paragraph content strategy synthesis")
+
+
+def research_node(state: AgentState) -> Dict[str, Any]:
+    """Researches platform-specific content trends before caption generation.
+
+    Runs between strategy and content nodes. On failure, returns empty insights
+    so the pipeline continues gracefully (content_node works fine without them).
+    """
+    data = _campaign_data(state)
+    platforms = data.get("platforms") or ["instagram", "facebook"]
+    biz = data.get("business_type") or "small business"
+    goal = data.get("goal") or "grow brand awareness"
+    audience = data.get("audience") or "local customers"
+    location = data.get("location") or ""
+
+    key = _openai_api_key()
+    if not key:
+        log.warning("[agent:research] no OpenAI key — skipping research")
+        return {"research_insights": {}, "step_log": ["research: skipped (no API key)"]}
+
+    platform_list = ", ".join(platforms)
+    msg = (
+        f"Analyze content trends for these platforms: {platform_list}\n\n"
+        f"BUSINESS TYPE: {biz}\n"
+        f"GOAL: {goal}\n"
+        f"TARGET AUDIENCE: {audience}\n"
+    )
+    if location:
+        msg += f"LOCATION: {location}\n"
+    msg += (
+        f"\nProvide specific insights for EACH platform: {platform_list}. "
+        "Include Reddit-style insights if reddit is in the list. "
+        "Focus on what will make THIS specific business stand out."
+    )
+
+    try:
+        llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            temperature=0.6,
+            api_key=key,
+        ).with_structured_output(ResearchPlan)
+
+        plan: ResearchPlan = llm.invoke([
+            SystemMessage(content=_RESEARCH_SYSTEM),
+            HumanMessage(content=msg),
+        ])
+
+        log.info(
+            "[agent:research] insights for %s platforms, direction_len=%s",
+            len(plan.insights),
+            len(plan.overall_content_direction),
+        )
+        return {
+            "research_insights": plan.model_dump(),
+            "step_log": [f"research: platform insights ready ({len(plan.insights)} platforms)"],
+        }
+    except Exception as e:
+        log.warning("[agent:research] failed (%s) — continuing without insights", e)
+        return {"research_insights": {}, "step_log": ["research: skipped (error)"]}
+
+
 _CONTENT_SYSTEM = """\
 You are a top-performing social media copywriter. Your captions \
 consistently get high engagement because you follow these rules:
@@ -541,12 +644,28 @@ def content_node(state: AgentState) -> Dict[str, Any]:
             + "\n---\n".join(str(c)[:500] for c in wiz_caps[:6])
         )
 
+    # Inject platform research insights from research_node
+    research = state.get("research_insights") or {}
+    research_block = ""
+    if research.get("insights"):
+        research_block = "\n\nPLATFORM RESEARCH INSIGHTS (use these to craft higher-performing content):\n"
+        for ins in research["insights"]:
+            plat = str(ins.get("platform", "")).upper()
+            research_block += f"\n{plat}:\n"
+            for rkey in ("trending_formats", "hook_styles", "engagement_patterns", "avoid"):
+                items = ins.get(rkey) or []
+                if items:
+                    label = rkey.replace("_", " ").title()
+                    research_block += f"  {label}: {', '.join(str(x) for x in items[:4])}\n"
+        if research.get("overall_content_direction"):
+            research_block += f"\nOVERALL DIRECTION: {research['overall_content_direction']}\n"
+
     msg = (
         f"Write exactly {num_posts} social media posts for a {biz} in {location}.\n\n"
         f"GOAL: {goal}\n"
         f"AUDIENCE: {audience}\n"
         f"PLATFORMS: {platform_str}\n\n"
-        f"{social_block}{strat_block}{tmpl_ctx}{brand_ctx}{hook_ctx}{cap_hint}\n\n"
+        f"{social_block}{strat_block}{tmpl_ctx}{brand_ctx}{hook_ctx}{cap_hint}{research_block}\n\n"
         "For each post, provide: day (matching strategy), caption, hashtags (array), "
         'image_prompt (detailed DALL·E-oriented prompt), video_script (always "").\n\n'
         "IMPORTANT: Make every caption feel like it was written by someone who LIVES in "
@@ -658,6 +777,8 @@ def media_node(state: AgentState) -> Dict[str, Any]:
         )
 
     out: List[Dict[str, Any]] = []
+    used_photo_ids: set = set()  # Track used Unsplash IDs to prevent duplicate images
+
     for i, p in enumerate(posts):
         cap = str(p.get("caption") or "").strip()
         if not cap:
@@ -668,20 +789,39 @@ def media_node(state: AgentState) -> Dict[str, Any]:
         theme = theme_for_day.get(day_key, "")
         img_url = ""
 
+        # Wizard selection applies to first post only
         if pref_url and i == 0:
             img_url = pref_url
-        if not img_url and has_unsplash and keywords:
-            q = keywords[i % len(keywords)]
-            photos, _ = search_photos_sync(q, per_page=12)
-            if photos:
-                pick = photos[i % len(photos)]
-                img_url = (pick.get("url") or pick.get("download_url") or "").strip()
+
+        # Per-post Unsplash search — prefer image_prompt keywords for relevance
+        if not img_url and has_unsplash:
+            img_prompt = str(p.get("image_prompt") or "")
+            if img_prompt:
+                query = " ".join(img_prompt.split()[:6])
+            elif keywords:
+                query = keywords[i % len(keywords)]
+            else:
+                query = (theme or cap[:80]).strip()
+            photos, _ = search_photos_sync(query, per_page=12)
+            for photo in photos:
+                pid = photo.get("id", "")
+                if pid not in used_photo_ids:
+                    img_url = (photo.get("url") or photo.get("download_url") or "").strip()
+                    if img_url:
+                        used_photo_ids.add(pid)
+                        break
+
+        # Broader fallback using theme/caption if first search was exhausted
         if not img_url and has_unsplash:
             fallback_q = (theme or cap[:120] or str(data.get("goal") or "business")).strip()
             photos2, _ = search_photos_sync(fallback_q[:100], per_page=12)
-            if photos2:
-                pick2 = photos2[i % len(photos2)]
-                img_url = (pick2.get("url") or pick2.get("download_url") or "").strip()
+            for photo in photos2:
+                pid = photo.get("id", "")
+                if pid not in used_photo_ids:
+                    img_url = (photo.get("url") or photo.get("download_url") or "").strip()
+                    if img_url:
+                        used_photo_ids.add(pid)
+                        break
 
         if not img_url:
             if not openai_ok:
@@ -993,8 +1133,14 @@ def lead_capture_node(state: AgentState) -> Dict[str, Any]:
 
     step_messages: List[str] = []
 
-    if not (lf_cfg or auto_cfg):
-        return {"step_log": ["lead_capture: skipped (no config)"]}
+    # Check enabled flags explicitly — dict({"enabled": False}) is truthy,
+    # so we must inspect the flag itself, not dict truthiness.
+    lf_enabled = bool(lf_cfg.get("enabled", False))
+    auto_enabled = bool(auto_cfg.get("enabled", False))
+
+    if not lf_enabled and not auto_enabled:
+        log.info("[agent:lead_capture] skipped (both disabled) campaign_id=%s", cid)
+        return {"step_log": ["lead_capture: skipped (disabled)"]}
 
     lead_form_id: Optional[int] = None
 
@@ -1004,26 +1150,26 @@ def lead_capture_node(state: AgentState) -> Dict[str, Any]:
             return {"step_log": ["lead_capture: skipped (campaign already has lead_form_id)"]}
 
         plan = None
-        if lf_cfg.get("enabled") or auto_cfg.get("enabled"):
+        if lf_enabled or auto_enabled:
             plan = run_lead_capture_agent(
                 campaign_goal=str(data.get("goal") or ""),
                 business_type=str(data.get("business_type") or ""),
                 audience=str(data.get("audience") or ""),
-                lead_form_config=lf_cfg if lf_cfg.get("enabled") else None,
-                automation_config=auto_cfg if auto_cfg.get("enabled") else None,
+                lead_form_config=lf_cfg if lf_enabled else None,
+                automation_config=auto_cfg if auto_enabled else None,
             )
 
-        if lf_cfg.get("enabled") and plan is not None:
+        if lf_enabled and plan is not None:
             lf_cfg["headline"] = plan.form_headline or lf_cfg.get("headline") or "Get in touch"
             lf_cfg["description"] = plan.form_description or lf_cfg.get("description") or ""
             lf_cfg["thank_you_message"] = plan.thank_you_message or lf_cfg.get(
                 "thank_you_message"
             )
-        if auto_cfg.get("enabled") and plan is not None:
+        if auto_enabled and plan is not None:
             auto_cfg["reply_dm"] = plan.dm_template or auto_cfg.get("reply_dm")
             auto_cfg["public_reply"] = plan.public_comment_reply or auto_cfg.get("public_reply")
 
-        if lf_cfg.get("enabled"):
+        if lf_enabled:
             import secrets as _secrets
 
             fields_default = [
@@ -1054,7 +1200,7 @@ def lead_capture_node(state: AgentState) -> Dict[str, Any]:
             step_messages.append(f"lead_capture: created lead_form id={lead_form_id}")
             log.info("[agent:lead_capture] created LeadForm id=%s campaign_id=%s", lead_form_id, cid)
 
-        if auto_cfg.get("enabled"):
+        if auto_enabled:
             keyword = auto_cfg.get("trigger_keyword") or "info"
             keywords_list = [k.strip().lower() for k in str(keyword).split(",") if k.strip()]
 

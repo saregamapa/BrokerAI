@@ -38,6 +38,8 @@ class GenerateCampaignRequest(BaseModel):
     wizard_video_url: Optional[str] = None
     # Step 3 AI captions from wizard (optional hints for the content agent)
     wizard_ai_captions: Optional[List[str]] = None
+    # Saved Canva template to use for the campaign (from templates page / wizard)
+    canva_template_id: Optional[int] = None
 
     @field_validator("platforms")
     @classmethod

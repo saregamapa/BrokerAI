@@ -9,6 +9,7 @@
     dashboard: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>',
     analytics: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>',
     connect:   '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>',
+    templates: '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>',
   };
 
   function mount() {
@@ -19,11 +20,12 @@
     if (!nav || !side) return;
 
     var links = [
-      { href: "/dashboard.html", label: "Dashboard",       key: "dashboard" },
-      { href: "/wizard.html",    label: "New Campaign",    key: "wizard"    },
-      { href: "/review.html",    label: "Review Posts",    key: "review"    },
-      { href: "/analytics.html", label: "Performance",     key: "analytics" },
-      { href: "/connect.html",   label: "Connect Social Media Accounts", key: "connect" },
+      { href: "/dashboard.html",  label: "Dashboard",       key: "dashboard" },
+      { href: "/wizard.html",     label: "New Campaign",    key: "wizard"    },
+      { href: "/templates.html",  label: "Templates",       key: "templates" },
+      { href: "/review.html",     label: "Review Posts",    key: "review"    },
+      { href: "/analytics.html",  label: "Performance",     key: "analytics" },
+      { href: "/connect.html",    label: "Connect Social Media Accounts", key: "connect" },
     ];
 
     function active(k) {
@@ -96,7 +98,7 @@
       '</div>';
 
     // Set page title in topbar
-    var pageTitles = { dashboard: 'Dashboard', wizard: 'New Campaign', review: 'Review Posts', analytics: 'Performance', connect: 'Connect Social Media Accounts' };
+    var pageTitles = { dashboard: 'Dashboard', wizard: 'New Campaign', templates: 'Templates', review: 'Review Posts', analytics: 'Performance', connect: 'Connect Social Media Accounts' };
     var titleEl = document.getElementById('nav-page-title');
     if (titleEl && pageTitles[page]) titleEl.textContent = pageTitles[page];
 

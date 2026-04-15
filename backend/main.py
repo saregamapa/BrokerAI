@@ -700,6 +700,11 @@ async def serve_dashboard():
     return FileResponse(BASE_DIR / "frontend" / "dashboard.html")
 
 
+@app.get("/templates.html")
+async def serve_templates():
+    return FileResponse(BASE_DIR / "frontend" / "templates.html")
+
+
 @app.get("/analytics.html")
 async def serve_analytics_page():
     return FileResponse(BASE_DIR / "frontend" / "analytics.html")
@@ -3695,6 +3700,7 @@ async def create_canva_design(
 def list_canva_designs(
     post_id: Optional[int] = None,
     status: Optional[str] = None,
+    design_type: Optional[str] = None,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> CanvaDesignListResponse:
@@ -3703,6 +3709,8 @@ def list_canva_designs(
         q = q.where(CanvaDesign.post_id == post_id)
     if status:
         q = q.where(CanvaDesign.status == status)
+    if design_type:
+        q = q.where(CanvaDesign.design_type == design_type)
     rows = list(session.exec(q).all())
     rows.sort(key=lambda d: d.created_at, reverse=True)
     return CanvaDesignListResponse(

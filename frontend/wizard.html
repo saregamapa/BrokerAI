@@ -366,6 +366,11 @@
             <!-- Templates tab -->
             <div id="panel-templates">
               <div class="grid grid-cols-4 gap-3 mb-4" id="tpl-grid"></div>
+              <!-- Saved Canva templates -->
+              <div id="saved-templates-section" class="mb-4 hidden">
+                <p class="text-xs font-bold uppercase tracking-wide text-slate-600 mb-2">My Saved Templates</p>
+                <div id="saved-tpl-grid" class="grid grid-cols-4 gap-3"></div>
+              </div>
               <div id="brand-upload-section" class="mb-4 rounded-xl border border-dashed border-amber-200/90 bg-amber-50/40 p-4">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -1166,6 +1171,8 @@ const WIZ = {
         </div>
         ${state.selectedTpl===t.id?'<div class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white">✓</div>':''}
       </button>`).join('');
+    // Load saved Canva templates
+    WIZ._loadSavedTemplates();
     // images
     document.getElementById('img-search').placeholder = bk.imgHint;
     document.getElementById('img-tip').textContent = '💡 AI: '+bk.imgTip;
@@ -1186,6 +1193,41 @@ const WIZ = {
     tick.className = 'absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white';
     tick.textContent = '✓';
     btn.appendChild(tick);
+    document.getElementById('canva-btn').classList.remove('hidden');
+  },
+
+  _loadSavedTemplates(){
+    const section = document.getElementById('saved-templates-section');
+    const grid = document.getElementById('saved-tpl-grid');
+    if(!section||!grid) return;
+    BrokerAI.apiJson('/canva/designs?status=ready', {method:'GET'}).then(res=>{
+      // Also fetch imported designs
+      return BrokerAI.apiJson('/canva/designs?status=imported', {method:'GET'}).then(res2=>{
+        const items = [...(res.items||[]), ...(res2.items||[])];
+        if(!items.length){ section.classList.add('hidden'); return; }
+        section.classList.remove('hidden');
+        grid.innerHTML = items.map(d=>{
+          const thumb = d.thumbnail_url||'';
+          const sel = state.canvaTemplateId===d.id;
+          return `<button class="tpl-card relative aspect-[4/5] rounded-xl border-2 overflow-hidden transition ${sel?'border-amber-500 ring-2 ring-amber-400/40':'border-slate-200 hover:border-amber-300'}" onclick="WIZ.selectSavedTpl(${d.id})" style="background:#f1f5f9">
+            ${thumb?`<img src="${thumb}" alt="${d.title||'Template'}" class="h-full w-full object-cover"/>`:'<div class="flex h-full items-center justify-center text-slate-300 text-2xl">🎨</div>'}
+            <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
+              <div class="text-[10px] font-bold text-white truncate">${d.title||'Saved Template'}</div>
+              <div class="text-[9px] text-white/70">${d.design_type||''}</div>
+            </div>
+            ${sel?'<div class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white">✓</div>':''}
+          </button>`;
+        }).join('');
+      });
+    }).catch(()=>{ section.classList.add('hidden'); });
+  },
+
+  selectSavedTpl(id){
+    state.canvaTemplateId = id;
+    state.selectedTpl = null;
+    document.querySelectorAll('.tpl-card').forEach(c=>c.classList.remove('selected'));
+    document.querySelectorAll('#tpl-grid .tpl-card div[class*="absolute top-2"]').forEach(d=>d.remove());
+    WIZ._loadSavedTemplates();
     document.getElementById('canva-btn').classList.remove('hidden');
   },
 
@@ -1792,6 +1834,7 @@ const WIZ = {
       lead_form_config,
       automation_config,
       brand_asset_ids: (state.brandAssets||[]).map(a=>a.id).filter(Boolean),
+      canva_template_id: state.canvaTemplateId || null,
     };
 
     document.getElementById('submit-btn').disabled = true;
@@ -1871,7 +1914,13 @@ fetch(BrokerAI.apiUrl('/health')).then(r=>r.json()).then(h=>{ if(!h.openai_confi
 })();
 
 // Pro goals pre-render for when user gets there
-document.addEventListener('DOMContentLoaded', ()=>{ WIZ.renderProGoals(); });
+// Call immediately — DOMContentLoaded may have already fired since this script
+// is at the bottom of the body.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', ()=>{ WIZ.renderProGoals(); });
+} else {
+  WIZ.renderProGoals();
+}
 </script>
 </body>
 </html>

@@ -12,6 +12,7 @@ from backend.agents.nodes import (
     media_node,
     persist_posts_node,
     publishing_node,
+    research_node,
     scheduling_node,
     strategy_node,
 )
@@ -74,6 +75,7 @@ _compiled = None
 def build_campaign_graph() -> StateGraph:
     g = StateGraph(AgentState)
     g.add_node("strategy", strategy_node)
+    g.add_node("research", research_node)  # platform trend analysis before content generation
     g.add_node("content", content_node)
     g.add_node("media", media_node)
     g.add_node("compliance", compliance_node)
@@ -84,7 +86,8 @@ def build_campaign_graph() -> StateGraph:
     g.add_node("lead_capture", lead_capture_node)  # after persist — lead + DM setup before approval
 
     g.set_entry_point("strategy")
-    g.add_edge("strategy", "content")
+    g.add_edge("strategy", "research")
+    g.add_edge("research", "content")
     g.add_edge("content", "media")
     g.add_edge("media", "compliance")
     g.add_edge("compliance", "scheduling")
