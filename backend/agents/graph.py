@@ -8,7 +8,6 @@ from backend.agents.nodes import (
     approval_gate_node,
     compliance_node,
     content_node,
-    lead_capture_node,
     media_node,
     persist_posts_node,
     publishing_node,
@@ -20,6 +19,13 @@ from backend.agents.state import AgentState
 from backend.core.logger import get_logger
 
 log = get_logger("brokerai.agents")
+
+# Wizard ↔ LangGraph mapping (``campaign_data`` + ``AgentState``):
+#   Step 1 — Strategy inputs → ``strategy_node``
+#   Step 2 — Template + optional AI video (``wizard_template``, ``wizard_video_url``) → ``media_node``
+#   Step 3 — CaptionAgent (``wizard_ai_captions``) → ``content`` node (``nodes.content_node``)
+#   Step 4 — Wizard preview + ``/check-compliance`` (same signals as ``compliance_node`` on captions)
+#   Schedule — Frequency, timezone, ``post_hour``, ``start_date`` → ``scheduling_node``
 
 # ---------------------------------------------------------------------------
 # Persistent checkpointer — survives server restarts
@@ -83,7 +89,6 @@ def build_campaign_graph() -> StateGraph:
     g.add_node("persist", persist_posts_node)
     g.add_node("approval_gate", approval_gate_node)
     g.add_node("publishing", publishing_node)
-    g.add_node("lead_capture", lead_capture_node)  # after persist — lead + DM setup before approval
 
     g.set_entry_point("strategy")
     g.add_edge("strategy", "research")
@@ -92,9 +97,7 @@ def build_campaign_graph() -> StateGraph:
     g.add_edge("media", "compliance")
     g.add_edge("compliance", "scheduling")
     g.add_edge("scheduling", "persist")
-    # Lead capture runs before approval so forms exist during review; publishing is last.
-    g.add_edge("persist", "lead_capture")
-    g.add_edge("lead_capture", "approval_gate")
+    g.add_edge("persist", "approval_gate")
     g.add_edge("approval_gate", "publishing")
     g.add_edge("publishing", END)
     return g

@@ -20,7 +20,7 @@
     }
     .pick-card:hover { border-color:#fcd34d; box-shadow:0 4px 16px rgba(245,158,11,.1); }
     .pick-card.selected { border-color:#f59e0b; background:#fffbeb; box-shadow:0 4px 16px rgba(245,158,11,.15); }
-    .pick-card.selected .card-check { display:flex; }
+    .pick-card.selected .card-check { display:flex !important; }
 
     /* Platform pill */
     .plat-pill {
@@ -95,10 +95,6 @@
     }
     .day-btn.selected { border-color:#f59e0b; background:#fffbeb; color:#92400e; }
 
-    /* WOW loading dots */
-    .wow-dot { width:10px; height:10px; border-radius:50%; background:#f59e0b; display:inline-block; }
-    @keyframes wowPulse { 0%,100%{opacity:.2;transform:scale(.8)} 50%{opacity:1;transform:scale(1.2)} }
-
     /* Tip banner */
     .ai-tip {
       padding:10px 14px; border-radius:10px; background:#fffbeb;
@@ -117,12 +113,6 @@
     .cta-card:hover { border-color:#fcd34d; }
     .cta-card.selected { border-color:#f59e0b; background:#fffbeb; }
 
-    /* Tab button */
-    .tab-btn {
-      padding:11px 20px; background:none; border:none; border-bottom:2.5px solid transparent;
-      font-weight:700; font-size:13px; cursor:pointer; color:#64748b; transition:all .2s;
-    }
-    .tab-btn.active { border-bottom-color:#f59e0b; color:#92400e; }
   </style>
 </head>
 <body class="brokerai-app min-h-screen bg-[#f9fafb] text-slate-900 antialiased" data-page="wizard">
@@ -152,7 +142,7 @@
 <div id="app-sidebar-overlay" class="fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur-sm md:hidden"></div>
 <aside id="app-sidebar" class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl md:block"></aside>
 
-<div class="flex min-h-screen flex-col md:pl-64">
+<div id="app-layout" class="flex min-h-screen flex-col md:pl-64">
   <header id="app-topnav" class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"></header>
 
   <!-- ══════════════════════════════════════
@@ -162,11 +152,13 @@
     <strong class="font-semibold text-amber-800">OpenAI not configured.</strong>
     Add a valid <code class="rounded bg-white/80 px-1.5 py-0.5 text-xs">OPENAI_API_KEY</code> in <code class="rounded bg-white/80 px-1.5 py-0.5 text-xs">.env</code> and restart.
   </div>
-  <div id="wizard-connect-gate" class="hidden mx-4 mt-4 md:mx-8 max-w-3xl rounded-2xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-950 shadow-md">
-    <p class="font-semibold text-amber-900">Connect your accounts first</p>
-    <p class="mt-1 text-amber-900/90">Use the <span class="font-medium">Connect Accounts</span> button (Ayrshare OAuth). When connected, this gate clears.</p>
-    <p id="wizard-connect-gate-detail" class="mt-1 text-xs text-amber-800/90"></p>
-    <a href="/connect.html" class="mt-3 inline-flex items-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-amber-700">Go to Connect Accounts</a>
+  <div id="wizard-connect-gate-wrap" class="mt-4 hidden flex w-full justify-center px-4 md:px-8">
+    <div id="wizard-connect-gate" class="w-full max-w-3xl rounded-2xl border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-950 shadow-md">
+      <p class="font-semibold text-amber-900">Connect your accounts first</p>
+      <p class="mt-1 text-amber-900/90">Use the <span class="font-medium">Connect Accounts</span> button (Ayrshare OAuth). When connected, this gate clears.</p>
+      <p id="wizard-connect-gate-detail" class="mt-1 text-xs text-amber-800/90"></p>
+      <a href="/connect.html" class="mt-3 inline-flex items-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-amber-700">Go to Connect Accounts</a>
+    </div>
   </div>
 
   <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/25 px-4 py-8 md:px-8 lg:px-10">
@@ -240,7 +232,7 @@
               <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Describe yourself <span class="font-normal normal-case tracking-normal">(optional)</span></label>
               <div class="flex flex-wrap gap-2" id="personal-tags-row"></div>
             </div>
-            <button id="personal-next-btn" class="hidden w-full rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg hover:scale-[1.02] transition" onclick="WIZ.goWow()">Generate my first campaign ✨</button>
+            <button id="personal-next-btn" class="hidden w-full rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg hover:scale-[1.02] transition" onclick="WIZ.goSub('strategy')">Continue →</button>
           </div>
 
           <!-- Sub-step: pro category -->
@@ -263,90 +255,41 @@
             <h2 class="text-2xl font-extrabold text-slate-900 mb-1">What's your primary goal?</h2>
             <p class="text-slate-500 text-sm mb-6">This shapes your entire AI campaign strategy.</p>
             <div class="flex flex-col gap-3 mb-6" id="pro-goals-list"></div>
-            <button id="pro-goal-next-btn" class="hidden w-full rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg hover:scale-[1.02] transition" onclick="WIZ.goWow()">Generate my first campaign ✨</button>
+            <button id="pro-goal-next-btn" class="hidden w-full rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg hover:scale-[1.02] transition" onclick="WIZ.goSub('strategy')">Continue →</button>
           </div>
 
-          <!-- Sub-step: WOW moment -->
-          <div class="sub-step" id="sub-wow">
-            <!-- loading state -->
-            <div id="wow-loading" class="text-center py-16">
-              <div class="text-5xl mb-5">✨</div>
-              <h2 class="text-xl font-extrabold text-slate-900 mb-2">Generating your first campaign…</h2>
-              <p class="text-slate-500 text-sm mb-8">AI is creating templates, captions, and scheduling based on your profile.</p>
-              <div class="flex gap-2 justify-center">
-                <div class="wow-dot" style="animation:wowPulse 1.4s ease 0s infinite"></div>
-                <div class="wow-dot" style="animation:wowPulse 1.4s ease .15s infinite"></div>
-                <div class="wow-dot" style="animation:wowPulse 1.4s ease .3s infinite"></div>
-                <div class="wow-dot" style="animation:wowPulse 1.4s ease .45s infinite"></div>
-                <div class="wow-dot" style="animation:wowPulse 1.4s ease .6s infinite"></div>
-              </div>
+          <!-- Sub-step: Campaign strategy (feeds StrategyAgent via generate-campaign payload) -->
+          <div class="sub-step" id="sub-strategy">
+            <button type="button" class="text-sm font-semibold text-slate-500 mb-5 hover:text-slate-800 transition" onclick="WIZ.strategyBack()">← Back</button>
+            <div class="text-center mb-2">
+              <span class="inline-block px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-widest">Campaign strategy</span>
             </div>
-            <!-- reveal state -->
-            <div id="wow-reveal" class="hidden">
-              <div class="text-center mb-7">
-                <span class="inline-block px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">🔥 Your first campaign is ready</span>
-                <h2 id="wow-title" class="text-2xl font-extrabold text-slate-900 mt-3 mb-1"></h2>
-                <p class="text-slate-500 text-sm">AI-generated from your profile. Edit anything or continue to customise.</p>
-              </div>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-7">
-                <!-- Left: post preview + schedule -->
-                <div class="space-y-4">
-                  <div class="rounded-2xl border border-slate-200 bg-slate-900 p-3 shadow-lg">
-                    <div class="flex items-center gap-2.5 mb-3">
-                      <div class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600"></div>
-                      <div><div class="text-xs font-bold text-white" id="wow-user"></div><div class="text-[10px] text-slate-400">Sponsored</div></div>
-                    </div>
-                    <div id="wow-post-card" class="aspect-square rounded-lg flex items-center justify-center mb-3">
-                      <div class="text-center text-white p-4">
-                        <div id="wow-badge" class="text-[10px] font-bold opacity-70 tracking-widest mb-1.5"></div>
-                        <div id="wow-hl" class="text-xl font-black leading-tight mb-1 whitespace-pre-line"></div>
-                        <div id="wow-sub" class="text-[11px] opacity-70"></div>
-                      </div>
-                    </div>
-                    <div id="wow-caption-preview" class="text-[11.5px] text-slate-300 leading-relaxed"></div>
-                  </div>
-                  <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div class="flex items-center justify-between mb-3">
-                      <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Platforms</span>
-                      <div class="flex gap-1.5" id="wow-plat-pills"></div>
-                    </div>
-                    <div class="flex items-center justify-between pt-3 border-t border-slate-100">
-                      <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Smart Schedule</span>
-                      <span id="wow-smart-time" class="text-sm font-bold text-amber-600"></span>
-                    </div>
-                    <div class="mt-3 pt-3 border-t border-slate-100">
-                      <label class="text-xs font-bold text-slate-500 uppercase tracking-wide block mb-3">Posting Frequency</label>
-                      <div class="grid grid-cols-4 gap-1.5" id="wow-freq-grid"></div>
-                    </div>
-                  </div>
-                </div>
-                <!-- Right: score + caption + template -->
-                <div class="space-y-4">
-                  <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm text-center">
-                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-4">AI Performance Score</div>
-                    <div id="wow-score-ring" class="score-ring mx-auto mb-2">
-                      <span id="wow-score-val" class="text-3xl font-black"></span>
-                    </div>
-                    <div class="text-xs text-slate-400">High engagement potential</div>
-                  </div>
-                  <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Generated Caption</div>
-                    <div id="wow-caption-full" class="text-xs text-slate-600 leading-relaxed"></div>
-                  </div>
-                  <div id="wow-tpl-chip" class="rounded-2xl border border-amber-200 bg-amber-50 p-3 flex items-center gap-3">
-                    <div id="wow-tpl-swatch" class="w-10 h-10 rounded-lg flex-shrink-0"></div>
-                    <div>
-                      <div id="wow-tpl-name" class="text-sm font-bold text-slate-800"></div>
-                      <div class="text-xs text-slate-500">Auto-selected for your profile</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="flex gap-3 justify-center">
-                <button onclick="WIZ.completeOnboarding()" class="px-10 py-3.5 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white font-bold text-sm shadow-lg hover:scale-[1.02] transition">Customize &amp; Launch →</button>
-                <button onclick="WIZ.completeOnboarding()" class="px-7 py-3.5 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-sm hover:bg-slate-50 transition">Launch Now 🚀</button>
-              </div>
+            <h2 class="text-2xl font-extrabold text-slate-900 text-center mb-1">What should this campaign achieve?</h2>
+            <p class="text-slate-500 text-sm text-center mb-6 max-w-lg mx-auto">These choices power the <strong>Strategy</strong> step of our AI pipeline — same inputs your generated posts will follow.</p>
+
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Primary goal</p>
+            <p class="text-[11px] text-slate-400 mb-3">What do you want this campaign to achieve?</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6" id="strategy-goal-grid"></div>
+
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Brand voice</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-6" id="strategy-tone-grid"></div>
+
+            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Publish platforms</p>
+            <p class="text-[11px] text-slate-400 mb-2">Where we will tune copy length and CTAs.</p>
+            <div class="flex flex-wrap gap-2 mb-6" id="strategy-plat-grid"></div>
+
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Target audience</label>
+            <textarea id="strategy-audience" rows="3" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 mb-4" placeholder="Who are you speaking to? (e.g. first-time buyers in Austin, local sellers, founders…)" oninput="WIZ.refreshStrategySummary()"></textarea>
+
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Business type <span class="font-normal normal-case tracking-normal text-slate-400">(optional)</span></label>
+            <input id="strategy-business-type" type="text" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 mb-6" placeholder="e.g. Boutique brokerage, SaaS, fitness studio…" oninput="WIZ.refreshStrategySummary()" />
+
+            <div class="rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 to-white p-4 mb-6">
+              <p class="text-xs font-bold text-amber-800 uppercase tracking-widest mb-2">Strategy preview</p>
+              <p id="strategy-summary-live" class="text-sm text-slate-700 leading-relaxed"></p>
             </div>
+
+            <button type="button" class="w-full rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg hover:scale-[1.02] transition" onclick="WIZ.finishStrategyAndContinue()">Continue to content &amp; media →</button>
           </div>
 
         </div><!-- /wiz-s1 -->
@@ -356,81 +299,84 @@
         ───────────────────────────────────── -->
         <div class="wiz-step" id="wiz-s2">
           <div class="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-lg backdrop-blur-md md:p-6">
-            <h2 class="text-xl font-extrabold text-slate-900 mb-1">Choose your visuals</h2>
-            <p class="text-slate-500 text-sm mb-5">Pick a template, browse stock images, or generate AI video.</p>
-            <div class="flex border-b border-slate-200 mb-5">
-              <button class="tab-btn active" id="tab-templates" onclick="WIZ.setTab('templates')">🎨 Templates</button>
-              <button class="tab-btn" id="tab-images" onclick="WIZ.setTab('images')">📷 Images</button>
-              <button class="tab-btn" id="tab-video" onclick="WIZ.setTab('video')">🎬 AI Video</button>
-            </div>
-            <!-- Templates tab -->
-            <div id="panel-templates">
-              <div class="grid grid-cols-4 gap-3 mb-4" id="tpl-grid"></div>
-              <!-- Saved Canva templates -->
-              <div id="saved-templates-section" class="mb-4 hidden">
-                <p class="text-xs font-bold uppercase tracking-wide text-slate-600 mb-2">My Saved Templates</p>
-                <div id="saved-tpl-grid" class="grid grid-cols-4 gap-3"></div>
-              </div>
-              <div id="brand-upload-section" class="mb-4 rounded-xl border border-dashed border-amber-200/90 bg-amber-50/40 p-4">
-                <div class="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p class="text-xs font-bold uppercase tracking-wide text-amber-900/90">Upload documents</p>
-                    <p class="mt-1 text-xs text-slate-600 leading-relaxed max-w-xl">Add your brand logo, slide/PDF template, or guidelines. Allowed: <span class="font-semibold text-slate-800">.png .jpg .jpeg .webp .gif .pdf .docx</span> (max 25 MB each).</p>
-                  </div>
-                  <div class="flex flex-wrap items-center gap-2 shrink-0">
-                    <label class="text-xs font-semibold text-slate-600 whitespace-nowrap" for="brand-upload-kind">File type</label>
-                    <select id="brand-upload-kind" class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-800 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/30">
-                      <option value="logo">Brand logo</option>
-                      <option value="template">Brand template</option>
-                      <option value="document">Other document</option>
-                    </select>
-                    <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 px-3 py-2 text-xs font-bold text-white shadow hover:opacity-95 transition">
-                      <span>📤 Choose files</span>
-                      <input id="brand-files-input" type="file" class="hidden" multiple accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.docx,image/png,image/jpeg,image/webp,image/gif,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onchange="WIZ.onBrandFilesSelected(this)" />
-                    </label>
-                  </div>
+            <h2 class="text-xl font-extrabold text-slate-900 mb-1">Content &amp; media</h2>
+            <p class="text-slate-500 text-sm mb-6">Pick your template (required), then optionally generate an AI video clip for the pipeline.</p>
+            <p id="tpl-manus-hint" class="hidden text-[11px] font-semibold text-amber-900/90 mb-4 rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2"></p>
+
+            <div class="space-y-10">
+              <!-- 1 · Templates (required) -->
+              <section aria-labelledby="step2-h-templates">
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                  <h3 id="step2-h-templates" class="text-lg font-extrabold text-slate-900">1 · Visual template</h3>
+                  <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-200">Required</span>
                 </div>
-                <div id="brand-assets-list" class="mt-3 space-y-2"></div>
-              </div>
-              <button id="canva-btn" onclick="WIZ.openCanva()" class="hidden mt-1 px-5 py-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white font-bold text-sm shadow hover:scale-[1.02] transition">🎨 Edit in Canva →</button>
-            </div>
-            <!-- Images tab -->
-            <div id="panel-images" class="hidden">
-              <div class="flex gap-2 mb-3">
-                <input id="img-search" type="text" placeholder="" class="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-sm" oninput="WIZ.imgSearchDebounce()" onkeydown="if(event.key==='Enter')WIZ.imgSearch()" />
-                <button onclick="WIZ.imgSmartSuggest()" class="px-4 py-2.5 rounded-xl border border-amber-400 bg-amber-50 text-amber-700 font-bold text-sm whitespace-nowrap hover:bg-amber-100 transition">✨ Smart Suggest</button>
-              </div>
-              <div class="ai-tip" id="img-tip"></div>
-              <div id="img-results" class="grid grid-cols-3 gap-2 mt-3"></div>
-            </div>
-            <!-- Video tab -->
-            <div id="panel-video" class="hidden">
-              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <h3 id="video-label" class="text-base font-bold text-slate-800 mb-4">🎬 Video Generator</h3>
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Style</label>
-                    <div class="flex flex-wrap gap-2" id="video-styles"></div>
-                  </div>
-                  <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Duration</label>
-                    <div class="flex gap-2">
-                      <button id="vid-dur-15" onclick="WIZ.setVideoDur('15',this)" class="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:border-amber-400 transition">15s</button>
-                      <button id="vid-dur-30" onclick="WIZ.setVideoDur('30',this)" class="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:border-amber-400 transition">30s</button>
-                      <button id="vid-dur-60" onclick="WIZ.setVideoDur('60',this)" class="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:border-amber-400 transition">60s</button>
+                <p class="text-xs text-slate-500 mb-4 max-w-2xl">Choose one card — this sets layout and guides the <strong>media</strong> agent for imagery.</p>
+                <div class="grid grid-cols-4 gap-3 mb-4" id="tpl-grid"></div>
+                <div id="brand-upload-section" class="mb-4 rounded-xl border border-dashed border-amber-200/90 bg-amber-50/40 p-4">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p class="text-xs font-bold uppercase tracking-wide text-amber-900/90">Brand files</p>
+                      <p class="mt-1 text-xs text-slate-600 leading-relaxed max-w-xl">Logo, template, or guidelines (optional). Allowed: <span class="font-semibold text-slate-800">.png .jpg .jpeg .webp .gif .pdf .docx</span> (max 25 MB each).</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 shrink-0">
+                      <label class="text-xs font-semibold text-slate-600 whitespace-nowrap" for="brand-upload-kind">File type</label>
+                      <select id="brand-upload-kind" class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-800 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/30">
+                        <option value="logo">Brand logo</option>
+                        <option value="template">Brand template</option>
+                        <option value="document">Other document</option>
+                      </select>
+                      <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 px-3 py-2 text-xs font-bold text-white shadow hover:opacity-95 transition">
+                        <span>📤 Choose files</span>
+                        <input id="brand-files-input" type="file" class="hidden" multiple accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.docx,image/png,image/jpeg,image/webp,image/gif,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onchange="WIZ.onBrandFilesSelected(this)" />
+                      </label>
                     </div>
                   </div>
+                  <div id="brand-assets-list" class="mt-3 space-y-2"></div>
                 </div>
-                <div class="mb-4">
-                  <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Prompt <span class="text-slate-400 font-normal">(optional override)</span></label>
-                  <input id="video-prompt" type="text" placeholder="Describe the video scene…" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20" />
+              </section>
+
+              <div class="border-t border-slate-200"></div>
+
+              <!-- 2 · AI Video (optional) -->
+              <section aria-labelledby="step2-h-video">
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                  <h3 id="step2-h-video" class="text-lg font-extrabold text-slate-900">2 · AI video</h3>
+                  <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Optional</span>
                 </div>
-                <button id="vid-gen-btn" onclick="WIZ.generateVideo()" class="w-full py-3 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white font-bold text-sm shadow hover:scale-[1.02] transition">⚡ Generate Video Preview</button>
-                <div id="video-status" class="mt-3 hidden text-xs text-slate-500 text-center"></div>
-                <div id="video-preview-area" class="mt-3 hidden">
-                  <video id="video-preview-player" controls class="w-full rounded-xl border border-slate-200 bg-black"></video>
+                <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 mb-4 hover:border-amber-300 transition">
+                  <input type="checkbox" id="step2-ai-video-toggle" class="mt-1 h-4 w-4 rounded border-slate-300 text-amber-600 focus:ring-amber-500" onchange="WIZ.toggleAiVideoSection()" />
+                  <span>
+                    <span class="text-sm font-bold text-slate-900">Add AI video?</span>
+                    <span class="block text-xs text-slate-500 mt-0.5">When enabled, you can generate a short clip and attach it to the first post’s media plan.</span>
+                  </span>
+                </label>
+                <div id="step2-video-body" class="hidden rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h4 id="video-label" class="text-base font-bold text-slate-800 mb-4">🎬 Video generator</h4>
+                  <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Style</label>
+                      <div class="flex flex-wrap gap-2" id="video-styles"></div>
+                    </div>
+                    <div>
+                      <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Duration</label>
+                      <div class="flex gap-2">
+                        <button type="button" id="vid-dur-5" onclick="WIZ.setVideoDur('5',this)" class="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:border-amber-400 transition">5s</button>
+                        <button type="button" id="vid-dur-8" onclick="WIZ.setVideoDur('8',this)" class="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:border-amber-400 transition">8s</button>
+                        <button type="button" id="vid-dur-12" onclick="WIZ.setVideoDur('12',this)" class="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:border-amber-400 transition">12s</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mb-4">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Prompt</label>
+                    <input id="video-prompt" type="text" placeholder="Describe the video scene…" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20" />
+                  </div>
+                  <button type="button" id="vid-gen-btn" onclick="WIZ.generateVideo()" class="w-full py-3 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white font-bold text-sm shadow hover:scale-[1.02] transition">⚡ Generate video preview</button>
+                  <div id="video-status" class="mt-3 hidden text-xs text-slate-500 text-center"></div>
+                  <div id="video-preview-area" class="mt-3 hidden flex justify-center">
+                    <video id="video-preview-player" controls class="max-w-sm w-full max-h-52 rounded-xl border border-slate-200 bg-black object-contain"></video>
+                  </div>
                 </div>
-              </div>
+              </section>
             </div>
           </div>
         </div>
@@ -440,30 +386,37 @@
         ───────────────────────────────────── -->
         <div class="wiz-step" id="wiz-s3">
           <div class="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-lg backdrop-blur-md md:p-6">
-            <h2 class="text-xl font-extrabold text-slate-900 mb-1">AI-Generated Captions</h2>
-            <p id="cap-desc" class="text-slate-500 text-sm mb-5"></p>
-            <div class="flex flex-wrap gap-2 mb-5">
-              <button id="regen-btn" onclick="WIZ.regenCaptions()" class="px-4 py-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white font-bold text-xs shadow hover:scale-[1.02] transition">✨ Regenerate All</button>
-              <button onclick="WIZ.modifyCaption('rewrite')" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-xs hover:border-amber-300 transition">Improve</button>
-              <button onclick="WIZ.modifyCaption('shorter')" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-xs hover:border-amber-300 transition">Shorten</button>
-              <button onclick="WIZ.modifyCaption('add_cta')" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-xs hover:border-amber-300 transition">More Engaging</button>
-              <button onclick="WIZ.modifyCaption('add_emojis')" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-xs hover:border-amber-300 transition">Add Emoji</button>
+            <h2 class="text-xl font-extrabold text-slate-900 mb-1">AI captions</h2>
+            <p id="cap-desc" class="text-slate-500 text-sm mb-3"></p>
+            <p class="text-xs text-slate-600 mb-4 rounded-xl border border-amber-100 bg-amber-50/80 px-3 py-2 leading-relaxed">
+              <span class="font-bold text-amber-900">CaptionAgent</span> drafts copy from your strategy, template, tone, and optional video. Pick a variation, load it into the editor, tweak, then continue — the full campaign pipeline uses the same signals.
+            </p>
+            <div class="flex flex-wrap items-center gap-2 mb-5">
+              <button type="button" id="gen-cap-btn" onclick="WIZ.regenCaptions()" class="px-5 py-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white font-bold text-sm shadow hover:scale-[1.02] transition">✨ Generate captions</button>
+              <span class="text-xs text-slate-400 hidden sm:inline">Regenerate anytime — your edits in the box below are what we send to launch.</span>
             </div>
-            <div class="flex flex-col gap-3 mb-5" id="captions-list"></div>
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">✏️ Custom Edit</label>
-              <textarea id="caption-edit" rows="5" placeholder="Paste or type your own caption here…" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-vertical leading-relaxed"></textarea>
+            <div id="caption-step3-root" class="mb-5 min-h-[100px]"></div>
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 mb-4">
+              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">✏️ Edit for your campaign</label>
+              <textarea id="caption-edit" rows="5" placeholder="Caption and hashtags you approve — edit freely…" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20 resize-vertical leading-relaxed"></textarea>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" onclick="WIZ.modifyCaption('rewrite')" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-xs hover:border-amber-300 transition">Improve</button>
+              <button type="button" onclick="WIZ.modifyCaption('shorter')" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-xs hover:border-amber-300 transition">Shorten</button>
+              <button type="button" onclick="WIZ.modifyCaption('add_cta')" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-xs hover:border-amber-300 transition">More engaging</button>
+              <button type="button" onclick="WIZ.modifyCaption('add_emojis')" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-xs hover:border-amber-300 transition">Add emoji</button>
             </div>
           </div>
         </div>
 
         <!-- ─────────────────────────────────────
-             STEP 4 — PREVIEW & SCORE
+             STEP 4 — COMPLIANCE & PREVIEW
         ───────────────────────────────────── -->
         <div class="wiz-step" id="wiz-s4">
           <div class="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-lg backdrop-blur-md md:p-6">
-            <h2 class="text-xl font-extrabold text-slate-900 mb-1">Preview &amp; Performance Score</h2>
-            <p class="text-slate-500 text-sm mb-5">See how your post looks live. AI scores for maximum impact.</p>
+            <h2 class="text-xl font-extrabold text-slate-900 mb-1">Compliance &amp; preview</h2>
+            <p class="text-slate-500 text-sm mb-2">Full post mock-up: template or media, your caption, then brand-safety check (same engine as campaign compliance).</p>
+            <p class="text-xs text-slate-500 mb-4">Edit copy in step 3 if you need changes — <strong>Apply suggested fix</strong> updates your draft here.</p>
             <div class="flex flex-wrap gap-2 mb-5" id="preview-plat-pills"></div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <!-- Post preview -->
@@ -472,14 +425,16 @@
                   <div class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600"></div>
                   <div><div class="text-xs font-bold text-white" id="prev-user"></div><div class="text-[10px] text-slate-400">Sponsored</div></div>
                 </div>
-                <div id="prev-post-card" class="aspect-square rounded-lg flex items-center justify-center mb-3">
-                  <div class="text-center text-white p-4">
-                    <div id="prev-badge" class="text-[10px] font-bold opacity-70 tracking-widest mb-1.5"></div>
-                    <div id="prev-hl" class="text-xl font-black leading-tight mb-1"></div>
-                    <div id="prev-sub" class="text-[11px] opacity-70"></div>
+                <div id="prev-post-card" class="aspect-square rounded-lg overflow-hidden mb-3 relative border border-slate-600/50 shadow-inner bg-slate-900">
+                  <div id="prev-media-slot" class="absolute inset-0"></div>
+                  <div class="absolute bottom-0 left-0 right-0 z-[2] pointer-events-none bg-gradient-to-t from-black via-black/75 to-transparent pt-12 pb-3 px-3">
+                    <div id="prev-badge" class="text-[10px] font-bold text-amber-200/90 tracking-widest mb-1"></div>
+                    <div id="prev-hl" class="text-lg font-black text-white leading-tight mb-0.5"></div>
+                    <div id="prev-sub" class="text-[11px] text-slate-300"></div>
                   </div>
                 </div>
-                <div id="prev-caption" class="text-[11.5px] text-slate-300 leading-relaxed"></div>
+                <div id="prev-caption" class="text-[11.5px] text-slate-300 leading-relaxed whitespace-pre-wrap break-words min-h-[2.5rem]"></div>
+                <div id="step4-compliance" class="mt-3 rounded-xl border border-slate-600/50 bg-slate-800/80 p-3 text-xs text-slate-200"></div>
               </div>
               <!-- Scores + tips -->
               <div class="space-y-4">
@@ -513,46 +468,9 @@
         </div>
 
         <!-- ─────────────────────────────────────
-             STEP 5 — LEAD CAPTURE
+             STEP 5 — SCHEDULE & LAUNCH
         ───────────────────────────────────── -->
         <div class="wiz-step" id="wiz-s5">
-          <div class="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-lg backdrop-blur-md md:p-6">
-            <h2 class="text-xl font-extrabold text-slate-900 mb-1">Lead Capture Setup</h2>
-            <p id="lead-desc" class="text-slate-500 text-sm mb-6"></p>
-            <div class="grid grid-cols-3 gap-3 mb-6" id="cta-cards"></div>
-            <!-- DM Automation -->
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5 mb-5">
-              <div class="flex items-start justify-between mb-1">
-                <div>
-                  <h3 class="text-sm font-bold text-slate-800">⚡ Comment-to-DM Automation</h3>
-                  <p class="text-xs text-slate-500 mt-0.5">Auto-send a DM when someone comments a trigger word</p>
-                </div>
-                <div id="auto-dm-toggle" class="toggle-track mt-0.5 flex-shrink-0" onclick="WIZ.toggleDM()">
-                  <div class="toggle-thumb"></div>
-                </div>
-              </div>
-              <div id="auto-dm-fields" class="hidden grid grid-cols-2 gap-3 mt-4">
-                <div>
-                  <label class="block text-xs font-bold text-slate-500 mb-1.5">Trigger Word</label>
-                  <input id="dm-trigger" type="text" placeholder="" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20" />
-                </div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-500 mb-1.5">Auto-Reply Message</label>
-                  <input id="dm-reply" type="text" placeholder="" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20" />
-                </div>
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Landing Page or Link</label>
-              <input id="landing-url" type="url" placeholder="https://your-page.com" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 placeholder-slate-400 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20" />
-            </div>
-          </div>
-        </div>
-
-        <!-- ─────────────────────────────────────
-             STEP 6 — SCHEDULE & LAUNCH
-        ───────────────────────────────────── -->
-        <div class="wiz-step" id="wiz-s6">
           <div class="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-lg backdrop-blur-md md:p-6 space-y-6">
             <div>
               <h2 class="text-xl font-extrabold text-slate-900 mb-1">Schedule &amp; Launch</h2>
@@ -581,6 +499,11 @@
                 <div class="freq-card" onclick="WIZ.setFreq('1 per week',this)"><div class="text-2xl mb-2">📋</div><div class="text-sm font-bold text-slate-800">Weekly</div><div class="text-xs text-slate-500">1× per week</div></div>
               </div>
               <div id="freq-tip" class="ai-tip mt-3">💡 AI will auto-vary content daily to keep your audience engaged without fatigue.</div>
+              <div id="schedule-preview-box" class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm hidden sm:block">
+                <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Schedule preview (first week)</div>
+                <p id="schedule-preview-lines" class="text-sm text-slate-800 font-medium leading-relaxed">—</p>
+                <p class="text-[11px] text-slate-500 mt-2">Based on frequency, preferred time, and timezone. Final times are set when the campaign is generated.</p>
+              </div>
             </div>
 
             <!-- Scheduling method -->
@@ -604,11 +527,11 @@
             <div id="panel-custom" class="hidden grid grid-cols-3 gap-4">
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1.5">Start date</label>
-                <input name="start_date" type="date" id="s6-start-date" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20" />
+                <input name="start_date" type="date" id="s6-start-date" onchange="WIZ._refreshSchedulePreview()" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20" />
               </div>
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1.5">Post time</label>
-                <select name="post_hour" id="s6-hour" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20">
+                <select name="post_hour" id="s6-hour" onchange="WIZ._refreshSchedulePreview()" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20">
                   <option value="7">7:00 AM</option><option value="8">8:00 AM</option><option value="9">9:00 AM</option>
                   <option value="10" selected>10:00 AM</option><option value="11">11:00 AM</option><option value="12">12:00 PM</option>
                   <option value="13">1:00 PM</option><option value="14">2:00 PM</option><option value="15">3:00 PM</option>
@@ -617,7 +540,7 @@
               </div>
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1.5">Timezone</label>
-                <select name="timezone" id="s6-tz" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20">
+                <select name="timezone" id="s6-tz" onchange="WIZ._refreshSchedulePreview()" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 text-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20">
                   <option value="UTC">UTC</option>
                   <option value="America/New_York">Eastern (ET)</option>
                   <option value="America/Chicago">Central (CT)</option>
@@ -656,7 +579,7 @@
       </div><!-- /wiz-body -->
 
       <!-- ══════════════════════════════════════
-           WIZARD FOOTER NAV (steps 2-6)
+           WIZARD FOOTER NAV (steps 2-5)
       ══════════════════════════════════════ -->
       <div id="wiz-footer" class="hidden mt-6 flex items-center justify-between">
         <button id="wiz-back-btn" onclick="WIZ.back()" class="px-6 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 font-semibold text-sm hover:bg-slate-50 transition">← Back</button>
@@ -751,6 +674,26 @@ const PRO_GOALS = [
   { id:"promote",  label:"Promote products / services",desc:"Drive sales and conversions",          icon:"📣" },
   { id:"automate", label:"Save time with automation",  desc:"Set it and forget it",                 icon:"⚡" },
 ];
+/** Strategy step — maps to StrategyAgent / ``GenerateCampaignRequest.campaign_goal_category`` */
+const STRATEGY_GOALS = [
+  { id:'lead_gen',   label:'Lead generation', desc:'Capture qualified leads and inquiries', icon:'🎯' },
+  { id:'branding',   label:'Branding',        desc:'Build recognition and trust over time',   icon:'✨' },
+  { id:'engagement', label:'Engagement',      desc:'Comments, shares, saves, community',      icon:'💬' },
+  { id:'sales',      label:'Sales',           desc:'Drive purchases and conversions',         icon:'🛒' },
+];
+const STRATEGY_TONES = [
+  { id:'professional', label:'Professional', desc:'Clear, credible, advisor-like', icon:'👔' },
+  { id:'casual',       label:'Casual',         desc:'Relaxed and conversational',      icon:'☕' },
+  { id:'friendly',     label:'Friendly',       desc:'Warm, approachable, human',     icon:'🤝' },
+  { id:'bold',         label:'Bold',           desc:'Confident hooks and strong POV',  icon:'⚡' },
+];
+const STRATEGY_PLATFORMS = [
+  { id:'Facebook',  label:'Facebook' },
+  { id:'Instagram', label:'Instagram' },
+  { id:'LinkedIn',  label:'LinkedIn' },
+  { id:'TikTok',    label:'TikTok' },
+  { id:'Twitter',   label:'X / Twitter' },
+];
 const BUCKETS = {
   real_estate:{
     tones:["Luxury","Professional","Friendly","Neighborhood Expert","Urgent","Educational"],
@@ -774,7 +717,6 @@ const BUCKETS = {
       {id:"comment",label:"Comment Trigger",desc:"\"Comment 'INFO'\"",      icon:"📝"},
       {id:"link",   label:"Listing Link",   desc:"Drive to your listing page",icon:"🔗"},
     ],
-    leadDesc:"Turn likes into showings. Set up your CTA and automation triggers.",
     triggerPlaceholder:"e.g. TOUR, INFO, DETAILS",replyPlaceholder:"e.g. Here's the listing link + virtual tour...",
     previewUser:"maple_heights_realty",previewBadge:"JUST LISTED",previewHL:"$549,000",previewSub:"123 Maple St · 4 BD / 3 BA",
     smartTimes:[{platform:"Instagram",time:"Tue · 11:30 AM",why:"Peak listing engagement"},{platform:"Facebook",time:"Wed · 1:00 PM",why:"Highest home-search clicks"}],
@@ -802,7 +744,6 @@ const BUCKETS = {
       {id:"apply",     label:"Apply Now",        desc:"Link to application",   icon:"📋"},
       {id:"calculator",label:"Calculator Link",  desc:"Payment calculator page",icon:"🧮"},
     ],
-    leadDesc:"Turn engagement into applications. Set up your CTA and lead capture.",
     triggerPlaceholder:"e.g. RATE, QUALIFY, APPLY",replyPlaceholder:"e.g. Here's your personalised rate quote...",
     previewUser:"premier_lending_co",previewBadge:"RATE DROP",previewHL:"6.25% Fixed",previewSub:"30-Year · Save $185/mo",
     smartTimes:[{platform:"LinkedIn",time:"Tue · 9:00 AM",why:"Professional audience peak"},{platform:"Facebook",time:"Wed · 12:00 PM",why:"Rate-shoppers most active"}],
@@ -830,7 +771,6 @@ const BUCKETS = {
       {id:"comment",label:"Comment Trigger",desc:"\"Comment 'WANT'\"",icon:"📝"},
       {id:"shop",   label:"Shop Link",      desc:"Drive to your store",icon:"🛒"},
     ],
-    leadDesc:"Turn followers into customers. Set up your CTA and sales automation.",
     triggerPlaceholder:"e.g. DEAL, WANT, LINK",replyPlaceholder:"e.g. Here's your exclusive discount code...",
     previewUser:"your_brand_name",previewBadge:"NEW DROP",previewHL:"25% OFF",previewSub:"This weekend only",
     smartTimes:[{platform:"Instagram",time:"Thu · 6:00 PM",why:"Shopping intent peak"},{platform:"TikTok",time:"Fri · 7:30 PM",why:"Highest viral potential"}],
@@ -858,24 +798,12 @@ const BUCKETS = {
       {id:"comment",label:"Engagement CTA",desc:"\"Drop a 🔥 below\"", icon:"📝"},
       {id:"link",   label:"Link in Bio",   desc:"Drive to your landing page",icon:"🔗"},
     ],
-    leadDesc:"Turn followers into a community. Set up engagement triggers and lead capture.",
     triggerPlaceholder:"e.g. GUIDE, NICHE, FREE",replyPlaceholder:"e.g. Here's the free guide you requested...",
     previewUser:"your_creator_handle",previewBadge:"CREATOR TIP",previewHL:"Stop Chasing\nTrends",previewSub:"3 shifts that changed everything",
     smartTimes:[{platform:"Instagram",time:"Wed · 12:00 PM",why:"Peak creator engagement"},{platform:"TikTok",time:"Thu · 7:00 PM",why:"Highest discovery window"}],
     tips:["Carousel posts get 3× more saves than single images.","Asking a question in your CTA boosts comments by 40%.","Posting at least 4×/week keeps algorithm momentum."],
   },
 };
-const WOW_DATA = {
-  re_agent:  {badge:"JUST LISTED",hl:"$549,000",sub:"4 BD / 3 BA · Maple Heights",title:"123 Maple Heights Dr — Just Listed",score:87},
-  mortgage:  {badge:"RATE DROP",  hl:"6.25% Fixed",sub:"30-Year · Save $185/mo",  title:"Spring Rate Drop — Act Now",        score:84},
-  smb:       {badge:"LIMITED TIME",hl:"25% OFF",  sub:"Everything · This weekend", title:"Spring Flash Sale — 48 Hours Only",  score:82},
-  agency:    {badge:"CASE STUDY", hl:"3× ROAS",  sub:"Paid Social · 60 days",     title:"Case Study — 3× ROAS for Local Bakery",score:86},
-  coach:     {badge:"COACH TIP",  hl:"Stop Trading\nTime for $",sub:"3 mindset shifts",title:"Monday Motivation — Authority Content",score:89},
-  fitness:   {badge:"NEW CLASS",  hl:"HIIT Burn", sub:"45 min · All levels",      title:"New HIIT Class Launch",               score:85},
-  default:   {badge:"YOUR BRAND", hl:"Your Message\nHere",sub:"Powered by BrokerAI AI",title:"Your First Campaign",             score:78},
-};
-
-function getWow(pid){ return WOW_DATA[pid]||WOW_DATA.default; }
 function getBucket(pid){
   for(const cat of PRO_CATEGORIES){ const p=cat.personas.find(x=>x.id===pid); if(p)return p.bucket; }
   return "creator";
@@ -891,35 +819,45 @@ const state = {
   persona: null,
   bucket: "creator",
   personaGoal: null,
+  /** Wizard strategy sub-step — feeds StrategyAgent (``campaign_data``). */
+  campaignGoalCategory: 'lead_gen',
+  tone: 'professional',
+  audienceCustom: '',
+  businessTypeCustom: '',
+  _strategyPanelInited: false,
   selectedTpl: null,
+  visualTemplateList: null,
+  /** Only set when /wow/manus-visual-templates returned templates successfully — never cache failures. */
+  _manusVisualTplSuccessKey: '',
   selectedCap: 0,
-  selectedCta: null,
-  autoDm: false,
   schedMethod: "smart",
   frequency: "daily",
   days: ["Tue","Thu"],
   platforms: ["Facebook","Instagram"],
-  // Step 2
-  selectedImg: null,       // {url, unsplash_id, thumb}
-  selectedVideoUrl: null,  // URL of generated Replicate video
-  videoDur: "15",
+  // Step 2 — content & media (template required; AI video optional)
+  selectedVideoUrl: null,  // URL of generated AI video preview
+  aiVideoEnabled: false,
+  videoDur: "5",
   videoJobId: null,
   // Step 3
-  aiCaptions: [],          // preview captions from /preview-captions
+  aiCaptions: [],          // joined caption+hashtags strings for /generate-campaign
+  captionVariants: [],     // [{caption, hashtags}] from CaptionAgent preview API
+  captionPreviewPlat: 'instagram',
   aiCaptionsLoaded: false,
-  // Step 4
+  // Step 4 — ComplianceAgent + preview (maps to ``/check-compliance`` + performance score)
+  previewPlat: 'instagram',
   previewScore: null,      // {score,grade,reasons,suggestions}
+  lastCompliance: null,    // {passed,issues,suggested_fix}
   // Step 2 — brand uploads (BrandAsset rows on server)
   brandAssets: [],
 };
 
 const WIZARD_STEPS = [
-  {id:1,label:"Campaign Setup", icon:"⚙️"},
+  {id:1,label:"Profile & strategy", icon:"⚙️"},
   {id:2,label:"Content & Media",icon:"🖼️"},
   {id:3,label:"AI Captions",    icon:"✨"},
-  {id:4,label:"Preview & Score",icon:"📊"},
-  {id:5,label:"Lead Capture",   icon:"🎯"},
-  {id:6,label:"Schedule",       icon:"📅"},
+  {id:4,label:"Compliance & preview",icon:"✅"},
+  {id:5,label:"Schedule",       icon:"📅"},
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -932,6 +870,141 @@ const WIZ = {
     document.querySelectorAll('.sub-step').forEach(el=>el.classList.remove('active'));
     document.getElementById('sub-'+id).classList.add('active');
     state.subStep = id;
+    if(id==='strategy') WIZ.initStrategyPanel();
+  },
+
+  strategyBack(){
+    if(state.accountType==='personal') WIZ.goSub('personal');
+    else WIZ.goSub('pro-goal');
+  },
+
+  initStrategyPanel(){
+    if(!state.campaignGoalCategory) state.campaignGoalCategory = 'lead_gen';
+    if(!state.tone) state.tone = 'professional';
+    const audEl = document.getElementById('strategy-audience');
+    const bizEl = document.getElementById('strategy-business-type');
+    if(!state._strategyPanelInited){
+      state._strategyPanelInited = true;
+      if(audEl) audEl.value = state.audienceCustom || WIZ._audience();
+      if(bizEl) bizEl.value = state.businessTypeCustom || WIZ._businessType();
+    }
+    WIZ._renderStrategyGoalCards();
+    WIZ._renderStrategyToneCards();
+    WIZ._renderStrategyPlatChips();
+    WIZ.refreshStrategySummary();
+  },
+
+  _renderStrategyGoalCards(){
+    const grid = document.getElementById('strategy-goal-grid');
+    if(!grid) return;
+    grid.innerHTML = STRATEGY_GOALS.map(g=>`
+      <button type="button" class="pick-card text-left relative ${state.campaignGoalCategory===g.id?'selected':''}" onclick="WIZ.selectStrategyGoal('${g.id}',this)">
+        <div class="card-check hidden absolute top-3 right-3 w-6 h-6 rounded-full bg-amber-500 items-center justify-center text-white text-xs font-bold">✓</div>
+        <div class="text-2xl mb-2">${g.icon}</div>
+        <div class="text-sm font-bold text-slate-900 mb-1">${g.label}</div>
+        <div class="text-xs text-slate-500 leading-snug">${g.desc}</div>
+      </button>`).join('');
+  },
+
+  selectStrategyGoal(id, btn){
+    state.campaignGoalCategory = id;
+    document.querySelectorAll('#strategy-goal-grid .pick-card').forEach(c=>c.classList.remove('selected'));
+    btn.classList.add('selected');
+    WIZ.refreshStrategySummary();
+  },
+
+  _renderStrategyToneCards(){
+    const grid = document.getElementById('strategy-tone-grid');
+    if(!grid) return;
+    grid.innerHTML = STRATEGY_TONES.map(t=>`
+      <button type="button" class="pick-card text-center py-3 relative ${state.tone===t.id?'selected':''}" onclick="WIZ.selectStrategyTone('${t.id}',this)">
+        <div class="card-check hidden absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 items-center justify-center text-white text-[10px] font-bold">✓</div>
+        <div class="text-xl mb-1">${t.icon}</div>
+        <div class="text-xs font-bold text-slate-900">${t.label}</div>
+        <div class="text-[10px] text-slate-500 mt-0.5">${t.desc}</div>
+      </button>`).join('');
+  },
+
+  selectStrategyTone(id, btn){
+    state.tone = id;
+    document.querySelectorAll('#strategy-tone-grid .pick-card').forEach(c=>c.classList.remove('selected'));
+    btn.classList.add('selected');
+    WIZ.refreshStrategySummary();
+  },
+
+  _renderStrategyPlatChips(){
+    const wrap = document.getElementById('strategy-plat-grid');
+    if(!wrap) return;
+    wrap.innerHTML = STRATEGY_PLATFORMS.map(p=>{
+      const on = state.platforms.includes(p.id);
+      return `<button type="button" onclick="WIZ.toggleStrategyPlatform('${p.id}')"
+        class="rounded-xl border px-3 py-2 text-xs font-bold transition ${on?'border-amber-500 bg-amber-50 text-amber-900':'border-slate-200 bg-white text-slate-600 hover:border-amber-300'}">${p.label}</button>`;
+    }).join('');
+  },
+
+  toggleStrategyPlatform(id){
+    const idx = state.platforms.indexOf(id);
+    if(idx>-1){
+      if(state.platforms.length<2){ BrokerAI.showToast('Select at least one platform.','info'); return; }
+      state.platforms.splice(idx,1);
+    } else {
+      state.platforms.push(id);
+    }
+    WIZ._renderStrategyPlatChips();
+    WIZ.syncSchedulePlatformsFromState();
+    WIZ.refreshStrategySummary();
+  },
+
+  syncSchedulePlatformsFromState(){
+    document.querySelectorAll('input[name="platform"]').forEach(cb=>{
+      cb.checked = state.platforms.includes(cb.value);
+    });
+  },
+
+  selectedPlatforms(){
+    if(state.step !== 5 && state.platforms && state.platforms.length){
+      return [...state.platforms];
+    }
+    const fromDom = Array.from(document.querySelectorAll('input[name="platform"]:checked')).map(el=>el.value);
+    if(fromDom.length) return fromDom;
+    if(state.platforms && state.platforms.length) return [...state.platforms];
+    return ['Instagram','Facebook'];
+  },
+
+  refreshStrategySummary(){
+    const el = document.getElementById('strategy-summary-live');
+    if(!el) return;
+    const g = STRATEGY_GOALS.find(x=>x.id===state.campaignGoalCategory);
+    const t = STRATEGY_TONES.find(x=>x.id===state.tone);
+    const plats = (state.platforms||[]).join(', ') || '—';
+    const aud = (document.getElementById('strategy-audience')?.value||'').trim() || WIZ._audience();
+    const biz = (document.getElementById('strategy-business-type')?.value||'').trim() || WIZ._businessType();
+    el.textContent = [
+      `Goal: ${g?g.label:''} — ${g?g.desc:''}`,
+      `Voice: ${t?t.label:state.tone}`,
+      `Platforms: ${plats}`,
+      `Audience: ${aud}`,
+      `Business: ${biz}`,
+    ].join(' · ');
+  },
+
+  _strategyGoalSentence(){
+    const g = STRATEGY_GOALS.find(x=>x.id===state.campaignGoalCategory);
+    const cat = g ? g.label : 'Brand growth';
+    const pg = PERSONAL_GOALS.find(x=>x.id===state.personaGoal) || PRO_GOALS.find(x=>x.id===state.personaGoal);
+    const tail = pg ? ` — ${pg.label}` : '';
+    return `${cat}${tail}`;
+  },
+
+  finishStrategyAndContinue(){
+    if(!state.platforms || state.platforms.length<1){
+      BrokerAI.showToast('Select at least one platform.','error');
+      return;
+    }
+    state.audienceCustom = (document.getElementById('strategy-audience')?.value||'').trim();
+    state.businessTypeCustom = (document.getElementById('strategy-business-type')?.value||'').trim();
+    WIZ.syncSchedulePlatformsFromState();
+    WIZ.completeOnboarding();
   },
 
   chooseAccountType(type){
@@ -1043,70 +1116,13 @@ const WIZ = {
     document.getElementById('pro-goal-next-btn').classList.remove('hidden');
   },
 
-  goWow(){
-    WIZ.goSub('wow');
-    setTimeout(()=>{
-      document.getElementById('wow-loading').classList.add('hidden');
-      WIZ.renderWow();
-      document.getElementById('wow-reveal').classList.remove('hidden');
-    },2000);
-  },
-
-  renderWow(){
-    const wow = getWow(state.persona);
-    const bk  = BUCKETS[state.bucket] || BUCKETS.creator;
-    document.getElementById('wow-title').textContent = wow.title;
-    document.getElementById('wow-user').textContent  = bk.previewUser;
-    document.getElementById('wow-badge').textContent = wow.badge;
-    document.getElementById('wow-hl').textContent    = wow.hl;
-    document.getElementById('wow-sub').textContent   = wow.sub;
-    const pc = document.getElementById('wow-post-card');
-    pc.style.background = bk.templates[0].bg;
-    const cap = bk.captions[0];
-    document.getElementById('wow-caption-preview').innerHTML =
-      `<b>${bk.previewUser}</b> ${cap.hook} ${cap.body.slice(0,55)}<span class="text-slate-500">... more</span>`;
-    // platform pills
-    const pills = document.getElementById('wow-plat-pills');
-    pills.innerHTML = bk.smartTimes.map(s=>`<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">${s.platform}</span>`).join('');
-    document.getElementById('wow-smart-time').textContent = bk.smartTimes[0].time;
-    // freq grid
-    const fg = document.getElementById('wow-freq-grid');
-    const freqs = [{id:"daily",l:"Daily",s:"7×/wk"},{id:"weekly",l:"Weekly",s:"1×/wk"},{id:"biweekly",l:"Bi-weekly",s:"2×/mo"},{id:"monthly",l:"Monthly",s:"1×/mo"}];
-    fg.innerHTML = freqs.map(f=>`
-      <button class="freq-card ${f.id==='weekly'?'selected':''} py-2" onclick="WIZ.wowFreq('${f.id}',this)">
-        <div class="text-xs font-bold text-slate-800">${f.l}</div>
-        <div class="text-[10px] text-slate-500">${f.s}</div>
-      </button>`).join('');
-    // score
-    const scoreVal = wow.score;
-    const scoreColor = scoreVal>=80?'#10b981':'#f59e0b';
-    const ring = document.getElementById('wow-score-ring');
-    ring.style.borderColor = scoreColor;
-    ring.style.background  = scoreColor+'12';
-    const val = document.getElementById('wow-score-val');
-    val.textContent   = scoreVal;
-    val.style.color   = scoreColor;
-    // caption full
-    document.getElementById('wow-caption-full').innerHTML =
-      `<span class="font-bold">${cap.hook}</span><br><br>${cap.body}<br><br><span class="font-bold text-amber-600">${cap.cta}</span><br><br><span class="text-slate-400">${cap.tags}</span>`;
-    // template chip
-    const tpl = bk.templates[0];
-    document.getElementById('wow-tpl-swatch').style.background = tpl.bg;
-    document.getElementById('wow-tpl-name').textContent = tpl.name;
-  },
-
-  wowFreq(id, btn){
-    document.querySelectorAll('#wow-freq-grid .freq-card').forEach(c=>c.classList.remove('selected'));
-    btn.classList.add('selected');
-    state.frequency = id;
-  },
-
   completeOnboarding(){
     WIZ.gotoStep(2);
   },
 
   // ── Step navigation ──────────────────────────
   gotoStep(n){
+    if(state.step===3 && n!==3){ WIZ._syncCaptionFromEditor(); }
     // hide current step panel
     document.querySelectorAll('.wiz-step').forEach(el=>el.classList.remove('active'));
     document.getElementById('wiz-s'+n).classList.add('active');
@@ -1115,9 +1131,8 @@ const WIZ = {
     WIZ.renderFooter();
     if(n===2) WIZ.renderStep2();
     if(n===3) WIZ.renderStep3();
-    if(n===4) WIZ.renderStep4();
-    if(n===5) WIZ.renderStep5();
-    if(n===6) WIZ.renderStep6();
+    if(n===4){ WIZ._syncCaptionFromEditor(); WIZ.renderStep4(); }
+    if(n===5) WIZ.renderStep6();
     // AI float
     const fl = document.getElementById('ai-float');
     if(n>=2){ fl.classList.remove('hidden'); WIZ.updateAiTip(); }
@@ -1126,12 +1141,12 @@ const WIZ = {
   },
 
   next(){
-    if(state.step < 6) WIZ.gotoStep(state.step+1);
+    if(state.step < 5) WIZ.gotoStep(state.step+1);
   },
 
   back(){
     if(state.step > 2) WIZ.gotoStep(state.step-1);
-    else { WIZ.gotoStep(1); WIZ.goSub('wow'); }
+    else { WIZ.gotoStep(1); WIZ.goSub('strategy'); }
   },
 
   renderProgress(){
@@ -1150,8 +1165,8 @@ const WIZ = {
     const nextBtn = document.getElementById('wiz-next-btn');
     if(state.step===1){ footer.classList.add('hidden'); return; }
     footer.classList.remove('hidden');
-    document.getElementById('wiz-step-label').textContent = `Step ${state.step} of 6`;
-    if(state.step===6){
+    document.getElementById('wiz-step-label').textContent = `Step ${state.step} of 5`;
+    if(state.step===5){
       nextBtn.classList.add('hidden');
     } else {
       nextBtn.classList.remove('hidden');
@@ -1159,159 +1174,177 @@ const WIZ = {
     }
   },
 
-  // ── Step 2: Content & Media ──────────────────
-  renderStep2(){
+  _safeCssBackground(bg){
+    const s = String(bg||'').trim().slice(0, 900);
+    if(/javascript|@import|expression\s*\(|url\s*\(\s*['"]?\s*data:/i.test(s)) return 'linear-gradient(135deg,#1e293b,#0f172a)';
+    return s || 'linear-gradient(135deg,#1e293b,#0f172a)';
+  },
+
+  /** Allow only https image URLs from our API (OpenAI CDN). */
+  _safeHttpsImageUrl(u){
+    const s = String(u||'').trim();
+    if(!s.startsWith('https://')) return '';
+    if(/[\s"'<>]/.test(s)) return '';
+    return s.slice(0, 2048);
+  },
+
+  _templateRowsForGrid(){
     const bk = BUCKETS[state.bucket]||BUCKETS.creator;
-    // templates grid
+    if(state.visualTemplateList && state.visualTemplateList.length){
+      return state.visualTemplateList.map(t=>({
+        id:t.id,
+        name:t.name,
+        tag:t.tag||'Template',
+        bg:t.bg,
+        image_url:t.image_url||'',
+      }));
+    }
+    return (bk.templates||[]).map(t=>({ id:t.id, name:t.name, tag:'Built-in', bg:t.bg, image_url:t.image_url||'' }));
+  },
+
+  _getSelectedTemplate(){
+    const bk = BUCKETS[state.bucket]||BUCKETS.creator;
+    const rows = WIZ._templateRowsForGrid();
+    if(!rows.length) return { id:null, name:'', bg:'#1e293b' };
+    const sid = state.selectedTpl!=null ? String(state.selectedTpl) : String(rows[0].id);
+    const hit = rows.find(r=>String(r.id)===sid);
+    return hit || rows[0];
+  },
+
+  _renderTemplateGrid(){
     const tgrid = document.getElementById('tpl-grid');
-    tgrid.innerHTML = bk.templates.map(t=>`
-      <button class="tpl-card ${state.selectedTpl===t.id?'selected':''}" style="background:${t.bg}" onclick="WIZ.selectTpl(${t.id},this)">
-        <div class="absolute bottom-0 left-0 right-0 p-2.5 bg-gradient-to-t from-black/80 to-transparent">
-          <div class="text-xs font-bold text-white">${t.name}</div>
+    if(!tgrid) return;
+    const rows = WIZ._templateRowsForGrid();
+    const hint = document.getElementById('tpl-manus-hint');
+    if(hint){
+      if(state.visualTemplateList && state.visualTemplateList.length){
+        hint.classList.remove('hidden');
+        hint.textContent = 'OpenAI suggests template titles, tags, and Unsplash search phrases from your profile and brand file names; Unsplash serves real photos when UNSPLASH_ACCESS_KEY is set. Built-in templates apply if generation fails.';
+      } else {
+        hint.classList.add('hidden');
+        hint.textContent = '';
+      }
+    }
+    if(state.selectedTpl==null || !rows.some(r=>String(r.id)===String(state.selectedTpl))){
+      state.selectedTpl = rows[0] ? rows[0].id : null;
+    }
+    tgrid.innerHTML = rows.map(t=>{
+      const tid = WIZ._escapeHtml(String(t.id));
+      const sel = String(state.selectedTpl)===String(t.id);
+      const name = WIZ._escapeHtml(t.name);
+      const tag = WIZ._escapeHtml(t.tag||'Template');
+      const bg = WIZ._safeCssBackground(t.bg);
+      const imgU = WIZ._safeHttpsImageUrl(t.image_url);
+      const imgLayer = imgU
+        ? `<img src="${WIZ._escapeHtml(imgU)}" alt="" class="absolute inset-0 h-full w-full object-cover pointer-events-none" loading="lazy" />`
+        : '';
+      return `<button type="button" class="tpl-card relative overflow-hidden ${sel?'selected':''}" style="background:${bg}" data-tpl-id="${tid}" onclick="WIZ.selectTplFromDom(this)">
+        ${imgLayer}
+        <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none"></div>
+        <div class="absolute bottom-0 left-0 right-0 p-2.5 text-left z-[1]">
+          <div class="text-[9px] font-bold uppercase tracking-widest text-white/80 mb-0.5">${tag}</div>
+          <div class="text-xs font-bold text-white">${name}</div>
         </div>
-        ${state.selectedTpl===t.id?'<div class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white">✓</div>':''}
-      </button>`).join('');
-    // Load saved Canva templates
-    WIZ._loadSavedTemplates();
-    // images
-    document.getElementById('img-search').placeholder = bk.imgHint;
-    document.getElementById('img-tip').textContent = '💡 AI: '+bk.imgTip;
-    // video
+        ${sel?'<div class="tpl-tick absolute top-2 right-2 z-10 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white">✓</div>':''}
+      </button>`;
+    }).join('');
+  },
+
+  // ── Step 2: Content & Media ──────────────────
+  async renderStep2(){
+    const bk = BUCKETS[state.bucket]||BUCKETS.creator;
+    const tgrid = document.getElementById('tpl-grid');
+    const cacheKey = `${state.persona||''}|${state.bucket||''}|${state.personaGoal||''}|${(state.brandAssets||[]).length}`;
+    if(state._manusVisualTplSuccessKey === cacheKey && state.visualTemplateList && state.visualTemplateList.length){
+      WIZ._renderTemplateGrid();
+    } else {
+      tgrid.innerHTML = '<div class="col-span-4 text-center text-xs text-slate-500 py-8">✨ Generating visual templates (OpenAI + Unsplash)…<br/><span class="text-slate-400">Usually under a minute when Unsplash is configured.</span></div>';
+      try{
+        const res = await BrokerAI.apiJson('/wow/manus-visual-templates', {
+          method:'POST',
+          body: JSON.stringify({
+            persona: state.persona||'',
+            bucket: state.bucket||'creator',
+            persona_goal: state.personaGoal||null,
+          }),
+        });
+        if((res.source==='openai_unsplash' || res.source==='manus') && res.templates && res.templates.length){
+          state.visualTemplateList = res.templates;
+          state._manusVisualTplSuccessKey = cacheKey;
+        } else {
+          state.visualTemplateList = null;
+          state._manusVisualTplSuccessKey = '';
+          if(res.source==='unavailable'){
+            BrokerAI.showToast((res.error||'AI templates unavailable')+' — using built-in templates.','info');
+          } else if(res.error){
+            BrokerAI.showToast(res.error,'error');
+          }
+        }
+      } catch(e){
+        state.visualTemplateList = null;
+        state._manusVisualTplSuccessKey = '';
+        BrokerAI.showToast(e.message||'Template generation failed — using built-in.','error');
+      }
+      WIZ._renderTemplateGrid();
+    }
     document.getElementById('video-label').textContent = '🎬 '+bk.videoLabel;
     const vs = document.getElementById('video-styles');
     vs.innerHTML = bk.videoStyles.map(s=>`<button class="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 text-xs font-semibold hover:border-amber-400 transition" onclick="WIZ.setVideoStyle(this)">${s}</button>`).join('');
     // auto-populate video prompt with AI smart default
     const vp = document.getElementById('video-prompt');
     if(vp && !vp.value) vp.value = bk.videoLabel ? `${bk.videoLabel} for ${state.personaGoal||'brand awareness'}` : '';
+    WIZ.loadBrandAssets();
+    WIZ._syncStep2VideoVisibility();
+    if(state.videoDur) WIZ.setVideoDur(state.videoDur, null);
   },
 
-  selectTpl(id, btn){
-    state.selectedTpl = id;
-    document.querySelectorAll('.tpl-card').forEach(c=>{ c.classList.remove('selected'); c.querySelectorAll('div[class*="absolute top-2"]').forEach(d=>d.remove()); });
+  toggleAiVideoSection(){
+    const tgl = document.getElementById('step2-ai-video-toggle');
+    state.aiVideoEnabled = !!(tgl && tgl.checked);
+    if(!state.aiVideoEnabled){
+      state.selectedVideoUrl = null;
+      const prev = document.getElementById('video-preview-area');
+      if(prev) prev.classList.add('hidden');
+      const player = document.getElementById('video-preview-player');
+      if(player) player.removeAttribute('src');
+      const st = document.getElementById('video-status');
+      if(st){ st.classList.add('hidden'); st.textContent=''; }
+    }
+    WIZ._syncStep2VideoVisibility();
+  },
+
+  _syncStep2VideoVisibility(){
+    const body = document.getElementById('step2-video-body');
+    const tgl = document.getElementById('step2-ai-video-toggle');
+    if(tgl) tgl.checked = !!state.aiVideoEnabled;
+    if(body) body.classList.toggle('hidden', !state.aiVideoEnabled);
+  },
+
+  selectTplFromDom(btn){
+    const idRaw = btn.getAttribute('data-tpl-id');
+    state.selectedTpl = idRaw;
+    document.querySelectorAll('#tpl-grid .tpl-card').forEach(c=>{
+      c.classList.remove('selected');
+      c.querySelectorAll('.tpl-tick').forEach(d=>d.remove());
+    });
     btn.classList.add('selected');
     const tick = document.createElement('div');
-    tick.className = 'absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white';
+    tick.className = 'tpl-tick absolute top-2 right-2 z-10 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white';
     tick.textContent = '✓';
     btn.appendChild(tick);
-    document.getElementById('canva-btn').classList.remove('hidden');
-  },
-
-  _loadSavedTemplates(){
-    const section = document.getElementById('saved-templates-section');
-    const grid = document.getElementById('saved-tpl-grid');
-    if(!section||!grid) return;
-    BrokerAI.apiJson('/canva/designs?status=ready', {method:'GET'}).then(res=>{
-      // Also fetch imported designs
-      return BrokerAI.apiJson('/canva/designs?status=imported', {method:'GET'}).then(res2=>{
-        const items = [...(res.items||[]), ...(res2.items||[])];
-        if(!items.length){ section.classList.add('hidden'); return; }
-        section.classList.remove('hidden');
-        grid.innerHTML = items.map(d=>{
-          const thumb = d.thumbnail_url||'';
-          const sel = state.canvaTemplateId===d.id;
-          return `<button class="tpl-card relative aspect-[4/5] rounded-xl border-2 overflow-hidden transition ${sel?'border-amber-500 ring-2 ring-amber-400/40':'border-slate-200 hover:border-amber-300'}" onclick="WIZ.selectSavedTpl(${d.id})" style="background:#f1f5f9">
-            ${thumb?`<img src="${thumb}" alt="${d.title||'Template'}" class="h-full w-full object-cover"/>`:'<div class="flex h-full items-center justify-center text-slate-300 text-2xl">🎨</div>'}
-            <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-              <div class="text-[10px] font-bold text-white truncate">${d.title||'Saved Template'}</div>
-              <div class="text-[9px] text-white/70">${d.design_type||''}</div>
-            </div>
-            ${sel?'<div class="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white">✓</div>':''}
-          </button>`;
-        }).join('');
-      });
-    }).catch(()=>{ section.classList.add('hidden'); });
-  },
-
-  selectSavedTpl(id){
-    state.canvaTemplateId = id;
-    state.selectedTpl = null;
-    document.querySelectorAll('.tpl-card').forEach(c=>c.classList.remove('selected'));
-    document.querySelectorAll('#tpl-grid .tpl-card div[class*="absolute top-2"]').forEach(d=>d.remove());
-    WIZ._loadSavedTemplates();
-    document.getElementById('canva-btn').classList.remove('hidden');
-  },
-
-  // ── Canva integration ────────────────────────────────────────
-  openCanva(){
-    const bk = BUCKETS[state.bucket]||BUCKETS.creator;
-    const tplId = state.selectedTpl||bk.templates[0].id;
-    const tpl   = bk.templates.find(t=>t.id===tplId)||bk.templates[0];
-    const cap   = bk.captions[state.selectedCap];
-    const promptText = cap ? `${cap.hook} ${cap.body}` : (bk.videoLabel||'');
-    const btn = document.getElementById('canva-btn');
-    btn.textContent = '⏳ Opening Canva…'; btn.disabled = true;
-    BrokerAI.apiJson('/canva/designs', {
-      method: 'POST',
-      body: JSON.stringify({
-        design_type: 'instagram-post',
-        title: `BrokerAI – ${tpl.name}`,
-        prompt: promptText.slice(0,500),
-        autofill_data: { headline: cap?.hook||'', body: cap?.body||'', cta: cap?.cta||'' },
-      })
-    }).then(d=>{
-      if(d.edit_url){ window.open(d.edit_url, '_blank'); }
-      else { BrokerAI.showToast('Canva link unavailable', 'error'); }
-    }).catch(e=>BrokerAI.showToast(e.message||'Canva error','error'))
-      .finally(()=>{ btn.textContent='🎨 Edit in Canva →'; btn.disabled=false; });
-  },
-
-  // ── Image search ─────────────────────────────────────────────
-  _imgSearchTimer: null,
-  imgSearchDebounce(){
-    clearTimeout(WIZ._imgSearchTimer);
-    WIZ._imgSearchTimer = setTimeout(()=>WIZ.imgSearch(), 600);
-  },
-
-  async imgSearch(){
-    const q = (document.getElementById('img-search')?.value||'').trim();
-    if(!q) return;
-    const grid = document.getElementById('img-results');
-    grid.innerHTML = '<div class="col-span-3 text-xs text-slate-400 text-center py-4">Searching…</div>';
-    try {
-      const data = await BrokerAI.apiJson(`/unsplash/search?q=${encodeURIComponent(q)}&per_page=9`,{method:'GET'});
-      const photos = data.results||data.photos||[];
-      if(!photos.length){ grid.innerHTML='<div class="col-span-3 text-xs text-slate-400 text-center py-3">No results. Try a different term.</div>'; return; }
-      grid.innerHTML = photos.map((p,i)=>{
-        const thumb = p.urls?.thumb||p.thumb||p.url;
-        const full  = p.urls?.regular||p.url||thumb;
-        const sel   = state.selectedImg?.unsplash_id===p.id ? 'ring-2 ring-amber-500' : '';
-        return `<button onclick="WIZ.imgSelect(${i},${JSON.stringify({url:full,thumb,unsplash_id:p.id}).replace(/"/g,'&quot;')},this)"
-          class="relative aspect-square rounded-xl overflow-hidden border-2 ${sel?'border-amber-500':'border-transparent'} hover:border-amber-400 transition">
-          <img src="${thumb}" class="w-full h-full object-cover" loading="lazy" />
-          ${sel?'<div class="absolute top-1 right-1 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white">✓</div>':''}
-        </button>`;
-      }).join('');
-    } catch(e){
-      grid.innerHTML=`<div class="col-span-3 text-xs text-rose-500 text-center py-3">${e.message||'Search failed'}</div>`;
-    }
-  },
-
-  imgSelect(idx, photo, btn){
-    state.selectedImg = photo;
-    document.querySelectorAll('#img-results button').forEach(b=>{
-      b.classList.remove('border-amber-500'); b.classList.add('border-transparent');
-      b.querySelectorAll('.bg-amber-500').forEach(d=>d.remove());
-    });
-    btn.classList.add('border-amber-500'); btn.classList.remove('border-transparent');
-    const tick = document.createElement('div');
-    tick.className='absolute top-1 right-1 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center text-[10px] font-bold text-white';
-    tick.textContent='✓'; btn.appendChild(tick);
-    BrokerAI.showToast('Image selected ✓','success');
-  },
-
-  imgSmartSuggest(){
-    const bk = BUCKETS[state.bucket]||BUCKETS.creator;
-    const q = bk.imgHint||bk.videoLabel||'real estate home';
-    document.getElementById('img-search').value = q;
-    WIZ.imgSearch();
   },
 
   // ── Video generation ─────────────────────────────────────────
   setVideoDur(dur, btn){
     state.videoDur = dur;
-    ['15','30','60'].forEach(d=>{
+    ['5','8','12'].forEach(d=>{
       const b = document.getElementById('vid-dur-'+d);
-      if(b){ b.classList.toggle('border-amber-500', d===dur); b.classList.toggle('bg-amber-50', d===dur); b.classList.toggle('text-amber-700', d===dur); }
+      if(b){
+        b.classList.toggle('border-amber-500', d===dur);
+        b.classList.toggle('bg-amber-50', d===dur);
+        b.classList.toggle('text-amber-700', d===dur);
+        b.classList.toggle('border-slate-200', d!==dur);
+      }
     });
   },
 
@@ -1322,6 +1355,10 @@ const WIZ = {
   },
 
   async generateVideo(){
+    if(!state.aiVideoEnabled){
+      BrokerAI.showToast('Turn on “Add AI video?” below to generate a clip.','info');
+      return;
+    }
     const prompt = document.getElementById('video-prompt')?.value?.trim();
     if(!prompt){ BrokerAI.showToast('Enter a video prompt first.','error'); return; }
     const genBtn = document.getElementById('vid-gen-btn');
@@ -1331,16 +1368,24 @@ const WIZ = {
     statusEl.textContent = '🎬 Submitting to AI video engine…'; statusEl.classList.remove('hidden');
     previewArea.classList.add('hidden');
     try {
+      const rawSec = parseInt(state.videoDur||'5',10);
+      const duration_seconds = Math.min(12, Math.max(3, Number.isFinite(rawSec) ? rawSec : 5));
       const job = await BrokerAI.apiJson('/video/generate', {
         method:'POST',
-        body: JSON.stringify({ prompt, duration: parseInt(state.videoDur||'15',10), style: state.videoStyle||'cinematic' })
+        body: JSON.stringify({ prompt, duration_seconds, aspect_ratio: '9:16' })
       });
-      state.videoJobId = job.job_id||job.id||null;
-      if(job.video_url){ // synchronous response
+      state.videoJobId = job.prediction_id || job.job_id || job.id || null;
+      if(job.video_url){
         WIZ._showVideoResult(job.video_url, previewArea, statusEl);
+      } else if((job.status==='succeeded'||job.status==='completed') && !job.video_url){
+        statusEl.textContent = '⚠ Video finished but no playback URL was returned.';
+        BrokerAI.showToast('Video ready but missing URL — check server logs.','error');
       } else if(state.videoJobId){
-        statusEl.textContent = '⏳ Rendering video… this may take 20-60s';
+        statusEl.textContent = '⏳ Rendering video… this may take 1–3 minutes';
         WIZ._pollVideo(state.videoJobId, previewArea, statusEl);
+      } else if(job.status === 'failed'){
+        statusEl.textContent = '⚠ ' + (job.error || 'Video generation failed');
+        BrokerAI.showToast(job.error || 'Video generation failed', 'error');
       } else {
         statusEl.textContent = '⚠ Video submitted — no job ID returned.';
       }
@@ -1353,34 +1398,34 @@ const WIZ = {
   },
 
   _pollVideo(jobId, previewArea, statusEl, attempts=0){
-    if(attempts>30){ statusEl.textContent='⚠ Timed out waiting for video.'; return; }
+    if(attempts>60){ statusEl.textContent='⚠ Timed out waiting for video.'; return; }
     BrokerAI.apiJson('/video/status/'+encodeURIComponent(jobId),{method:'GET'}).then(s=>{
-      if(s.status==='completed'||s.video_url){
-        WIZ._showVideoResult(s.video_url, previewArea, statusEl);
-      } else if(s.status==='failed'){
+      if(s.status==='failed'){
         statusEl.textContent='⚠ Video generation failed: '+(s.error||'unknown error');
-      } else {
-        statusEl.textContent=`⏳ Rendering… (${Math.round((attempts+1)*5)}s)`;
-        setTimeout(()=>WIZ._pollVideo(jobId, previewArea, statusEl, attempts+1), 5000);
+        return;
       }
+      if(s.video_url){
+        WIZ._showVideoResult(s.video_url, previewArea, statusEl);
+        return;
+      }
+      if(s.status==='succeeded'||s.status==='completed'){
+        statusEl.textContent='⚠ Video finished but no playback URL was returned.';
+        return;
+      }
+      statusEl.textContent=`⏳ Rendering… (~${Math.round((attempts+1)*5)}s)`;
+      setTimeout(()=>WIZ._pollVideo(jobId, previewArea, statusEl, attempts+1), 5000);
     }).catch(()=>setTimeout(()=>WIZ._pollVideo(jobId, previewArea, statusEl, attempts+1), 5000));
   },
 
   _showVideoResult(url, previewArea, statusEl){
-    if(!url){ statusEl.textContent='⚠ No video URL in response.'; return; }
-    state.selectedVideoUrl = url;
+    const raw = String(url||'').trim();
+    if(!raw){ statusEl.textContent='⚠ No video URL in response.'; return; }
+    const abs = /^https?:\/\//i.test(raw) ? raw : BrokerAI.apiUrl(raw.startsWith('/') ? raw : '/'+raw);
+    state.selectedVideoUrl = abs;
     const player = document.getElementById('video-preview-player');
-    player.src = url; previewArea.classList.remove('hidden');
+    player.src = abs; previewArea.classList.remove('hidden');
     statusEl.textContent='✅ Video ready!';
     BrokerAI.showToast('AI video generated!','success');
-  },
-
-  setTab(tab){
-    ['templates','images','video'].forEach(t=>{
-      document.getElementById('panel-'+t).classList.toggle('hidden', t!==tab);
-      document.getElementById('tab-'+t).classList.toggle('active', t===tab);
-    });
-    if(tab==='templates'){ WIZ.loadBrandAssets(); }
   },
 
   _escapeHtml(s){
@@ -1460,6 +1505,7 @@ const WIZ = {
         }
       }
       await WIZ.loadBrandAssets();
+      state._manusVisualTplSuccessKey = '';
       if(ok && !failCount) BrokerAI.showToast(ok===1 ? 'File uploaded' : (ok+' files uploaded'),'success');
       else if(ok && failCount) BrokerAI.showToast('Some files uploaded ('+ok+' of '+files.length+')','info');
     }catch(err){
@@ -1475,6 +1521,7 @@ const WIZ = {
     try{
       await BrokerAI.apiJson('/brand-assets/'+encodeURIComponent(id),{method:'DELETE'});
       state.brandAssets = (state.brandAssets||[]).filter(x=>x.id!==id);
+      state._manusVisualTplSuccessKey = '';
       WIZ.renderBrandAssetsList();
       BrokerAI.showToast('Removed','success');
     }catch(e){
@@ -1482,69 +1529,203 @@ const WIZ = {
     }
   },
 
-  // ── Step 3: Captions ─────────────────────────
+  // ── Step 3: Captions (CaptionAgent preview) ─────────────────────────
   renderStep3(){
     const bk = BUCKETS[state.bucket]||BUCKETS.creator;
     document.getElementById('cap-desc').textContent = bk.captionDesc;
-    // Render static bucket captions immediately as placeholders, then load AI captions
-    WIZ._renderCaptionList(bk.captions.map(c=>`${c.hook}\n${c.body}\n${c.cta}\n${c.tags}`));
+    if(!state.captionPreviewPlat) state.captionPreviewPlat = 'instagram';
+    WIZ._renderCaptionStep3UI();
     WIZ.fillCaptionEdit();
-    // Fetch AI preview captions (only once per session unless regenCaptions is called)
     if(!state.aiCaptionsLoaded){ WIZ.regenCaptions(); }
   },
 
-  _renderCaptionList(captions){
-    const list = document.getElementById('captions-list');
-    list.innerHTML = captions.map((cap,i)=>`
-      <button class="cap-card ${state.selectedCap===i?'selected':''}" onclick="WIZ.selectCap(${i},this)">
-        ${state.selectedCap===i?'<span class="float-right ml-2 px-2.5 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-bold uppercase">Selected</span>':''}
-        <div class="text-sm text-slate-800 leading-relaxed whitespace-pre-line">${cap}</div>
-      </button>`).join('');
+  _variantToFullString(v){
+    if(!v) return '';
+    const cap = String(v.caption||'').trim();
+    const tags = (v.hashtags||[]).map(t=>{
+      const s = String(t||'').trim();
+      return s.startsWith('#') ? s : '#'+s;
+    }).filter(Boolean);
+    return tags.length ? cap + '\n\n' + tags.join(' ') : cap;
   },
 
-  selectCap(i, btn){
+  _captionMockInstagram(caption, tagStrs, bk){
+    const user = WIZ._escapeHtml(bk.previewUser||'Your brand');
+    const cap = WIZ._escapeHtml(caption||'').slice(0,420);
+    const tags = (tagStrs||[]).slice(0,10).map(t=>`<span class="text-sky-300">${WIZ._escapeHtml(t)}</span>`).join(' ');
+    return `<div class="rounded-2xl border border-slate-700 bg-gradient-to-b from-slate-900 to-black p-3 shadow-inner max-w-sm mx-auto">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="h-8 w-8 rounded-full bg-gradient-to-br from-amber-400 to-pink-500"></div>
+        <div><div class="text-xs font-bold text-white">${user}</div><div class="text-[10px] text-slate-500">Sponsored · Feed</div></div>
+      </div>
+      <div class="aspect-[4/5] rounded-lg bg-slate-800 mb-2 flex items-center justify-center text-[10px] text-slate-500">Image / Reel</div>
+      <p class="text-[12px] text-slate-200 leading-relaxed whitespace-pre-wrap">${cap}</p>
+      <p class="text-[11px] mt-2 leading-snug">${tags}</p>
+    </div>`;
+  },
+
+  _captionMockLinkedin(caption, tagStrs, bk){
+    const user = WIZ._escapeHtml(bk.previewUser||'Your brand');
+    const cap = WIZ._escapeHtml(caption||'').slice(0,520);
+    const tags = (tagStrs||[]).slice(0,8).map(t=>`<span class="text-sky-700 font-medium">${WIZ._escapeHtml(t)}</span>`).join(' ');
+    return `<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm max-w-md mx-auto">
+      <div class="flex items-start gap-3 mb-2">
+        <div class="h-10 w-10 rounded-full bg-sky-100 text-sky-700 font-bold flex items-center justify-center text-sm">${user.slice(0,2).toUpperCase()}</div>
+        <div>
+          <div class="text-sm font-bold text-slate-900">${user}</div>
+          <div class="text-xs text-slate-500">Promoted · LinkedIn</div>
+        </div>
+      </div>
+      <p class="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">${cap}</p>
+      <p class="text-xs text-sky-800 mt-3">${tags}</p>
+    </div>`;
+  },
+
+  _renderCaptionStep3UI(){
+    const root = document.getElementById('caption-step3-root');
+    if(!root) return;
+    const bk = BUCKETS[state.bucket]||BUCKETS.creator;
+    const variants = state.captionVariants && state.captionVariants.length ? state.captionVariants : null;
+    const caps = state.aiCaptions && state.aiCaptions.length
+      ? state.aiCaptions
+      : bk.captions.map(c=>`${c.hook}\n${c.body}\n${c.cta}\n${c.tags}`);
+    const n = Math.max(1, caps.length);
+    const idx = Math.min(Math.max(0, state.selectedCap|0), n-1);
+    const plat = state.captionPreviewPlat==='linkedin' ? 'linkedin' : 'instagram';
+
+    if(variants && variants[idx]){
+      const v = variants[idx];
+      const tagStrs = (v.hashtags||[]).map(t=>(String(t).startsWith('#')?String(t):'#'+String(t).trim())).filter(Boolean);
+      const tabs = variants.map((_,i)=>`
+        <button type="button" onclick="WIZ.selectCap(${i})" class="px-3 py-1.5 rounded-t-lg text-xs font-bold border border-b-0 transition ${i===idx?'bg-white border-slate-200 text-amber-700':'bg-slate-100 border-transparent text-slate-500 hover:text-slate-700'}">Variation ${i+1}</button>`).join('');
+      const mock = plat==='linkedin' ? WIZ._captionMockLinkedin(v.caption, tagStrs, bk) : WIZ._captionMockInstagram(v.caption, tagStrs, bk);
+      const igSel = plat==='instagram' ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-600 border-slate-200';
+      const liSel = plat==='linkedin' ? 'bg-sky-600 text-white border-sky-700' : 'bg-white text-slate-600 border-slate-200';
+      root.innerHTML = `
+        <div class="flex flex-wrap gap-0 border-b border-slate-200 mb-3">${tabs}</div>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+            <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Caption</div>
+            <div class="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">${WIZ._escapeHtml(v.caption)}</div>
+            <div class="text-[10px] font-bold uppercase tracking-wide text-slate-500 mt-3 mb-1">Hashtags</div>
+            <div class="flex flex-wrap gap-1.5">${tagStrs.map(t=>`<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-900 border border-amber-100">${WIZ._escapeHtml(t)}</span>`).join('')}</div>
+            <button type="button" onclick="WIZ.loadVariantIntoEditor()" class="mt-4 w-full py-2 rounded-xl bg-white border border-amber-300 text-amber-800 text-xs font-bold hover:bg-amber-50 transition">Load into editor</button>
+          </div>
+          <div>
+            <div class="flex gap-2 mb-3">
+              <button type="button" onclick="WIZ.setCaptionPreviewPlat('instagram')" class="flex-1 py-2 rounded-xl border text-xs font-bold ${igSel}">Instagram</button>
+              <button type="button" onclick="WIZ.setCaptionPreviewPlat('linkedin')" class="flex-1 py-2 rounded-xl border text-xs font-bold ${liSel}">LinkedIn</button>
+            </div>
+            ${mock}
+          </div>
+        </div>`;
+      return;
+    }
+
+    const tabs = caps.map((_,i)=>`
+      <button type="button" onclick="WIZ.selectCap(${i})" class="px-3 py-1.5 rounded-t-lg text-xs font-bold border border-b-0 ${i===idx?'bg-white border-slate-200 text-amber-700':'bg-slate-100 border-transparent text-slate-500'}">Option ${i+1}</button>`).join('');
+    const body = caps[idx]||'';
+    const mock = plat==='linkedin'
+      ? WIZ._captionMockLinkedin(body.split('\n\n')[0]||body, (body.split('\n\n')[1]||'').split(/\s+/).filter(x=>x.startsWith('#')), bk)
+      : WIZ._captionMockInstagram(body.split('\n\n')[0]||body, (body.split('\n\n')[1]||'').split(/\s+/).filter(x=>x.startsWith('#')), bk);
+    const igSel = plat==='instagram' ? 'bg-amber-500 text-white border-amber-600' : 'bg-white text-slate-600 border-slate-200';
+    const liSel = plat==='linkedin' ? 'bg-sky-600 text-white border-sky-700' : 'bg-white text-slate-600 border-slate-200';
+    root.innerHTML = `
+      <div class="flex flex-wrap gap-0 border-b border-slate-200 mb-3">${tabs}</div>
+      <p class="text-xs text-slate-500 mb-3">Tap <strong>Generate captions</strong> for AI-written variations with hashtags, or edit your own copy in the box below.</p>
+      <div class="grid md:grid-cols-2 gap-5">
+        <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">${WIZ._escapeHtml(body)}</div>
+        <div>
+          <div class="flex gap-2 mb-3">
+            <button type="button" onclick="WIZ.setCaptionPreviewPlat('instagram')" class="flex-1 py-2 rounded-xl border text-xs font-bold ${igSel}">Instagram</button>
+            <button type="button" onclick="WIZ.setCaptionPreviewPlat('linkedin')" class="flex-1 py-2 rounded-xl border text-xs font-bold ${liSel}">LinkedIn</button>
+          </div>
+          ${mock}
+        </div>
+      </div>`;
+  },
+
+  setCaptionPreviewPlat(p){
+    state.captionPreviewPlat = p==='linkedin' ? 'linkedin' : 'instagram';
+    WIZ._renderCaptionStep3UI();
+  },
+
+  loadVariantIntoEditor(){
+    const variants = state.captionVariants||[];
+    const idx = state.selectedCap|0;
+    if(variants[idx]){
+      document.getElementById('caption-edit').value = WIZ._variantToFullString(variants[idx]);
+      if(state.aiCaptions.length>idx) state.aiCaptions[idx] = document.getElementById('caption-edit').value;
+      BrokerAI.showToast('Loaded into editor — refine if needed.','success');
+      return;
+    }
+    WIZ.fillCaptionEdit();
+    BrokerAI.showToast('Loaded option into editor.','success');
+  },
+
+  selectCap(i){
     state.selectedCap = i;
-    const captions = state.aiCaptions.length ? state.aiCaptions : (BUCKETS[state.bucket]||BUCKETS.creator).captions.map(c=>`${c.hook}\n${c.body}\n${c.cta}\n${c.tags}`);
-    WIZ._renderCaptionList(captions);
-    document.getElementById('caption-edit').value = captions[i]||'';
+    WIZ._renderCaptionStep3UI();
+    WIZ.fillCaptionEdit();
   },
 
   fillCaptionEdit(){
     const bk = BUCKETS[state.bucket]||BUCKETS.creator;
+    const variants = state.captionVariants||[];
+    if(variants[state.selectedCap]){
+      document.getElementById('caption-edit').value = WIZ._variantToFullString(variants[state.selectedCap]);
+      return;
+    }
     const captions = state.aiCaptions.length ? state.aiCaptions : bk.captions.map(c=>`${c.hook}\n${c.body}\n${c.cta}\n${c.tags}`);
     document.getElementById('caption-edit').value = captions[state.selectedCap]||'';
   },
 
   async regenCaptions(){
-    const btn = document.getElementById('regen-btn');
+    const btn = document.getElementById('gen-cap-btn');
     if(btn){ btn.disabled=true; btn.textContent='⏳ Generating…'; }
     const bk = BUCKETS[state.bucket]||BUCKETS.creator;
-    const platforms = Array.from(document.querySelectorAll('input[name="platform"]:checked')).map(el=>el.value);
+    const platforms = WIZ.selectedPlatforms();
+    const tpl = WIZ._getSelectedTemplate();
+    const cap = bk.captions[state.selectedCap]||bk.captions[0];
     try {
       const data = await BrokerAI.apiJson('/campaigns/preview-captions', {
         method:'POST',
         body: JSON.stringify({
           bucket: state.bucket,
           persona: state.persona||'',
-          goal: state.personaGoal||'Build brand awareness',
+          goal: WIZ._strategyGoalSentence(),
           location: 'Online',
           platforms: platforms.length ? platforms : ['Instagram','Facebook'],
-          tone: 'professional',
+          tone: state.tone||'professional',
           count: 3,
+          campaign_goal_category: state.campaignGoalCategory||null,
+          selected_template: tpl?.name||'',
+          wizard_template: tpl ? { id: tpl.id, name: tpl.name, bg: tpl.bg } : null,
+          selected_caption_hook: cap?.hook||'',
+          has_media_attachment: !!(state.aiVideoEnabled && state.selectedVideoUrl),
         })
       });
-      if(data.captions?.length){
+      if(data.variants && data.variants.length){
+        state.captionVariants = data.variants;
+        state.aiCaptions = data.variants.map(v=>WIZ._variantToFullString(v));
+        state.aiCaptionsLoaded = true;
+        state.selectedCap = 0;
+        WIZ._renderCaptionStep3UI();
+        WIZ.fillCaptionEdit();
+        BrokerAI.showToast('Captions ready — pick a variation or edit.','success');
+      } else if(data.captions?.length){
+        state.captionVariants = [];
         state.aiCaptions = data.captions;
         state.aiCaptionsLoaded = true;
-        WIZ._renderCaptionList(data.captions);
+        WIZ._renderCaptionStep3UI();
         document.getElementById('caption-edit').value = data.captions[state.selectedCap]||data.captions[0]||'';
         BrokerAI.showToast('AI captions ready!','success');
       }
     } catch(e){
-      // Fall back to static bucket captions silently
       state.aiCaptionsLoaded = true;
+      BrokerAI.showToast(e.message||'Caption preview failed','error');
     } finally {
-      if(btn){ btn.disabled=false; btn.textContent='✨ Regenerate All'; }
+      if(btn){ btn.disabled=false; btn.textContent='✨ Generate captions'; }
     }
   },
 
@@ -1552,78 +1733,201 @@ const WIZ = {
     const el = document.getElementById('caption-edit');
     const caption = el?.value?.trim();
     if(!caption){ BrokerAI.showToast('Select or write a caption first.','error'); return; }
-    const platforms = Array.from(document.querySelectorAll('input[name="platform"]:checked')).map(el=>el.value);
+    const platforms = WIZ.selectedPlatforms();
+    const plat = (platforms[0]||'instagram').toLowerCase().includes('linked') ? 'linkedin' : 'instagram';
     try {
       const data = await BrokerAI.apiJson('/campaigns/modify-caption', {
         method:'POST',
-        body: JSON.stringify({ caption, modifier, platform: platforms[0]||'instagram' })
+        body: JSON.stringify({ caption, modifier, platform: plat })
       });
       if(data.caption){
         el.value = data.caption;
-        // Also update the aiCaptions array at the selected index
         if(state.aiCaptions.length > state.selectedCap){
           state.aiCaptions[state.selectedCap] = data.caption;
-          WIZ._renderCaptionList(state.aiCaptions);
         }
+        const parts = data.caption.split('\n\n');
+        const tags = (parts[1]||'').split(/\s+/).filter(t=>t.startsWith('#')).map(t=>t.replace(/^#/,''));
+        if(state.captionVariants && state.captionVariants[state.selectedCap]){
+          state.captionVariants[state.selectedCap] = { caption: parts[0]||data.caption, hashtags: tags };
+        }
+        WIZ._renderCaptionStep3UI();
         BrokerAI.showToast('Caption updated!','success');
       }
     } catch(e){ BrokerAI.showToast(e.message||'Modify failed','error'); }
   },
 
+  _syncCaptionFromEditor(){
+    const el = document.getElementById('caption-edit');
+    if(!el) return;
+    const raw = el.value;
+    const v = raw.trim();
+    if(!v) return;
+    if(!state.aiCaptions.length){
+      state.aiCaptions = [raw];
+      state.selectedCap = 0;
+      return;
+    }
+    const i = Math.min(Math.max(0, state.selectedCap|0), state.aiCaptions.length-1);
+    state.aiCaptions[i] = raw;
+    const parts = raw.split(/\n\n/);
+    if(state.captionVariants && state.captionVariants[i]){
+      state.captionVariants[i].caption = parts[0]||raw;
+      state.captionVariants[i].hashtags = (parts[1]||'').split(/\s+/).filter(t=>t.startsWith('#')).map(t=>t.replace(/^#/,''));
+    }
+  },
+
+  _currentCaptionText(){
+    const editVal = document.getElementById('caption-edit')?.value?.trim();
+    if(editVal) return editVal;
+    const bk = BUCKETS[state.bucket]||BUCKETS.creator;
+    if(state.aiCaptions.length > state.selectedCap){ return String(state.aiCaptions[state.selectedCap]||'').trim(); }
+    const cap = bk.captions[state.selectedCap]||bk.captions[0];
+    return cap ? `${cap.hook} ${cap.body}`.trim() : '';
+  },
+
+  _hookFromCaption(text){
+    const t = String(text||'').trim();
+    if(!t) return '';
+    const line = t.split(/\n/)[0].trim();
+    return line.slice(0, 220);
+  },
+
+  _previewScorePlatforms(){
+    const id = (state.previewPlat||'instagram').toLowerCase();
+    if(id==='facebook') return ['Facebook'];
+    if(id==='linkedin') return ['LinkedIn'];
+    return ['Instagram'];
+  },
+
+  _parseSmartHour(timeStr){
+    const s = String(timeStr||'');
+    const tail = s.includes('·') ? s.split('·').slice(1).join('·').trim() : s.trim();
+    const m = tail.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if(!m) return null;
+    let h = parseInt(m[1],10);
+    const ap = (m[3]||'').toUpperCase();
+    if(ap==='PM' && h<12) h+=12;
+    if(ap==='AM' && h===12) h=0;
+    return h;
+  },
+
   // ── Step 4: Preview ──────────────────────────
+  _renderStep4MediaSlot(tpl){
+    const slot = document.getElementById('prev-media-slot');
+    const card = document.getElementById('prev-post-card');
+    if(!slot || !card) return;
+    const bg = WIZ._safeCssBackground(tpl.bg||'');
+    const imgU = WIZ._safeHttpsImageUrl(tpl.image_url||'');
+    const vidRaw = state.aiVideoEnabled && state.selectedVideoUrl ? String(state.selectedVideoUrl).trim() : '';
+    const safeVid = /^https?:\/\//i.test(vidRaw) ? vidRaw : '';
+    card.style.background = 'transparent';
+    let inner = `<div class="absolute inset-0 z-0" style="background:${bg}"></div>`;
+    if(safeVid){
+      inner += `<video src="${WIZ._escapeHtml(safeVid)}" class="absolute inset-0 z-[1] h-full w-full object-cover" playsinline controls loop muted></video>`;
+    } else if(imgU){
+      inner += `<img src="${WIZ._escapeHtml(imgU)}" alt="" class="absolute inset-0 z-[1] h-full w-full object-cover" loading="lazy" />`;
+    }
+    slot.innerHTML = inner;
+  },
+
+  async _fetchStep4Compliance(caption){
+    const el = document.getElementById('step4-compliance');
+    if(!el) return;
+    const cap = String(caption||'').trim();
+    if(!cap){
+      el.innerHTML = '<span class="text-slate-400">Add a caption in step 3 to run the compliance check.</span>';
+      state.lastCompliance = null;
+      return;
+    }
+    el.innerHTML = '<span class="text-slate-400">Checking compliance…</span>';
+    try{
+      const r = await BrokerAI.apiJson('/check-compliance', {
+        method:'POST',
+        body: JSON.stringify({ caption: cap, post_id: null }),
+      });
+      state.lastCompliance = r;
+      WIZ._renderComplianceBox(r);
+    }catch(err){
+      state.lastCompliance = null;
+      el.innerHTML = `<span class="text-red-300">${WIZ._escapeHtml(err.message||'Compliance check failed')}</span>`;
+      BrokerAI.showToast(err.message||'Compliance check failed','error');
+    }
+  },
+
+  _renderComplianceBox(r){
+    const el = document.getElementById('step4-compliance');
+    if(!el || !r) return;
+    if(r.passed){
+      el.innerHTML = '<div class="flex items-center gap-2 text-emerald-300 font-semibold">✅ Approved <span class="font-normal text-slate-400">(basic policy scan)</span></div>';
+      return;
+    }
+    const issues = (r.issues||[]).map(x=>`<li class="list-disc ml-4">${WIZ._escapeHtml(String(x))}</li>`).join('');
+    const fix = WIZ._escapeHtml(String(r.suggested_fix||'').trim());
+    const fixBtn = r.suggested_fix
+      ? `<button type="button" onclick="WIZ.applyComplianceFix()" class="mt-2 w-full rounded-lg border border-amber-400/60 bg-amber-500/20 px-2 py-1.5 text-[11px] font-bold text-amber-100 hover:bg-amber-500/30">Apply suggested fix</button>`
+      : '';
+    el.innerHTML = `<div class="text-amber-200 font-semibold mb-1">⚠️ Issues found</div><ul class="text-slate-300 mb-1 space-y-0.5">${issues||'<li>Review caption for claims and disclosures.</li>'}</ul>${fix?`<div class="mt-2 text-slate-400 text-[11px]">Suggested: <span class="text-slate-200">${fix}</span></div>`:''}${fixBtn}`;
+  },
+
+  applyComplianceFix(){
+    const r = state.lastCompliance;
+    if(!r || !r.suggested_fix){ BrokerAI.showToast('No suggested fix available.','info'); return; }
+    const el = document.getElementById('caption-edit');
+    if(el){ el.value = r.suggested_fix; }
+    WIZ._syncCaptionFromEditor();
+    BrokerAI.showToast('Caption updated from compliance suggestion.','success');
+    WIZ.renderStep4();
+  },
+
   renderStep4(){
     const bk = BUCKETS[state.bucket]||BUCKETS.creator;
-    const wow = getWow(state.persona);
     document.getElementById('prev-user').textContent  = bk.previewUser;
-    document.getElementById('prev-badge').textContent = bk.previewBadge||wow.badge;
-    document.getElementById('prev-hl').textContent    = bk.previewHL||wow.hl;
-    document.getElementById('prev-sub').textContent   = bk.previewSub||wow.sub;
-    const tplId = state.selectedTpl || bk.templates[0].id;
-    const tpl   = bk.templates.find(t=>t.id===tplId)||bk.templates[0];
-    document.getElementById('prev-post-card').style.background = tpl.bg;
+    document.getElementById('prev-badge').textContent = bk.previewBadge || 'Campaign';
+    document.getElementById('prev-hl').textContent    = bk.previewHL || 'Your headline';
+    document.getElementById('prev-sub').textContent   = bk.previewSub || '';
+    const tpl = WIZ._getSelectedTemplate();
+    WIZ._renderStep4MediaSlot(tpl);
 
-    // Use AI caption if available, otherwise fall back to bucket caption
-    let captionText='';
-    if(state.aiCaptions.length > state.selectedCap){ captionText = state.aiCaptions[state.selectedCap]; }
-    else { const cap = bk.captions[state.selectedCap]; captionText = cap ? `${cap.hook} ${cap.body}` : ''; }
-    // Also check the textarea (user may have edited it)
-    const editVal = document.getElementById('caption-edit')?.value?.trim();
-    if(editVal) captionText = editVal;
-
+    const captionText = WIZ._currentCaptionText();
+    const userEsc = WIZ._escapeHtml(bk.previewUser);
+    const capEsc = WIZ._escapeHtml(captionText);
     document.getElementById('prev-caption').innerHTML =
-      `<b>${bk.previewUser}</b> ${captionText.slice(0,120)}<span class="text-slate-500">${captionText.length>120?'... more':''}</span>`;
+      `<span class="font-semibold text-slate-200">${userEsc}</span><br/><span class="text-slate-300">${capEsc.replace(/\n/g,'<br/>')}</span>`;
 
-    // platform pills
+    if(!state.previewPlat) state.previewPlat = 'instagram';
+    const platMeta = [{id:'instagram',label:'Instagram',color:'#E1306C'},{id:'facebook',label:'Facebook',color:'#1877F2'},{id:'linkedin',label:'LinkedIn',color:'#0A66C2'}];
     const pills = document.getElementById('preview-plat-pills');
-    pills.innerHTML = [{id:'instagram',label:'Instagram',color:'#E1306C'},{id:'facebook',label:'Facebook',color:'#1877F2'},{id:'linkedin',label:'LinkedIn',color:'#0A66C2'}]
-      .map(p=>`<button class="plat-pill" style="border-color:#e2e8f0" onclick="WIZ.setPreviewPlat('${p.id}',this,'${p.color}')">${p.label}</button>`).join('');
+    pills.innerHTML = platMeta.map(p=>{
+      const sel = state.previewPlat===p.id;
+      const b = sel ? p.color : '#e2e8f0';
+      return `<button type="button" class="plat-pill ${sel?'ring-2 ring-amber-400/80':''}" style="border-color:${b}" onclick="WIZ.setPreviewPlat('${p.id}',this,'${p.color}')">${p.label}</button>`;
+    }).join('');
 
-    // Show static bucket tips immediately
     const tips = document.getElementById('tips-list');
     tips.innerHTML = bk.tips.map((t,i)=>`
       <div class="flex items-center justify-between py-2.5 ${i<bk.tips.length-1?'border-b border-slate-100':''}">
         <span class="text-xs text-slate-500 flex-1 mr-3">${t}</span>
-        <button onclick="WIZ.applySuggestion(this,'${t.replace(/'/g,'&#39;')}')" class="px-3 py-1 rounded-lg text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition">Apply</button>
+        <button type="button" onclick="WIZ.applySuggestion(this,'${t.replace(/'/g,'&#39;')}')" class="px-3 py-1 rounded-lg text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition">Apply</button>
       </div>`).join('');
 
-    // Fetch real AI performance score
     WIZ._fetchPreviewScore(captionText);
+    WIZ._fetchStep4Compliance(captionText);
   },
 
   async _fetchPreviewScore(captionText){
     if(!captionText){ return; }
     const loadEl = document.getElementById('score-loading');
     if(loadEl) loadEl.classList.remove('hidden');
-    const platforms = Array.from(document.querySelectorAll('input[name="platform"]:checked')).map(el=>el.value);
+    const platforms = WIZ._previewScorePlatforms();
     try {
       const data = await BrokerAI.apiJson('/campaigns/preview-score', {
         method:'POST',
         body: JSON.stringify({
           caption: captionText,
-          platforms: platforms.length ? platforms : ['Instagram','Facebook'],
-          has_media: !!(state.selectedImg||state.selectedVideoUrl),
-          objective: state.personaGoal||'brand awareness',
-          target_audience: WIZ._audience(),
+          platforms: platforms.length ? platforms : ['Instagram'],
+          has_media: !!(state.aiVideoEnabled && state.selectedVideoUrl),
+          objective: WIZ._strategyGoalSentence(),
+          target_audience: (state.audienceCustom||'').trim() || WIZ._audience(),
         })
       });
       state.previewScore = data;
@@ -1652,7 +1956,9 @@ const WIZ = {
             <button onclick="WIZ.applySuggestion(this,'${t.replace(/'/g,'&#39;')}')" class="px-3 py-1 rounded-lg text-[10px] font-bold bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition">Apply</button>
           </div>`).join('');
       }
-    } catch(_){ /* silently keep default dashes */ }
+    } catch(err){
+      BrokerAI.showToast((err&&err.message)||'Performance score unavailable','info');
+    }
     finally { if(loadEl) loadEl.classList.add('hidden'); }
   },
 
@@ -1661,46 +1967,68 @@ const WIZ = {
     if(editEl && suggestion){
       const cur = editEl.value.trim();
       editEl.value = cur ? cur + '\n\n' + suggestion : suggestion;
+      WIZ._syncCaptionFromEditor();
       BrokerAI.showToast('Suggestion added to caption edit!','success');
     }
   },
 
   setPreviewPlat(id, btn, color){
-    document.querySelectorAll('#preview-plat-pills .plat-pill').forEach(p=>p.style.borderColor='#e2e8f0');
+    state.previewPlat = id;
+    document.querySelectorAll('#preview-plat-pills .plat-pill').forEach(p=>{
+      p.style.borderColor = '#e2e8f0';
+      p.classList.remove('ring-2','ring-amber-400/80');
+    });
     btn.style.borderColor = color;
+    btn.classList.add('ring-2','ring-amber-400/80');
+    const cap = WIZ._currentCaptionText();
+    WIZ._fetchPreviewScore(cap);
+    WIZ._fetchStep4Compliance(cap);
   },
 
-  // ── Step 5: Lead Capture ─────────────────────
-  renderStep5(){
+  // ── Step 5: Schedule ─────────────────────────
+  _refreshSchedulePreview(){
+    const linesEl = document.getElementById('schedule-preview-lines');
+    if(!linesEl) return;
+    const method = state.schedMethod||'smart';
+    if(method==='now'){
+      linesEl.textContent = 'Immediate: each post is stamped a few minutes apart right after generation (you still review before anything goes live).';
+      return;
+    }
+    const freq = state.frequency||'daily';
+    const dayOrder = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    let pattern = [];
+    if(String(freq).toLowerCase().includes('daily')) pattern = dayOrder.slice();
+    else if(String(freq).includes('5')) pattern = ['Mon','Tue','Wed','Thu','Fri'];
+    else if(String(freq).includes('3')) pattern = ['Mon','Wed','Fri'];
+    else pattern = ['Mon'];
+    if(method==='recurring' && state.days && state.days.length){
+      pattern = [...state.days].sort((a,b)=>dayOrder.indexOf(a)-dayOrder.indexOf(b));
+    }
+    const hourLabel = document.getElementById('s6-hour')?.selectedOptions?.[0]?.textContent || '10:00 AM';
+    let tzLabel = document.getElementById('s6-tz')?.value || '';
+    if(!tzLabel){
+      try{ tzLabel = Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; }catch(_){ tzLabel='UTC'; }
+    }
+    const startStr = document.getElementById('s6-start-date')?.value || '';
+    const lines = pattern.slice(0,7).map(d=>`${d} · ${hourLabel} (${tzLabel})`);
     const bk = BUCKETS[state.bucket]||BUCKETS.creator;
-    document.getElementById('lead-desc').textContent = bk.leadDesc;
-    const cards = document.getElementById('cta-cards');
-    cards.innerHTML = bk.ctas.map(ct=>`
-      <button class="cta-card ${state.selectedCta===ct.id?'selected':''}" onclick="WIZ.selectCta('${ct.id}',this)">
-        <div class="text-2xl mb-2">${ct.icon}</div>
-        <div class="text-sm font-bold text-slate-800 mb-1">${ct.label}</div>
-        <div class="text-xs text-slate-500">${ct.desc}</div>
-      </button>`).join('');
-    document.getElementById('dm-trigger').placeholder = bk.triggerPlaceholder;
-    document.getElementById('dm-reply').placeholder   = bk.replyPlaceholder;
+    let smartLine = '';
+    if(method==='smart' && bk.smartTimes && bk.smartTimes[0]){
+      const plats = WIZ.selectedPlatforms().map(p=>p.toLowerCase());
+      const pick = bk.smartTimes.find(s=>plats.some(p=>String(s.platform||'').toLowerCase().includes(p.slice(0,4)))) || bk.smartTimes[0];
+      smartLine = `Suggested slot from your playbook: ${pick.platform} — ${pick.time}.`;
+    }
+    const startNote = startStr
+      ? `<p class="text-[11px] text-slate-500 mt-1">Anchor week starting ${WIZ._escapeHtml(startStr)} (first publish week).</p>`
+      : '';
+    linesEl.innerHTML =
+      lines.map(l=>`<span class="block">${WIZ._escapeHtml(l)}</span>`).join('') +
+      (smartLine?`<span class="block mt-2 text-xs text-amber-700 font-semibold">${WIZ._escapeHtml(smartLine)}</span>`:'') +
+      startNote;
   },
 
-  selectCta(id, btn){
-    state.selectedCta = id;
-    document.querySelectorAll('.cta-card').forEach(c=>c.classList.remove('selected'));
-    btn.classList.add('selected');
-  },
-
-  toggleDM(){
-    state.autoDm = !state.autoDm;
-    const track  = document.getElementById('auto-dm-toggle');
-    const fields = document.getElementById('auto-dm-fields');
-    track.classList.toggle('on', state.autoDm);
-    fields.classList.toggle('hidden', !state.autoDm);
-  },
-
-  // ── Step 6: Schedule ─────────────────────────
   renderStep6(){
+    WIZ.syncSchedulePlatformsFromState();
     const bk = BUCKETS[state.bucket]||BUCKETS.creator;
     const times = document.getElementById('smart-times');
     times.innerHTML = bk.smartTimes.map(s=>`
@@ -1718,6 +2046,14 @@ const WIZ = {
       const sel = document.getElementById('s6-tz');
       for(let i=0;i<sel.options.length;i++){ if(sel.options[i].value===tz){sel.selectedIndex=i;break;} }
     } catch(e){}
+    const platRoot = document.getElementById('s6-platforms');
+    if(platRoot && !platRoot.dataset.schedDeleg){
+      platRoot.dataset.schedDeleg = '1';
+      platRoot.addEventListener('change', (e)=>{
+        if(e.target && e.target.matches && e.target.matches('input[name="platform"]')) WIZ._refreshSchedulePreview();
+      });
+    }
+    WIZ._refreshSchedulePreview();
   },
 
   setFreq(val, btn){
@@ -1731,6 +2067,7 @@ const WIZ = {
       "1 per week":"💡 Weekly posting is great for high-value, evergreen content that needs time to perform.",
     };
     document.getElementById('freq-tip').textContent = tips[val]||tips.daily;
+    WIZ._refreshSchedulePreview();
   },
 
   setSched(method){
@@ -1741,12 +2078,14 @@ const WIZ = {
     document.getElementById('panel-smart').classList.toggle('hidden',     method!=='smart');
     document.getElementById('panel-custom').classList.toggle('hidden',    method!=='custom');
     document.getElementById('panel-recurring').classList.toggle('hidden', method!=='recurring');
+    WIZ._refreshSchedulePreview();
   },
 
   toggleDay(btn, day){
     const idx = state.days.indexOf(day);
     if(idx>-1){ state.days.splice(idx,1); btn.classList.remove('selected'); }
     else       { state.days.push(day);    btn.classList.add('selected'); }
+    WIZ._refreshSchedulePreview();
   },
 
   // ── AI tip ───────────────────────────────────
@@ -1758,60 +2097,85 @@ const WIZ = {
 
   // ── LAUNCH ───────────────────────────────────
   launch(){
-    const platforms = Array.from(document.querySelectorAll('input[name="platform"]:checked')).map(el=>el.value);
+    const platforms = WIZ.selectedPlatforms();
     if(!platforms.length){ BrokerAI.showToast('Select at least one platform.','error'); return; }
 
+    WIZ._syncCaptionFromEditor();
+    const primaryCaption = WIZ._currentCaptionText();
+    if(!primaryCaption){
+      BrokerAI.showToast('Add or generate a caption before launching.','error');
+      return;
+    }
+
     const bk  = BUCKETS[state.bucket]||BUCKETS.creator;
-    const cap = bk.captions[state.selectedCap];
-    const tplId = state.selectedTpl||bk.templates[0].id;
-    const tpl   = bk.templates.find(t=>t.id===tplId)||bk.templates[0];
+    const cap = bk.captions[state.selectedCap] || bk.captions[0];
+    const tpl   = WIZ._getSelectedTemplate();
 
     let timezone = 'UTC';
     let post_hour = 10;
     let start_date = null;
-    if(state.schedMethod==='custom'){
-      timezone   = document.getElementById('s6-tz')?.value||'UTC';
+    const tzEl = document.getElementById('s6-tz');
+    const sm = state.schedMethod || 'smart';
+
+    if(sm==='now'){
+      try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; } catch(e){}
+      const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+      start_date = tomorrow.toISOString().split('T')[0];
+      post_hour = 10;
+    } else if(sm==='custom' || sm==='recurring'){
+      timezone   = tzEl?.value||'UTC';
       post_hour  = parseInt(document.getElementById('s6-hour')?.value||'10',10);
       start_date = document.getElementById('s6-start-date')?.value||null;
+      if(!start_date){
+        const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+        start_date = tomorrow.toISOString().split('T')[0];
+      }
+    } else if(sm==='smart'){
+      timezone = (tzEl && tzEl.value) ? tzEl.value : (()=>{ try{return Intl.DateTimeFormat().resolvedOptions().timeZone;}catch(_){return 'UTC';} })();
+      const stList = bk.smartTimes||[];
+      const platsLower = platforms.map(p=>String(p||'').toLowerCase());
+      const st = stList.find(s=>platsLower.some(p=>String(s.platform||'').toLowerCase().includes(p.slice(0,4)))) || stList[0];
+      const h = st ? WIZ._parseSmartHour(st.time) : null;
+      post_hour = (h!=null && !Number.isNaN(h)) ? h : 10;
+      start_date = document.getElementById('s6-start-date')?.value||null;
+      if(!start_date){
+        const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+        start_date = tomorrow.toISOString().split('T')[0];
+      }
     } else {
       try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; } catch(e){}
       const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
       start_date = tomorrow.toISOString().split('T')[0];
-      post_hour  = bk.smartTimes?.[0]?.time ? parseInt(bk.smartTimes[0].time.split('·')[1])||10 : 10;
+      const h0 = bk.smartTimes && bk.smartTimes[0] ? WIZ._parseSmartHour(bk.smartTimes[0].time) : null;
+      post_hour = (h0!=null && !Number.isNaN(h0)) ? h0 : 10;
     }
 
     const freq_map = { daily:'daily', '5 per week':'5 per week', '3 per week':'3 per week', '1 per week':'1 per week', weekly:'1 per week', biweekly:'1 per week', monthly:'1 per week' };
 
-    // Collect Step 5 lead capture config
-    const dmEnabled  = state.autoDm;
-    const dmTrigger  = document.getElementById('dm-trigger')?.value?.trim()||'';
-    const dmReply    = document.getElementById('dm-reply')?.value?.trim()||'';
-    const landingUrl = document.getElementById('landing-url')?.value?.trim()||'';
-
-    const lead_form_config = state.selectedCta ? {
-      enabled: true,
-      form_type: state.selectedCta,
-      headline: `Get ${(state.personaGoal||'more info')} — contact us today`,
-      redirect_url: landingUrl,
-    } : null;
-
-    const automation_config = dmEnabled && dmTrigger ? {
-      enabled: true,
-      trigger_keyword: dmTrigger,
-      reply_dm: dmReply||`Hi {handle}! Here's the info you requested: {link}`,
-      platforms: platforms.map(p=>p.toLowerCase()),
-      link_url: landingUrl,
-    } : null;
-
-    const us = state.selectedImg;
+    const videoUrlOut = state.aiVideoEnabled ? (state.selectedVideoUrl || null) : null;
+    const videoPromptOut = state.aiVideoEnabled
+      ? (document.getElementById('video-prompt')?.value?.trim() || null)
+      : null;
+    let videoDurOut = null;
+    if (state.aiVideoEnabled) {
+      const rawSec = parseInt(String(state.videoDur || '8'), 10);
+      videoDurOut = Number.isFinite(rawSec) ? Math.min(12, Math.max(4, rawSec)) : 8;
+    }
+    const tplImg = WIZ._safeHttpsImageUrl(tpl.image_url||'');
+    const step2Images = tplImg ? [tplImg] : [];
+    const audienceStr = (state.audienceCustom||'').trim() || WIZ._audience();
+    const bizStr = (state.businessTypeCustom||'').trim() || WIZ._businessType();
     const body = {
-      business_type: WIZ._businessType(),
-      goal:    state.personaGoal||'Build brand awareness',
+      business_type: bizStr,
+      goal: WIZ._strategyGoalSentence(),
+      campaign_goal_category: state.campaignGoalCategory||null,
+      tone: state.tone||'professional',
       location:'Online',
-      audience: WIZ._audience(),
+      audience: audienceStr,
       start_date,
       timezone,
       post_hour,
+      post_immediately: sm==='now',
       platforms,
       frequency: freq_map[state.frequency]||state.frequency||'3 per week',
       ai_text_enabled:       true,
@@ -1820,19 +2184,18 @@ const WIZ = {
       persona: state.persona,
       bucket:  state.bucket,
       selected_template: tpl.name,
-      selected_caption_hook: cap?.hook||'',
+      selected_caption_hook: WIZ._hookFromCaption(primaryCaption) || (cap&&cap.hook) || '',
       wizard_template: { id: tpl.id, name: tpl.name, bg: tpl.bg },
-      unsplash_selection: us ? {
-        id: us.unsplash_id,
-        url: us.url,
-        thumb_url: us.thumb,
-        download_url: us.url,
-      } : null,
-      wizard_video_url: state.selectedVideoUrl || null,
-      wizard_ai_captions: (state.aiCaptions && state.aiCaptions.length) ? state.aiCaptions : null,
-      // Lead capture config from Step 5
-      lead_form_config,
-      automation_config,
+      unsplash_selection: null,
+      wizard_video_url: videoUrlOut,
+      wizard_step2_media: {
+        template_id: String(tpl.id),
+        images: step2Images,
+        video_url: videoUrlOut || '',
+      },
+      wizard_ai_captions: [primaryCaption],
+      wizard_video_prompt: videoPromptOut,
+      wizard_video_duration_s: videoDurOut,
       brand_asset_ids: (state.brandAssets||[]).map(a=>a.id).filter(Boolean),
       canva_template_id: state.canvaTemplateId || null,
     };
@@ -1897,18 +2260,18 @@ fetch(BrokerAI.apiUrl('/health')).then(r=>r.json()).then(h=>{ if(!h.openai_confi
 
 // Social gate
 (async function checkSocialGate(){
-  const gate    = document.getElementById('wizard-connect-gate');
-  const detailEl= document.getElementById('wizard-connect-gate-detail');
+  const wrap = document.getElementById('wizard-connect-gate-wrap');
+  const detailEl = document.getElementById('wizard-connect-gate-detail');
   try {
     const s = await BrokerAI.apiJson('/social-status',{method:'GET'});
     if(!s.connected){
-      gate.classList.remove('hidden');
+      wrap.classList.remove('hidden');
       detailEl.textContent = s.ayrshare_sync_ok===false
         ? 'Could not verify connection with Ayrshare. Please retry from Connect Accounts.'
         : 'Connect your account from Connect Accounts first, then click I finished.';
     }
   } catch(e){
-    gate.classList.remove('hidden');
+    wrap.classList.remove('hidden');
     detailEl.textContent = (e&&e.message)||'Could not load social status.';
   }
 })();

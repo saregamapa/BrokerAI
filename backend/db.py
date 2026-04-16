@@ -31,6 +31,8 @@ def _sqlite_migrate() -> None:
         statements.append("ALTER TABLE posts ADD COLUMN image_url TEXT")
     if "video_script" not in cols:
         statements.append("ALTER TABLE posts ADD COLUMN video_script TEXT")
+    if "embed_video_url" not in cols:
+        statements.append("ALTER TABLE posts ADD COLUMN embed_video_url TEXT DEFAULT ''")
     if "day_label" not in cols:
         statements.append("ALTER TABLE posts ADD COLUMN day_label TEXT")
     if "publish_platforms" not in cols:
@@ -117,6 +119,10 @@ def _sqlite_migrate() -> None:
         if "video_script" in colnames:
             conn.execute(
                 text("UPDATE posts SET video_script = '' WHERE video_script IS NULL")
+            )
+        if "embed_video_url" in colnames:
+            conn.execute(
+                text("UPDATE posts SET embed_video_url = '' WHERE embed_video_url IS NULL")
             )
         conn.execute(
             text("UPDATE posts SET status = 'published' WHERE status = 'scheduled'")
@@ -362,10 +368,6 @@ def _sqlite_migrate() -> None:
             if "approved_by" not in ccols2:
                 conn.execute(
                     text("ALTER TABLE campaigns ADD COLUMN approved_by INTEGER")
-                )
-            if "lead_form_id" not in ccols2:
-                conn.execute(
-                    text("ALTER TABLE campaigns ADD COLUMN lead_form_id INTEGER")
                 )
 
     # team_invites table

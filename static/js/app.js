@@ -400,34 +400,64 @@
   }
 
   /**
-   * Inject a shared legal/trust footer into pages that don't already have one.
-   * Keeps Terms/Privacy/Cookies/Contact + support email + social links on every page
-   * without editing 20 HTML files. Opt out with <body data-skip-footer>.
+   * Inject the canonical site footer (legal links + copyright).
+   * Workspace pages use <div id="app-layout" class="flex min-h-screen flex-col md:pl-64">…</div>
+   * so the footer sits in the main column and aligns with the sidebar layout.
+   * Opt out with <body data-skip-footer>.
    */
   function injectFooter() {
     try {
-      if (document.querySelector("footer")) return; // page has its own footer
+      if (document.getElementById("ba-footer")) return;
       if (document.body && document.body.hasAttribute("data-skip-footer")) return;
+
+      var layout = document.getElementById("app-layout");
       var year = new Date().getFullYear();
+      var topSpacing = layout ? "mt-auto" : "mt-12";
+
+      var page = (document.body && document.body.getAttribute("data-page")) || "";
+      var workspaceNoBrand =
+        page === "dashboard" ||
+        page === "wizard" ||
+        page === "review" ||
+        page === "analytics" ||
+        page === "connect";
+      var brandBlock = workspaceNoBrand
+        ? ""
+        : '<a href="/" class="font-bold text-white">Broker<span class="text-amber-400">AI</span></a>';
+      var innerRowClass = workspaceNoBrand
+        ? "mx-auto max-w-6xl px-6 flex w-full flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:justify-between"
+        : "mx-auto max-w-6xl px-6 flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left";
+
       var html =
-        '<footer id="ba-footer" class="mt-12 border-t border-slate-200 bg-[#0f172a] py-10 text-sm text-slate-400" role="contentinfo">' +
-          '<div class="mx-auto max-w-6xl px-6 flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">' +
-            '<a href="/" class="font-bold text-white">Broker<span class="text-amber-400">AI</span></a>' +
-            '<nav class="flex flex-wrap justify-center gap-x-5 gap-y-2" aria-label="Footer">' +
-              '<a href="/terms.html" class="hover:text-white transition">Terms</a>' +
-              '<a href="/privacy.html" class="hover:text-white transition">Privacy</a>' +
-              '<a href="/cookies.html" class="hover:text-white transition">Cookies</a>' +
-              '<a href="/contact.html" class="hover:text-white transition">Contact</a>' +
-              '<a href="mailto:support@brokerai.app" class="hover:text-white transition">support@brokerai.app</a>' +
-              '<a href="https://twitter.com/brokerai" target="_blank" rel="noopener" class="hover:text-white transition" aria-label="BrokerAI on Twitter">Twitter</a>' +
-              '<a href="https://www.linkedin.com/company/brokerai" target="_blank" rel="noopener" class="hover:text-white transition" aria-label="BrokerAI on LinkedIn">LinkedIn</a>' +
+        '<footer id="ba-footer" class="' +
+        topSpacing +
+        ' shrink-0 border-t border-slate-800/80 bg-[#0f172a] py-10 text-sm text-slate-400" role="contentinfo">' +
+          '<div class="' +
+        innerRowClass +
+        '">' +
+            brandBlock +
+            '<nav class="flex flex-wrap justify-center gap-x-5 gap-y-2 ' +
+        (workspaceNoBrand ? "sm:justify-start" : "sm:justify-end") +
+        '" aria-label="Footer">' +
+              '<a href="/privacy.html" class="hover:text-white transition">Privacy Policy</a>' +
+              '<a href="/terms.html" class="hover:text-white transition">Terms &amp; Conditions</a>' +
+              '<a href="/cookies.html" class="hover:text-white transition">Cookies Policy</a>' +
+              '<a href="/contact.html" class="hover:text-white transition">Contact Us</a>' +
             '</nav>' +
-            '<p class="text-slate-500">© ' + year + ' BrokerAI</p>' +
+            '<p class="text-slate-500 sm:shrink-0">© ' + year + ' BrokerAI</p>' +
           '</div>' +
         '</footer>';
+
       var holder = document.createElement("div");
       holder.innerHTML = html;
-      document.body.appendChild(holder.firstChild);
+      var footer = holder.firstChild;
+      if (!footer) return;
+
+      if (layout) {
+        layout.appendChild(footer);
+      } else {
+        document.body.appendChild(footer);
+      }
     } catch (e) { /* never break the page */ }
   }
 

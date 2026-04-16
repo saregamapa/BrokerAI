@@ -1,8 +1,10 @@
 import json
 import os
+import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import backend.env_loader  # noqa: F401 — ensure project root .env loaded if agents imported first
 
@@ -20,6 +22,8 @@ from backend.services.ai_media_service import (
     generate_video_script,
     video_script_to_storage_value,
 )
+from backend.services.campaign_video_sora import generate_campaign_reel_serve_url_sync
+from backend.services.post_media_url import video_url_from_script_json
 from backend.integrations.unsplash import search_photos_sync
 from backend.db import engine
 from backend.integrations.ayrshare import coerce_ayrshare_platforms, normalize_platforms
@@ -27,6 +31,9 @@ from backend.models import Campaign, Post
 from backend.workflow.post_state import POST_APPROVED, POST_REVIEW, transition_post_status
 
 log = get_logger("brokerai.agents")
+
+# Project root (backend/agents/nodes.py → parents[2] == repo root)
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DAYS = [
     "Monday",
@@ -73,6 +80,54 @@ _BAD_PLACEHOLDER_KEYS = frozenset(
     {"your_key_here", "sk-your-key-here", "sk-proj-replace-me", "replace_me",
      "your_openai_key_here", "your-openai-key-here"}
 )
+
+
+def _campaign_extra_videos_on() -> bool:
+    v = (os.getenv("BROKERAI_CAMPAIGN_EXTRA_VIDEOS") or "1").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def _wizard_post0_blob(data: Dict[str, Any]) -> str:
+    caps = data.get("wizard_ai_captions") or []
+    if not isinstance(caps, list) or not caps:
+        return ""
+    return str(caps[0] or "").strip()
+
+
+def _parse_wizard_caption_hashtags(blob: str) -> Tuple[str, List[str]]:
+    s = (blob or "").strip()
+    if not s:
+        return "", []
+    if "\n\n" in s:
+        cap, rest = s.split("\n\n", 1)
+        cap = cap.strip()
+        tags: List[str] = []
+        for line in rest.splitlines():
+            for word in line.split():
+                w = word.strip()
+                if w.startswith("#") and len(w) > 1:
+                    tag = w[1:].strip()
+                    if tag and tag.lower() not in [x.lower() for x in tags]:
+                        tags.append(tag)
+        return cap, tags
+    tags2: List[str] = []
+    for m in re.finditer(r"#([\w]+)", s):
+        t = m.group(1)
+        if t and t.lower() not in [x.lower() for x in tags2]:
+            tags2.append(t)
+    cap_only = re.sub(r"(?:^|\s)#[\w]+\s*", " ", s)
+    cap_only = re.sub(r"\s+", " ", cap_only).strip()
+    return cap_only, tags2
+
+
+def _wizard_post0_pinned(data: Dict[str, Any]) -> Optional[Tuple[str, List[str]]]:
+    b = _wizard_post0_blob(data)
+    if not b:
+        return None
+    cap, tags = _parse_wizard_caption_hashtags(b)
+    if not cap:
+        return None
+    return cap, tags
 
 
 class DayPlan(BaseModel):
@@ -319,6 +374,10 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
     audience = data.get("audience") or "potential customers in the local area"
     goal = data.get("goal", "grow brand awareness")
     biz = data.get("business_type", "small business")
+    platforms = data.get("platforms") or []
+    plat_str = ", ".join(str(p) for p in platforms if str(p).strip()) or "Instagram, Facebook"
+    tone = str(data.get("tone") or "professional").strip() or "professional"
+    goal_cat = str(data.get("campaign_goal_category") or "").strip()
     sel_tpl = (data.get("selected_template") or "").strip()
     wt = data.get("wizard_template") or {}
     tpl_note = ""
@@ -340,8 +399,11 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
         llm = _llm(key).with_structured_output(StrategyPlan)
         msg = (
             f"Build a {num_posts}-post social media content plan for a {biz} in {location}.\n\n"
-            f"PRIMARY GOAL: {goal}\n"
-            f"TARGET AUDIENCE: {audience}\n\n"
+            f"PRIMARY GOAL (summary): {goal}\n"
+            f"GOAL CATEGORY (wizard): {goal_cat or 'not specified'} — align themes and CTAs to this category.\n"
+            f"TARGET AUDIENCE: {audience}\n"
+            f"PUBLISH PLATFORMS: {plat_str}\n"
+            f"VOICE / TONE: {tone}\n\n"
             "Requirements:\n"
             f"- Output exactly {num_posts} posts using these day labels: {day_list_str}\n"
             "- Each day needs: theme (2-4 words) and angle (one sentence describing the specific post idea)\n"
@@ -537,7 +599,12 @@ SOCIAL PROFILE CONTEXT:
 """
 
 
-def _score_content_quality(posts: List[Dict[str, Any]], location: str) -> int:
+def _score_content_quality(
+    posts: List[Dict[str, Any]],
+    location: str,
+    *,
+    skip_first: bool = False,
+) -> int:
     """Score generated content 0-100. Used to decide if we should retry.
 
     Penalties are per-post, so 7 bad posts can easily drop below the
@@ -550,7 +617,8 @@ def _score_content_quality(posts: List[Dict[str, Any]], location: str) -> int:
         "looking to buy", "thinking about", "dreaming of",
         "in the world of", "when it comes to", "have you ever",
     ]
-    for p in posts:
+    to_score = posts[1:] if skip_first else posts
+    for p in to_score:
         cap = (p.get("caption") or "").lower()
         # Penalize short captions (< 20 words is too thin)
         word_count = len(cap.split())
@@ -575,6 +643,7 @@ def _score_content_quality(posts: List[Dict[str, Any]], location: str) -> int:
 
 
 def content_node(state: AgentState) -> Dict[str, Any]:
+    """CaptionAgent in the full LangGraph pipeline (per-post captions + hashtags + image prompts)."""
     data = _campaign_data(state)
     num_posts = state.get("num_posts") or _num_posts_for_frequency(data.get("frequency", "3 per week"))
     strat = state.get("strategy_plan") or {}
@@ -605,6 +674,8 @@ def content_node(state: AgentState) -> Dict[str, Any]:
     audience = data.get("audience") or "potential customers in the local area"
     goal = data.get("goal", "grow brand awareness")
     biz = data.get("business_type", "small business")
+    tone = str(data.get("tone") or "professional").strip() or "professional"
+    goal_cat = str(data.get("campaign_goal_category") or "").strip()
     social_block = _social_presence_prompt_block(data)
     ctx = json.dumps({"campaign": data, "strategy_days": day_rows[:num_posts]})
     sp = state.get("strategy_plan") or {}
@@ -630,15 +701,26 @@ def content_node(state: AgentState) -> Dict[str, Any]:
         brand_ctx = "\nBRAND DOCUMENTS ON FILE: " + ", ".join(
             f"{s.get('kind')}:{s.get('filename')}" for s in summaries[:16]
         )
+    wiz_caps = data.get("wizard_ai_captions") or []
+    pin0 = _wizard_post0_pinned(data)
     hook_ctx = ""
-    if (data.get("selected_caption_hook") or "").strip():
+    if (data.get("selected_caption_hook") or "").strip() and not pin0:
         hook_ctx = (
             "\nPREFERRED HOOK ENERGY (from wizard; do not copy verbatim): "
             f"{data.get('selected_caption_hook')}\n"
         )
-    wiz_caps = data.get("wizard_ai_captions") or []
     cap_hint = ""
-    if isinstance(wiz_caps, list) and wiz_caps:
+    if pin0:
+        raw0 = _wizard_post0_blob(data)
+        cap_hint = (
+            "\nPOST 1 (first slot) is USER-LOCKED: the exact caption + hashtags below will replace your "
+            "first post after generation. Still output N posts aligned to strategy days (including day 1) "
+            "with strong image_prompt for each.\n"
+            "POSTS 2..N: same creator voice, offer framing, and local specificity as Post 1, but clearly "
+            "different hooks and angles — never reuse Post 1's opening line.\n\n"
+            f"LOCKED POST 1 (verbatim from user):\n{raw0[:3200]}\n"
+        )
+    elif isinstance(wiz_caps, list) and wiz_caps:
         cap_hint = (
             "\nWIZARD CAPTIONS the user liked (match tone/themes; still write fresh full captions):\n"
             + "\n---\n".join(str(c)[:500] for c in wiz_caps[:6])
@@ -663,8 +745,10 @@ def content_node(state: AgentState) -> Dict[str, Any]:
     msg = (
         f"Write exactly {num_posts} social media posts for a {biz} in {location}.\n\n"
         f"GOAL: {goal}\n"
+        f"GOAL CATEGORY: {goal_cat or 'general'}\n"
         f"AUDIENCE: {audience}\n"
-        f"PLATFORMS: {platform_str}\n\n"
+        f"PLATFORMS: {platform_str}\n"
+        f"VOICE / TONE: {tone} — match this consistently across hooks and body copy.\n\n"
         f"{social_block}{strat_block}{tmpl_ctx}{brand_ctx}{hook_ctx}{cap_hint}{research_block}\n\n"
         "For each post, provide: day (matching strategy), caption, hashtags (array), "
         'image_prompt (detailed DALL·E-oriented prompt), video_script (always "").\n\n'
@@ -691,6 +775,10 @@ def content_node(state: AgentState) -> Dict[str, Any]:
                 raise CampaignPipelineError(
                     f"Content model returned {len(candidate)} posts; need {num_posts}."
                 )
+            if pin0:
+                c0, h0 = pin0
+                candidate[0]["caption"] = c0
+                candidate[0]["hashtags"] = list(h0)
             for c in candidate:
                 if not str(c.get("caption") or "").strip():
                     raise CampaignPipelineError("Content generation produced an empty caption.")
@@ -698,7 +786,7 @@ def content_node(state: AgentState) -> Dict[str, Any]:
                     raise CampaignPipelineError(
                         "Content generation produced an empty image_prompt (required for image generation)."
                     )
-            quality = _score_content_quality(candidate, location)
+            quality = _score_content_quality(candidate, location, skip_first=bool(pin0))
             log.info(
                 "[agent:content] attempt=%s quality=%s posts=%s",
                 attempt + 1,
@@ -733,6 +821,38 @@ def content_node(state: AgentState) -> Dict[str, Any]:
     return {"posts": posts, "step_log": ["content: posts ready"]}
 
 
+def _sora_prompt_campaign_followup(
+    data: Dict[str, Any],
+    post: Dict[str, Any],
+    *,
+    reference_caption: str,
+) -> str:
+    """Sora prompt for posts 2..N — same reel style as Post 1, distinct scene from caption."""
+    vp = (data.get("wizard_video_prompt") or "").strip()
+    cap = str(post.get("caption") or "").strip()[:700]
+    loc = str(data.get("location") or "").strip()
+    goal = str(data.get("goal") or "").strip()
+    ref = (reference_caption or "").strip()[:900]
+    chunks = [
+        "Vertical short-form cinematic reel for TikTok or Instagram Reels (9:16).",
+        "Single coherent photoreal scene with natural camera motion; inclusive, brand-safe.",
+    ]
+    if cap:
+        chunks.append(f"This post's message: {cap}")
+    if ref:
+        chunks.append(
+            "Match pacing, energy, and visual storytelling style of this lead post from the same campaign: "
+            + ref
+        )
+    if vp:
+        chunks.append(f"Primary visual direction (align with the user's reference clip): {vp}")
+    if loc:
+        chunks.append(f"Local context: {loc}.")
+    if goal:
+        chunks.append(f"Campaign goal: {goal}.")
+    return " ".join(chunks)
+
+
 def media_node(state: AgentState) -> Dict[str, Any]:
     posts = list(state.get("posts") or [])
     data = _campaign_data(state)
@@ -764,6 +884,14 @@ def media_node(state: AgentState) -> Dict[str, Any]:
     keywords = list(strat.get("unsplash_search_keywords") or [])
     us_sel = data.get("unsplash_selection") or {}
     pref_url = (us_sel.get("url") or us_sel.get("download_url") or "").strip()
+    w2m = data.get("wizard_step2_media") or {}
+    if not pref_url and isinstance(w2m, dict):
+        for im in w2m.get("images") or []:
+            if isinstance(im, dict):
+                u = (im.get("url") or im.get("download_url") or "").strip()
+                if u:
+                    pref_url = u
+                    break
     has_unsplash = bool(os.getenv("UNSPLASH_ACCESS_KEY", "").strip())
     openai_ok = bool(_openai_api_key())
     if _video_scripts_on(state) and not openai_ok:
@@ -844,25 +972,61 @@ def media_node(state: AgentState) -> Dict[str, Any]:
 
         np = dict(p)
         np["image_url"] = img_url
-        if _video_scripts_on(state):
+        ext_vid = (data.get("wizard_video_url") or "").strip() or str(
+            (data.get("wizard_step2_media") or {}).get("video_url") or ""
+        ).strip()
+        uid = int(state.get("user_id") or 0)
+        public_origin = (os.getenv("BROKERAI_PUBLIC_ORIGIN") or "").strip().rstrip("/")
+
+        if not _video_scripts_on(state):
+            np["video_script"] = ""
+        elif i == 0 and ext_vid:
+            np["video_script"] = video_script_to_storage_value(
+                {"video_url": ext_vid, "source": "wizard"}
+            )
+        elif i > 0 and _campaign_extra_videos_on() and openai_ok:
+            ref0 = str((posts[0] or {}).get("caption") or "").strip()
+            dur_raw = data.get("wizard_video_duration_s")
+            try:
+                dur = int(dur_raw) if dur_raw is not None else 8
+            except (TypeError, ValueError):
+                dur = 8
+            dur = max(4, min(12, dur))
+            prompt = _sora_prompt_campaign_followup(data, np, reference_caption=ref0)
+            serve = generate_campaign_reel_serve_url_sync(
+                user_id=uid,
+                prompt=prompt,
+                duration_seconds=dur,
+                aspect_ratio="9:16",
+                base_dir=_PROJECT_ROOT,
+                public_origin=public_origin,
+            )
+            if serve:
+                np["video_script"] = video_script_to_storage_value(
+                    {"video_url": serve, "source": "sora_campaign"}
+                )
+            else:
+                script = generate_video_script(
+                    topic=cap[:800],
+                    audience=str(data.get("audience") or "local buyers and sellers"),
+                    location=str(data.get("location") or ""),
+                    goal=str(data.get("goal") or ""),
+                )
+                np["video_script"] = video_script_to_storage_value(script)
+        else:
             script = generate_video_script(
                 topic=cap[:800],
                 audience=str(data.get("audience") or "local buyers and sellers"),
                 location=str(data.get("location") or ""),
                 goal=str(data.get("goal") or ""),
             )
-            if i == 0 and (data.get("wizard_video_url") or "").strip():
-                script = dict(script)
-                script["wizard_external_video_url"] = str(data.get("wizard_video_url")).strip()
             np["video_script"] = video_script_to_storage_value(script)
-        else:
-            np["video_script"] = ""
         out.append(np)
         log.info("[agent:media] post %s image ok source=%s", i, "wizard" if pref_url and i == 0 else "mixed")
 
     return {
         "posts": out,
-        "step_log": ["media: imagery (Unsplash/DALL·E) and video scripts applied"],
+        "step_log": ["media: imagery (Unsplash/DALL·E) and video assets applied"],
     }
 
 
@@ -898,11 +1062,20 @@ def _compliance_one(caption: str, *, use_llm: bool) -> ComplianceLLM:
 
 
 def compliance_node(state: AgentState) -> Dict[str, Any]:
+    """ComplianceAgent — per-post caption review (wizard Step 4 mirrors ``/check-compliance``)."""
     posts = list(state.get("posts") or [])
+    data = _campaign_data(state)
+    pin0 = _wizard_post0_pinned(data) is not None
     use_llm = _ai_text_on(state) and bool(_openai_api_key())
     log.info("[agent:compliance] posts=%s openai_review=%s", len(posts), use_llm)
     out = []
-    for p in posts:
+    for idx, p in enumerate(posts):
+        if idx == 0 and pin0:
+            np = dict(p)
+            np["compliance_passed"] = True
+            np["compliance_issues"] = []
+            out.append(np)
+            continue
         cap = p.get("caption") or ""
         r = _compliance_one(cap, use_llm=use_llm)
         if use_llm and not r.passed and r.fixed_caption:
@@ -928,6 +1101,18 @@ def scheduling_node(state: AgentState) -> Dict[str, Any]:
     from zoneinfo import ZoneInfo
 
     now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    if bool(data.get("post_immediately")):
+        out_immediate: List[Dict[str, Any]] = []
+        for i, p in enumerate(posts):
+            np = dict(p)
+            np["scheduled_at"] = now_naive + timedelta(minutes=i + 1)
+            if not np.get("day"):
+                np["day"] = DAYS[i % 7]
+            out_immediate.append(np)
+        return {
+            "posts": out_immediate,
+            "step_log": [f"scheduling: immediate ({len(out_immediate)} posts, UTC+stagger)"],
+        }
     user_tz_name = data.get("timezone") or "UTC"
     post_hour = int(data.get("post_hour", 10))  # Default 10 AM local
     post_hour = max(0, min(23, post_hour))
@@ -1026,6 +1211,8 @@ def persist_posts_node(state: AgentState) -> Dict[str, Any]:
                     f"Cannot persist post {i + 1}: image_url must be a non-empty http(s) URL."
                 )
             primary_plat = plats[0] if plats else "facebook"
+            vs_store = str(p.get("video_script") or "")
+            embed_vu = video_url_from_script_json(vs_store)
             row = Post(
                 user_id=uid,
                 campaign_id=cid,
@@ -1034,7 +1221,8 @@ def persist_posts_node(state: AgentState) -> Dict[str, Any]:
                 platform=primary_plat,
                 hashtags=json.dumps([str(x) for x in (p.get("hashtags") or [])]),
                 image_url=img,
-                video_script=str(p.get("video_script") or ""),
+                video_script=vs_store,
+                embed_video_url=embed_vu,
                 day_label=str(p.get("day") or ""),
                 publish_platforms=list(plats),
                 status=POST_REVIEW,
@@ -1081,6 +1269,11 @@ def publishing_node(state: AgentState) -> Dict[str, Any]:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         stmt = select(Post).where(Post.campaign_id == cid)
         for row in session.exec(stmt).all():
+            if not (getattr(row, "embed_video_url", None) or "").strip():
+                ev = video_url_from_script_json(row.video_script or "")
+                if ev:
+                    row.embed_video_url = ev
+                    session.add(row)
             if row.status == POST_REVIEW:
                 try:
                     transition_post_status(
@@ -1115,126 +1308,3 @@ def publishing_node(state: AgentState) -> Dict[str, Any]:
                 coerce_ayrshare_platforms(sample.publish_platforms),
             )
     return {"step_log": ["publishing: posts approved for Ayrshare scheduler"]}
-
-
-def lead_capture_node(state: AgentState) -> Dict[str, Any]:
-    """Creates LeadForm / CommentAutomation from wizard Step 5 using a LangChain agent.
-
-    Runs after posts are persisted, before the approval gate, so assets exist during review.
-    """
-    from backend.agents.lead_capture_agent import run_lead_capture_agent
-    from backend.models import Campaign, CommentAutomation, LeadForm
-
-    cid = state.get("campaign_id")
-    uid = state.get("user_id")
-    lf_cfg: Dict[str, Any] = dict(state.get("lead_form_config") or {})
-    auto_cfg: Dict[str, Any] = dict(state.get("automation_config") or {})
-    data = _campaign_data(state)
-
-    step_messages: List[str] = []
-
-    # Check enabled flags explicitly — dict({"enabled": False}) is truthy,
-    # so we must inspect the flag itself, not dict truthiness.
-    lf_enabled = bool(lf_cfg.get("enabled", False))
-    auto_enabled = bool(auto_cfg.get("enabled", False))
-
-    if not lf_enabled and not auto_enabled:
-        log.info("[agent:lead_capture] skipped (both disabled) campaign_id=%s", cid)
-        return {"step_log": ["lead_capture: skipped (disabled)"]}
-
-    lead_form_id: Optional[int] = None
-
-    with Session(engine) as session:
-        camp = session.get(Campaign, cid) if cid else None
-        if camp is not None and camp.lead_form_id:
-            return {"step_log": ["lead_capture: skipped (campaign already has lead_form_id)"]}
-
-        plan = None
-        if lf_enabled or auto_enabled:
-            plan = run_lead_capture_agent(
-                campaign_goal=str(data.get("goal") or ""),
-                business_type=str(data.get("business_type") or ""),
-                audience=str(data.get("audience") or ""),
-                lead_form_config=lf_cfg if lf_enabled else None,
-                automation_config=auto_cfg if auto_enabled else None,
-            )
-
-        if lf_enabled and plan is not None:
-            lf_cfg["headline"] = plan.form_headline or lf_cfg.get("headline") or "Get in touch"
-            lf_cfg["description"] = plan.form_description or lf_cfg.get("description") or ""
-            lf_cfg["thank_you_message"] = plan.thank_you_message or lf_cfg.get(
-                "thank_you_message"
-            )
-        if auto_enabled and plan is not None:
-            auto_cfg["reply_dm"] = plan.dm_template or auto_cfg.get("reply_dm")
-            auto_cfg["public_reply"] = plan.public_comment_reply or auto_cfg.get("public_reply")
-
-        if lf_enabled:
-            import secrets as _secrets
-
-            fields_default = [
-                {"key": "name", "label": "Full Name", "type": "text", "required": True},
-                {"key": "email", "label": "Email", "type": "email", "required": True},
-                {"key": "phone", "label": "Phone Number", "type": "tel", "required": False},
-            ]
-            custom_fields = lf_cfg.get("fields") or fields_default
-
-            lf = LeadForm(
-                user_id=uid,
-                name=lf_cfg.get("form_name") or f"Campaign {cid} Lead Form",
-                headline=lf_cfg.get("headline") or "Get More Info",
-                description=lf_cfg.get("description") or "",
-                fields=json.dumps(custom_fields),
-                thank_you_message=lf_cfg.get("thank_you_message")
-                or "Thanks! We'll be in touch soon.",
-                redirect_url=lf_cfg.get("redirect_url") or "",
-                public_slug=f"c{cid}-{_secrets.token_urlsafe(6)}",
-                is_active=True,
-            )
-            session.add(lf)
-            session.flush()
-            lead_form_id = lf.id
-            if camp is not None:
-                camp.lead_form_id = lead_form_id
-                session.add(camp)
-            step_messages.append(f"lead_capture: created lead_form id={lead_form_id}")
-            log.info("[agent:lead_capture] created LeadForm id=%s campaign_id=%s", lead_form_id, cid)
-
-        if auto_enabled:
-            keyword = auto_cfg.get("trigger_keyword") or "info"
-            keywords_list = [k.strip().lower() for k in str(keyword).split(",") if k.strip()]
-
-            platforms: List[str] = auto_cfg.get("platforms") or ["instagram"]
-            reply_dm: str = auto_cfg.get("reply_dm") or (
-                "Hi {handle}! Here's the info you requested: {link}"
-            )
-            public_comment_reply: str = auto_cfg.get("public_reply") or (
-                "Thanks for the interest! Just sent you a DM 📩"
-            )
-
-            for plat in platforms:
-                auto = CommentAutomation(
-                    user_id=uid,
-                    name=f"Campaign {cid} — {plat.title()} automation",
-                    platform=plat,
-                    keywords=json.dumps(keywords_list),
-                    match_mode=auto_cfg.get("match_mode") or "any",
-                    reply_comment_enabled=True,
-                    reply_comment_template=public_comment_reply,
-                    dm_enabled=True,
-                    dm_template=reply_dm,
-                    lead_form_id=lead_form_id,
-                    link_url=auto_cfg.get("link_url") or "",
-                    is_active=True,
-                )
-                session.add(auto)
-                step_messages.append(f"lead_capture: created comment_automation platform={plat}")
-                log.info(
-                    "[agent:lead_capture] created CommentAutomation platform=%s campaign_id=%s",
-                    plat,
-                    cid,
-                )
-
-        session.commit()
-
-    return {"step_log": step_messages or ["lead_capture: completed"]}

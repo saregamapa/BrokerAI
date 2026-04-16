@@ -20,6 +20,8 @@ os.environ.setdefault(
     "OPENAI_API_KEY",
     "sk-test-openai-key-for-pytest-only-not-a-real-secret-0001",
 )
+# Campaign pipeline: skip sequential Sora renders for posts 2+ (tests stay fast).
+os.environ.setdefault("BROKERAI_CAMPAIGN_EXTRA_VIDEOS", "0")
 
 import pytest
 from fastapi.testclient import TestClient

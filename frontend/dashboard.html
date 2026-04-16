@@ -35,7 +35,7 @@
       class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl md:block"
     ></aside>
 
-    <div class="flex min-h-screen flex-col md:pl-64">
+    <div id="app-layout" class="flex min-h-screen flex-col md:pl-64">
       <header
         id="app-topnav"
         class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"
@@ -497,7 +497,7 @@
           var src =
             a.source === "ayrshare"
               ? "Live metrics via Ayrshare"
-              : "Sample metrics (connect Ayrshare + publish to pull live data)";
+              : "No live metrics yet (publish via Ayrshare to populate)";
           slot.innerHTML =
             '<div class="grid grid-cols-2 gap-2 sm:grid-cols-4">' +
             '<div class="rounded-xl border border-slate-100 bg-gradient-to-br from-white to-slate-50 p-3 text-center shadow-sm">' +

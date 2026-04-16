@@ -11,6 +11,15 @@ class GenerateCampaignRequest(BaseModel):
     goal: str
     location: str
     platforms: List[str] = Field(default_factory=list)
+    campaign_goal_category: Optional[Literal["lead_gen", "branding", "engagement", "sales"]] = Field(
+        default=None,
+        description="Wizard strategy step: primary outcome category for StrategyAgent.",
+    )
+    tone: str = Field(
+        default="professional",
+        max_length=40,
+        description="Wizard strategy step: brand voice for strategy + content agents.",
+    )
     frequency: str = "3 per week"
     # ISO date YYYY-MM-DD for first post week (optional)
     start_date: Optional[str] = None
@@ -19,13 +28,12 @@ class GenerateCampaignRequest(BaseModel):
     timezone: Optional[str] = None
     # Preferred posting hour in user's local time (0-23)
     post_hour: int = 10
+    # Wizard schedule step — "Post now": schedule each post within minutes of generation
+    post_immediately: bool = False
     # AI / media toggles (wizard)
     ai_text_enabled: bool = True
     ai_images_enabled: bool = True
     video_scripts_enabled: bool = True
-    # Lead capture config collected by wizard Step 5 (optional)
-    lead_form_config: Optional[Dict[str, Any]] = None
-    automation_config: Optional[Dict[str, Any]] = None
     # Brand files uploaded in wizard Step 2 (optional); stored server-side as BrandAsset rows
     brand_asset_ids: Optional[List[int]] = None
     # New wizard: visual + template context (optional)
@@ -36,10 +44,13 @@ class GenerateCampaignRequest(BaseModel):
     wizard_template: Optional[Dict[str, Any]] = None  # {id, name, bg}
     unsplash_selection: Optional[Dict[str, Any]] = None  # {id, url, thumb_url, download_url}
     wizard_video_url: Optional[str] = None
+    """Wizard step 2 consolidated snapshot (template + optional stock image + optional video). Mirrors other fields for orchestration."""
+    wizard_step2_media: Optional[Dict[str, Any]] = None
     # Step 3 AI captions from wizard (optional hints for the content agent)
     wizard_ai_captions: Optional[List[str]] = None
-    # Saved Canva template to use for the campaign (from templates page / wizard)
-    canva_template_id: Optional[int] = None
+    # Step 2 video: Sora prompt + duration (optional; used for similar reels on posts 2+)
+    wizard_video_prompt: Optional[str] = None
+    wizard_video_duration_s: Optional[int] = None
 
     @field_validator("platforms")
     @classmethod
@@ -87,6 +98,7 @@ class PostOut(BaseModel):
     caption: str
     hashtags: List[str] = Field(default_factory=list)
     image_url: Optional[str] = ""
+    video_url: Optional[str] = ""
     video_script: Optional[str] = ""
     publish_platforms: List[str] = Field(default_factory=list)
     status: str = "pending"
@@ -482,19 +494,48 @@ class ModifyCaptionResponse(BaseModel):
     caption: str
 
 
+class CaptionVariantOut(BaseModel):
+    """CaptionAgent preview item: body copy + hashtag list (no # prefix required in JSON)."""
+
+    caption: str = ""
+    hashtags: List[str] = Field(default_factory=list)
+
+
 class PreviewCaptionsRequest(BaseModel):
-    """Lightweight pre-generation caption preview (wizard Step 3)."""
-    bucket: str = "real_estate"        # content bucket / industry
-    persona: str = ""                   # persona label chosen in wizard
-    goal: str = ""                      # campaign goal / objective
-    location: str = ""                  # city/market e.g. "Austin, TX"
+    """Wizard Step 3 — inputs for CaptionAgent preview (pre-full LangGraph run)."""
+
+    bucket: str = "real_estate"
+    persona: str = ""
+    goal: str = ""
+    location: str = ""
     platforms: List[str] = Field(default_factory=list)
-    tone: str = "professional"          # professional | friendly | luxury | bold
-    count: int = 3                      # number of captions to return (max 5)
+    tone: str = "professional"
+    count: int = 3
+    campaign_goal_category: Optional[str] = Field(
+        default=None,
+        max_length=40,
+        description="From wizard strategy — aligns with StrategyAgent output category.",
+    )
+    selected_template: str = ""
+    wizard_template: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Wizard Step 2 template card — visual context for CaptionAgent.",
+    )
+    selected_caption_hook: str = Field(
+        default="",
+        description="Optional hook phrase from bucket defaults the user selected earlier.",
+    )
+    has_media_attachment: bool = Field(
+        default=False,
+        description="True when Step 2 includes an AI video attachment for the first post.",
+    )
 
 
 class PreviewCaptionsResponse(BaseModel):
+    """Caption + hashtags per variation; ``captions`` remains a joined string list for legacy UIs."""
+
     captions: List[str] = Field(default_factory=list)
+    variants: List[CaptionVariantOut] = Field(default_factory=list)
 
 
 class PreviewScoreRequest(BaseModel):
@@ -543,7 +584,7 @@ class UnsplashSearchResponse(BaseModel):
 
 class VideoGenerateRequest(BaseModel):
     prompt: str = Field(min_length=4, max_length=600)
-    duration_seconds: int = Field(default=5, ge=3, le=10)
+    duration_seconds: int = Field(default=5, ge=3, le=12)
     aspect_ratio: Literal["16:9", "9:16", "1:1"] = "9:16"
 
 
@@ -643,107 +684,6 @@ class DuplicateCampaignRequest(BaseModel):
     include_posts: bool = False  # default: clone only metadata, not posts
 
 
-# ---------- Lead Forms ----------
-
-LeadFieldType = Literal["text", "email", "phone", "number", "textarea", "select", "checkbox"]
-
-
-class LeadFormField(BaseModel):
-    key: str = Field(min_length=1, max_length=60)
-    label: str = Field(min_length=1, max_length=120)
-    type: LeadFieldType = "text"
-    required: bool = True
-    placeholder: str = ""
-    options: List[str] = Field(default_factory=list)  # for select
-    help_text: str = ""
-
-    @field_validator("key")
-    @classmethod
-    def _key_safe(cls, v: str) -> str:
-        import re
-        s = str(v).strip().lower()
-        if not re.match(r"^[a-z0-9_\-]+$", s):
-            raise ValueError("key must be lowercase letters, numbers, underscores or dashes")
-        return s
-
-
-class LeadFormCreateRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    headline: str = Field(default="", max_length=200)
-    description: str = Field(default="", max_length=1000)
-    fields: List[LeadFormField] = Field(default_factory=list)
-    thank_you_message: str = Field(default="Thanks! We'll be in touch soon.", max_length=400)
-    redirect_url: str = Field(default="", max_length=500)
-    is_active: bool = True
-
-
-class LeadFormUpdateRequest(BaseModel):
-    name: Optional[str] = Field(default=None, max_length=120)
-    headline: Optional[str] = Field(default=None, max_length=200)
-    description: Optional[str] = Field(default=None, max_length=1000)
-    fields: Optional[List[LeadFormField]] = None
-    thank_you_message: Optional[str] = Field(default=None, max_length=400)
-    redirect_url: Optional[str] = Field(default=None, max_length=500)
-    is_active: Optional[bool] = None
-
-
-class LeadFormOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    name: str = ""
-    headline: str = ""
-    description: str = ""
-    fields: List[LeadFormField] = Field(default_factory=list)
-    thank_you_message: str = ""
-    redirect_url: str = ""
-    public_slug: str = ""
-    public_url: str = ""
-    is_active: bool = True
-    lead_count: int = 0
-    created_at: datetime
-    updated_at: datetime
-
-
-class LeadFormListResponse(BaseModel):
-    items: List[LeadFormOut] = Field(default_factory=list)
-    total: int = 0
-
-
-class LeadSubmitRequest(BaseModel):
-    # Free-form data; server validates against form schema.
-    data: Dict[str, Any] = Field(default_factory=dict)
-    source: str = Field(default="", max_length=120)
-    utm_campaign: str = Field(default="", max_length=120)
-    utm_source: str = Field(default="", max_length=120)
-
-
-class LeadSubmitResponse(BaseModel):
-    ok: bool = True
-    lead_id: int = 0
-    thank_you_message: str = ""
-    redirect_url: str = ""
-
-
-class LeadOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    form_id: int
-    data: Dict[str, Any] = Field(default_factory=dict)
-    source: str = ""
-    utm_campaign: str = ""
-    utm_source: str = ""
-    captured_at: datetime
-
-
-class LeadListResponse(BaseModel):
-    items: List[LeadOut] = Field(default_factory=list)
-    total: int = 0
-
-
-class AttachLeadFormRequest(BaseModel):
-    lead_form_id: Optional[int] = None  # null to detach
-
-
 # --------- Phase 2 #4: Comment-to-DM automations ---------
 
 CommentMatchMode = Literal["any", "all", "exact"]
@@ -767,7 +707,6 @@ class CommentAutomationCreateRequest(BaseModel):
         default="Hi {handle}! Here's the info you asked about: {link}",
         max_length=1000,
     )
-    lead_form_id: Optional[int] = None
     link_url: str = Field(default="", max_length=500)
     is_active: bool = True
 
@@ -798,7 +737,6 @@ class CommentAutomationUpdateRequest(BaseModel):
     reply_comment_template: Optional[str] = Field(default=None, max_length=500)
     dm_enabled: Optional[bool] = None
     dm_template: Optional[str] = Field(default=None, max_length=1000)
-    lead_form_id: Optional[int] = None
     link_url: Optional[str] = Field(default=None, max_length=500)
     is_active: Optional[bool] = None
 
@@ -818,7 +756,6 @@ class CommentAutomationOut(BaseModel):
     reply_comment_template: str = ""
     dm_enabled: bool = True
     dm_template: str = ""
-    lead_form_id: Optional[int] = None
     link_url: str = ""
     is_active: bool = True
     trigger_count: int = 0
@@ -915,69 +852,31 @@ class GenerateSlidesResponse(BaseModel):
     slides: List[CarouselSlide] = Field(default_factory=list)
 
 
-# --------- Phase 2 #6: Canva integration ---------
-
-CanvaDesignType = Literal[
-    "instagram-post", "instagram-story", "instagram-reel",
-    "facebook-post", "facebook-cover",
-    "linkedin-post", "linkedin-banner",
-    "presentation", "square-post", "vertical-video", "custom",
-]
-CanvaExportFormat = Literal["png", "jpg", "pdf", "mp4", "gif"]
+# ---------- Wizard visual templates (Step 2) ----------
 
 
-class CanvaDesignCreateRequest(BaseModel):
-    post_id: Optional[int] = None
-    campaign_id: Optional[int] = None
-    title: str = Field(default="", max_length=200)
-    design_type: CanvaDesignType = "instagram-post"
-    prompt: str = Field(default="", max_length=2000)
-    template_id: str = Field(default="", max_length=120)
-    autofill_data: Dict[str, Any] = Field(default_factory=dict)
+class WowManusPersonalizeRequest(BaseModel):
+    """Persona + bucket context for wizard visual template generation."""
+
+    persona: str = ""
+    bucket: str = "creator"
+    persona_goal: Optional[str] = None
 
 
-class CanvaDesignImportRequest(BaseModel):
-    """Attach an exported Canva asset back to BrokerAI (and to a post if given)."""
-    export_url: str = Field(min_length=5, max_length=1000)
-    thumbnail_url: str = Field(default="", max_length=1000)
-    share_url: str = Field(default="", max_length=1000)
-    export_format: CanvaExportFormat = "png"
-    attach_to_post: bool = True
-    as_slide: bool = False  # if True, append to post.slides; else overwrite image_url
+class ManusVisualTemplateOut(BaseModel):
+    id: str
+    name: str
+    tag: str = "Template"
+    bg: str
+    image_url: Optional[str] = Field(
+        default=None,
+        description="HTTPS URL for card art (Unsplash regular URL by default, or OpenAI when configured); UI falls back to bg if absent.",
+    )
 
 
-class CanvaDesignOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    user_id: int
-    post_id: Optional[int] = None
-    campaign_id: Optional[int] = None
-    external_id: str = ""
-    template_id: str = ""
-    title: str = ""
-    design_type: str = "instagram-post"
-    edit_url: str = ""
-    share_url: str = ""
-    thumbnail_url: str = ""
-    export_url: str = ""
-    export_format: str = "png"
-    prompt: str = ""
-    autofill_data: Dict[str, Any] = Field(default_factory=dict)
-    status: str = "pending"
+class WowManusVisualTemplatesResponse(BaseModel):
+    """Template cards for the wizard \"Choose your visuals\" step (OpenAI + Unsplash, or legacy sources)."""
+
+    source: Literal["openai_unsplash", "manus", "fallback", "unavailable"] = "fallback"
     error: str = ""
-    created_at: datetime
-    updated_at: datetime
-
-
-class CanvaDesignListResponse(BaseModel):
-    items: List[CanvaDesignOut] = Field(default_factory=list)
-    total: int = 0
-
-
-class CanvaStatusResponse(BaseModel):
-    configured: bool = False
-    connected: bool = False
-    auth_url: str = ""
-    # Whether the direct Connect API is enabled (CANVA_API_TOKEN set) vs
-    # link-out only mode where we just deep-link to canva.com
-    mode: str = "link-out"  # link-out | api
+    templates: List[ManusVisualTemplateOut] = Field(default_factory=list)

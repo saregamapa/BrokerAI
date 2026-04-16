@@ -32,7 +32,7 @@
       .pricing-popular { box-shadow: 0 0 0 2px #f59e0b, 0 20px 60px rgba(245,158,11,0.18); }
     </style>
   </head>
-  <body class="brokerai-app bg-white text-slate-900 antialiased">
+  <body class="brokerai-app flex min-h-screen flex-col bg-white text-slate-900 antialiased" data-skip-footer>
 
     <!-- ─── Sticky Navbar ─────────────────────────────────────────── -->
     <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-md">
@@ -53,7 +53,7 @@
       </div>
     </header>
 
-    <main>
+    <main class="flex-1">
 
       <!-- ─── 1. Hero ───────────────────────────────────────────────── -->
       <section class="relative overflow-hidden border-b border-slate-100 bg-gradient-to-b from-[#f9fafb] to-white py-16 md:py-24" id="top">
@@ -633,7 +633,6 @@
         </div>
       </div>
     </footer>
-
 
     <script src="/static/js/app.js"></script>
     <script>

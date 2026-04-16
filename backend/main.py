@@ -6,6 +6,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 from typing import Any, Dict, List, Optional, Tuple
 
 from dotenv import load_dotenv
@@ -13,9 +14,10 @@ from dotenv import load_dotenv
 import backend.env_loader  # noqa: F401 — loads project root .env before agent imports
 
 from backend.core.logger import configure_logging, get_logger, log_event, time_block
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from starlette.responses import Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -37,6 +39,7 @@ from backend.integrations.ayrshare import (
     coerce_ayrshare_platforms,
     platform_response_json,
 )
+from backend.services.post_media_url import video_url_from_script_json
 from backend.services.publish_service import (
     _lock_expired,
     _utc_now_naive,
@@ -56,11 +59,8 @@ from backend.models import (
     BrandAsset,
     Campaign,
     CampaignTemplate,
-    CanvaDesign,
     CommentAutomation,
     CommentTrigger,
-    Lead,
-    LeadForm,
     Post,
     SocialAccount,
     Team,
@@ -81,6 +81,7 @@ from backend.schemas import (
     CampaignInsightsOut,
     CampaignDetailOut,
     CampaignOut,
+    CaptionVariantOut,
     CaptionsRequest,
     CaptionsResponse,
     CheckComplianceRequest,
@@ -126,16 +127,6 @@ from backend.schemas import (
     TemplateOut,
     TemplateListResponse,
     DuplicateCampaignRequest,
-    LeadFormField,
-    LeadFormCreateRequest,
-    LeadFormUpdateRequest,
-    LeadFormOut,
-    LeadFormListResponse,
-    LeadSubmitRequest,
-    LeadSubmitResponse,
-    LeadOut,
-    LeadListResponse,
-    AttachLeadFormRequest,
     CommentAutomationCreateRequest,
     CommentAutomationUpdateRequest,
     CommentAutomationOut,
@@ -149,16 +140,27 @@ from backend.schemas import (
     UpdateSlidesRequest,
     GenerateSlidesRequest,
     GenerateSlidesResponse,
-    CanvaDesignCreateRequest,
-    CanvaDesignImportRequest,
-    CanvaDesignOut,
-    CanvaDesignListResponse,
-    CanvaStatusResponse,
+    WowManusPersonalizeRequest,
+    WowManusVisualTemplatesResponse,
+    ManusVisualTemplateOut,
 )
 from backend.integrations.unsplash import search_photos as unsplash_search_photos
+from backend.services.ai_media_service import _api_key
+from backend.services.wizard_visual_templates_service import run_wizard_visual_templates
+from backend.integrations.openai_sora_video import (
+    create_sora_video,
+    download_sora_video_bytes,
+    fetch_sora_video,
+)
 from backend.integrations.replicate_video import (
     create_video_prediction,
     fetch_prediction as fetch_video_prediction,
+)
+from backend.services.wizard_video_asset import (
+    create_wizard_video_serve_token,
+    decode_wizard_video_serve_token,
+    ensure_sora_video_materialized,
+    wizard_video_dir,
 )
 from backend.services.team_service import (
     create_team,
@@ -217,6 +219,68 @@ _MAX_CAMPAIGNS_PER_USER_PER_DAY = 10
 _daily_generate_count: Dict[Tuple[int, str], int] = {}
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _video_status_for_response(raw: object) -> str:
+    """Map provider job statuses into VideoGenerateResponse literals."""
+    s = str(raw or "queued").lower()
+    if s in ("succeeded", "completed"):
+        return "succeeded"
+    if s in ("failed", "canceled", "cancelled"):
+        return "failed"
+    if s in ("processing", "starting", "in_progress"):
+        return "processing"
+    return "queued"
+
+
+def _video_backend() -> str:
+    """openai = OpenAI Sora (default); replicate = Replicate models."""
+    raw = (os.getenv("BROKERAI_VIDEO_BACKEND") or "openai").strip().lower()
+    return "replicate" if raw == "replicate" else "openai"
+
+
+def _is_openai_video_id(prediction_id: str) -> bool:
+    return (prediction_id or "").strip().startswith("video_")
+
+
+async def _video_job_http_response(
+    request: Request,
+    *,
+    user_id: int,
+    result: Dict[str, Any],
+) -> VideoGenerateResponse:
+    """Normalize provider dict to API schema; materialize OpenAI Sora MP4 to a signed URL."""
+    status = _video_status_for_response(result.get("status"))
+    pred = str(result.get("prediction_id") or "")
+    err = str(result.get("error") or "")
+    vurl = str(result.get("video_url") or "")
+
+    if status == "succeeded" and _is_openai_video_id(pred) and not vurl:
+        try:
+            fn = await ensure_sora_video_materialized(
+                base_dir=BASE_DIR,
+                user_id=int(user_id),
+                openai_video_id=pred,
+                download=download_sora_video_bytes,
+            )
+            token = create_wizard_video_serve_token(int(user_id), fn)
+            base = _public_app_origin() or str(request.base_url).rstrip("/")
+            vurl = f"{base}/wizard-video-serve?token={quote(token, safe='')}"
+        except Exception as exc:  # noqa: BLE001
+            log.warning("sora_materialize_failed video_id=%s err=%s", pred, exc)
+            return VideoGenerateResponse(
+                status="failed",
+                video_url="",
+                prediction_id=pred,
+                error=str(err or exc or "could_not_save_video"),
+            )
+
+    return VideoGenerateResponse(
+        status=status,
+        video_url=vurl,
+        prediction_id=pred,
+        error=err,
+    )
 
 
 def _public_app_origin() -> str:
@@ -450,6 +514,13 @@ def _primary_platform_for_post(row: Post) -> str:
     return pl[0] if pl else ""
 
 
+def _video_url_from_post_row(row: Post) -> str:
+    evu = (getattr(row, "embed_video_url", None) or "").strip()
+    if evu:
+        return evu
+    return video_url_from_script_json(getattr(row, "video_script", None) or "")
+
+
 def _post_to_out(row: Post, day: Optional[str] = None) -> PostOut:
     body = (getattr(row, "content", None) or row.caption or "").strip()
     return PostOut(
@@ -459,6 +530,7 @@ def _post_to_out(row: Post, day: Optional[str] = None) -> PostOut:
         caption=row.caption,
         hashtags=_hashtags_to_list(row.hashtags),
         image_url=row.image_url or "",
+        video_url=_video_url_from_post_row(row),
         video_script=row.video_script or "",
         publish_platforms=_publish_platforms_list(row.publish_platforms),
         status=row.status,
@@ -927,7 +999,12 @@ def social_connected_callback(
 
 @app.post("/signup", response_model=TokenResponse)
 @limiter.limit("10/hour")
-def signup(request: Request, body: SignupRequest, session: Session = Depends(get_session)):
+def signup(
+    request: Request,
+    response: Response,
+    body: SignupRequest,
+    session: Session = Depends(get_session),
+):
     email = body.email.strip().lower()
     tz = normalize_iana_timezone(getattr(body, "timezone", None))
     invite_token = (getattr(body, "invite_token", None) or "").strip() or None
@@ -1011,7 +1088,12 @@ def signup(request: Request, body: SignupRequest, session: Session = Depends(get
 
 @app.post("/login", response_model=TokenResponse)
 @limiter.limit("20/minute")
-def login(request: Request, body: LoginRequest, session: Session = Depends(get_session)):
+def login(
+    request: Request,
+    response: Response,
+    body: LoginRequest,
+    session: Session = Depends(get_session),
+):
     email = body.email.strip().lower()
     user = get_user_by_email(session, email)
     if not user or not verify_password(body.password, user.password_hash):
@@ -1023,7 +1105,7 @@ def login(request: Request, body: LoginRequest, session: Session = Depends(get_s
 
 @app.post("/auth/forgot-password")
 @limiter.limit("5/hour")
-def forgot_password(request: Request, body: Dict[str, Any]):
+def forgot_password(request: Request, response: Response, body: Dict[str, Any]):
     """Stub password-reset entrypoint.
 
     Until full email-based reset is wired up we always return a generic
@@ -1087,10 +1169,21 @@ def update_profile_urls(
     return _user_out(session, u)
 
 
+def _int_env(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return default
+
+
+# Free tier cap (set BROKERAI_FREE_CAMPAIGN_LIMIT=2 in production SaaS if desired).
 PLAN_LIMITS = {
-    "free": 2,      # 2 campaigns max
-    "pro": 15,      # 15 campaigns/month
-    "agency": 9999, # effectively unlimited
+    "free": _int_env("BROKERAI_FREE_CAMPAIGN_LIMIT", 9999),
+    "pro": _int_env("BROKERAI_PRO_CAMPAIGN_LIMIT", 15),
+    "agency": _int_env("BROKERAI_AGENCY_CAMPAIGN_LIMIT", 9999),
 }
 
 
@@ -1126,6 +1219,7 @@ def _attach_brand_asset_summaries(
 @limiter.limit("30/hour")
 async def generate_campaign(
     request: Request,
+    response: Response,
     body: GenerateCampaignRequest,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -1242,9 +1336,6 @@ async def generate_campaign(
         "approved": False,
         "campaign_data": campaign_data,
         "step_log": [],
-        # Lead capture data from wizard Step 5 — consumed by lead_capture_node
-        "lead_form_config": body.lead_form_config or {},
-        "automation_config": body.automation_config or {},
     }
     log.info(
         "Campaign generation started user_id=%s campaign_id=%s goal=%s",
@@ -2045,6 +2136,7 @@ async def _openai_json(
 @limiter.limit("60/hour")
 async def campaigns_prefill_from_prompt(
     request: Request,
+    response: Response,
     body: PrefillFromPromptRequest,
     current_user: User = Depends(get_current_user),
 ):
@@ -2148,46 +2240,59 @@ async def campaigns_preview_captions(
     body: PreviewCaptionsRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Return 2-4 draft captions for wizard Step 3 preview (pre-generation).
+    """CaptionAgent preview — structured caption + hashtags for wizard Step 3."""
+    from backend.agents.caption_agent import (
+        parse_preview_variants,
+        preview_caption_system,
+        preview_caption_user_payload,
+    )
 
-    These are lightweight GPT-4o-mini outputs — they give the user a flavour
-    of what the full campaign will look like before they hit Launch.
-    """
+    count = max(1, min(body.count, 5))
+
     if not _openai_api_key():
-        # Return static placeholder captions so the wizard still works without OpenAI
         placeholders = [
             f"Discover your dream home in {body.location or 'your area'} — expert guidance from listing to keys. 🏡 DM us to get started!",
             f"Looking to {body.goal or 'grow your business'} in {body.location or 'your market'}? We make it simple. Ask us how!",
-            f"Your next chapter starts here. Serving {body.location or 'the local area'} with trusted expertise. #RealEstate #HomeGoals",
+            f"Your next chapter starts here. Serving {body.location or 'the local area'} with trusted expertise.",
         ]
-        return PreviewCaptionsResponse(captions=placeholders[: max(1, min(body.count, 5))])
 
-    platform_hint = ", ".join(body.platforms) if body.platforms else "social media"
-    count = max(1, min(body.count, 5))
+        variants: List[CaptionVariantOut] = []
+        captions: List[str] = []
+        for text in placeholders[:count]:
+            variants.append(
+                CaptionVariantOut(
+                    caption=text.strip(),
+                    hashtags=["RealEstate", "LocalExpert", "BrokerAI"],
+                )
+            )
+            captions.append(text.strip() + "\n\n#RealEstate #LocalExpert #BrokerAI")
+        return PreviewCaptionsResponse(captions=captions, variants=variants)
 
-    system = (
-        "You are an expert social media copywriter specialised in real estate and local business marketing. "
-        "Return ONLY valid JSON with a single key 'captions' containing an array of caption strings. "
-        "Each caption must be punchy, platform-native, include 2-4 relevant emojis and 2-5 hashtags. "
-        f"Tone: {body.tone}. Platform(s): {platform_hint}. "
-        "No preamble, no markdown fences, just the JSON object."
-    )
-    user_msg = json.dumps({
-        "industry": body.bucket.replace("_", " "),
-        "persona": body.persona,
-        "goal": body.goal,
-        "location": body.location,
-        "count": count,
-    })
-    data = await _openai_json(system, user_msg, temperature=0.75)
-    raw = data.get("captions") or []
-    captions = [str(c) for c in raw if isinstance(c, str)][:count]
-    # Pad with fallback if model returned fewer than requested
-    while len(captions) < count:
-        captions.append(
-            f"Helping clients in {body.location or 'your area'} achieve their {body.goal or 'goals'}. Reach out today!"
+    system = preview_caption_system(body)
+    user_msg = preview_caption_user_payload(body)
+    data = await _openai_json(system, user_msg, temperature=0.72)
+    variants_list, legacy = parse_preview_variants(data, count=count)
+    if not variants_list:
+        raw = data.get("captions") or []
+        captions = [str(c) for c in raw if isinstance(c, str)][:count]
+        while len(captions) < count:
+            captions.append(
+                f"Helping clients in {body.location or 'your area'} achieve their {body.goal or 'goals'}. Reach out today!"
+            )
+        return PreviewCaptionsResponse(captions=captions, variants=[])
+
+    variants_out = list(variants_list[:count])
+    captions_out = list(legacy[:count])
+    while len(variants_out) < count:
+        filler = CaptionVariantOut(
+            caption=f"Helping clients in {body.location or 'your area'} with {body.goal or 'their goals'}.",
+            hashtags=["Community", "Support", "Local"],
         )
-    return PreviewCaptionsResponse(captions=captions)
+        variants_out.append(filler)
+        captions_out.append(
+            f"{filler.caption}\n\n#Community #Support #Local"
+        )
+    return PreviewCaptionsResponse(captions=captions_out[:count], variants=variants_out[:count])
 
 
 @app.post("/campaigns/preview-score", response_model=PreviewScoreResponse)
@@ -2302,41 +2407,76 @@ async def unsplash_search(
 
 @app.post("/video/generate", response_model=VideoGenerateResponse)
 async def video_generate(
+    request: Request,
     body: VideoGenerateRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Generate an AI video via Replicate. Returns video_url if it finishes within ~25s, else prediction_id to poll."""
-    result = await create_video_prediction(
-        body.prompt, body.duration_seconds, body.aspect_ratio
-    )
+    """Generate an AI video (OpenAI Sora by default, or Replicate via BROKERAI_VIDEO_BACKEND=replicate)."""
+    backend = _video_backend()
+    if backend == "replicate":
+        if not os.getenv("REPLICATE_API_TOKEN", "").strip():
+            return VideoGenerateResponse(
+                status="failed",
+                video_url="",
+                prediction_id="",
+                error=(
+                    "REPLICATE_API_TOKEN is not configured. "
+                    "Use OpenAI Sora (default): set OPENAI_API_KEY or set BROKERAI_VIDEO_BACKEND=openai."
+                ),
+            )
+        result = await create_video_prediction(
+            body.prompt, body.duration_seconds, body.aspect_ratio
+        )
+    else:
+        if not _openai_api_key():
+            return VideoGenerateResponse(
+                status="failed",
+                video_url="",
+                prediction_id="",
+                error="OPENAI_API_KEY is not configured",
+            )
+        result = await create_sora_video(body.prompt, body.duration_seconds, body.aspect_ratio)
+
     if not result.get("ok") and result.get("status") not in ("queued", "starting", "processing"):
-        # Hard failure (no token, 4xx, etc.)
         return VideoGenerateResponse(
             status="failed",
             video_url="",
             prediction_id=str(result.get("prediction_id") or ""),
             error=str(result.get("error") or "video_generation_failed"),
         )
-    return VideoGenerateResponse(
-        status=result.get("status") or "queued",
-        video_url=str(result.get("video_url") or ""),
-        prediction_id=str(result.get("prediction_id") or ""),
-        error=str(result.get("error") or ""),
+    return await _video_job_http_response(
+        request, user_id=int(current_user.id or 0), result=result
     )
 
 
 @app.get("/video/status/{prediction_id}", response_model=VideoGenerateResponse)
 async def video_status(
+    request: Request,
     prediction_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    result = await fetch_video_prediction(prediction_id)
-    return VideoGenerateResponse(
-        status=result.get("status") or "queued",
-        video_url=str(result.get("video_url") or ""),
-        prediction_id=str(result.get("prediction_id") or prediction_id),
-        error=str(result.get("error") or ""),
+    if _is_openai_video_id(prediction_id):
+        result = await fetch_sora_video(prediction_id)
+    else:
+        result = await fetch_video_prediction(prediction_id)
+    return await _video_job_http_response(
+        request, user_id=int(current_user.id or 0), result=result
     )
+
+
+@app.get("/wizard-video-serve")
+async def wizard_video_serve(token: str = Query(..., min_length=20)):
+    """Public signed URL for a wizard Sora preview (JWT, same secret as login tokens)."""
+    from jose import JWTError
+
+    try:
+        uid, fn = decode_wizard_video_serve_token(token)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired link") from None
+    path = wizard_video_dir(BASE_DIR, uid) / fn
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Video not found")
+    return FileResponse(path, media_type="video/mp4", filename=fn)
 
 
 @app.post("/assistant/chat", response_model=AssistantChatResponse)
@@ -2558,6 +2698,44 @@ def delete_brand_asset(
     return {"ok": True, "deleted": asset_id}
 
 
+@app.post("/wow/manus-visual-templates", response_model=WowManusVisualTemplatesResponse)
+async def wow_manus_visual_templates(
+    body: WowManusPersonalizeRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """Wizard template grid: OpenAI proposes names, gradients, and Unsplash search phrases; Unsplash loads photos."""
+    try:
+        _api_key()
+    except OpenAINotConfiguredError as e:
+        return WowManusVisualTemplatesResponse(
+            source="unavailable",
+            error=str(e)[:400] or "OPENAI_API_KEY is not set or is invalid.",
+        )
+    stmt = (
+        select(BrandAsset)
+        .where(BrandAsset.user_id == current_user.id)
+        .order_by(BrandAsset.created_at.desc())
+        .limit(24)
+    )
+    rows = list(session.exec(stmt).all())
+    summaries = [
+        {"kind": r.kind or "document", "filename": r.original_filename or ""} for r in rows
+    ]
+    try:
+        out = await run_wizard_visual_templates(
+            persona=body.persona or "",
+            bucket=body.bucket or "creator",
+            persona_goal=body.persona_goal,
+            brand_summaries=summaries,
+        )
+        tpls = [ManusVisualTemplateOut(**t) for t in out.get("templates") or []]
+        return WowManusVisualTemplatesResponse(source="openai_unsplash", templates=tpls, error="")
+    except Exception as e:
+        log.warning("wow_manus_visual_templates_failed: %s", e)
+        return WowManusVisualTemplatesResponse(source="fallback", error=str(e)[:400])
+
+
 @app.post("/templates", response_model=TemplateOut)
 def create_template(
     body: TemplateCreateRequest,
@@ -2695,354 +2873,6 @@ def duplicate_campaign(
     return CampaignOut.model_validate(copy)
 
 
-# ---------- Lead Forms & Leads ----------
-
-def _lf_public_slug() -> str:
-    import secrets
-    return secrets.token_urlsafe(8).replace("_", "").replace("-", "")[:10]
-
-
-def _parse_fields(raw: str) -> List[Dict[str, Any]]:
-    try:
-        arr = json.loads(raw or "[]")
-        return arr if isinstance(arr, list) else []
-    except Exception:
-        return []
-
-
-def _leadform_to_out(lf: LeadForm, *, lead_count: int = 0) -> LeadFormOut:
-    fields_raw = _parse_fields(lf.fields)
-    # Re-validate to LeadFormField; drop malformed entries defensively
-    fields: List[LeadFormField] = []
-    for f in fields_raw:
-        try:
-            fields.append(LeadFormField(**f))
-        except Exception:
-            continue
-    return LeadFormOut(
-        id=lf.id,
-        name=lf.name or "",
-        headline=lf.headline or "",
-        description=lf.description or "",
-        fields=fields,
-        thank_you_message=lf.thank_you_message or "",
-        redirect_url=lf.redirect_url or "",
-        public_slug=lf.public_slug or "",
-        public_url=f"/lead/{lf.public_slug}" if lf.public_slug else "",
-        is_active=bool(lf.is_active),
-        lead_count=lead_count,
-        created_at=lf.created_at,
-        updated_at=lf.updated_at,
-    )
-
-
-@app.post("/lead-forms", response_model=LeadFormOut)
-def create_lead_form(
-    body: LeadFormCreateRequest,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    # Dedup field keys
-    seen = set()
-    unique_fields: List[LeadFormField] = []
-    for f in body.fields:
-        if f.key in seen:
-            continue
-        seen.add(f.key)
-        unique_fields.append(f)
-    if not unique_fields:
-        # Provide a sensible default form if user didn't specify fields.
-        unique_fields = [
-            LeadFormField(key="name", label="Full name", type="text", required=True),
-            LeadFormField(key="email", label="Email", type="email", required=True),
-            LeadFormField(key="phone", label="Phone", type="phone", required=False),
-        ]
-
-    lf = LeadForm(
-        user_id=current_user.id,
-        team_id=getattr(current_user, "team_id", None),
-        name=body.name.strip(),
-        headline=body.headline.strip(),
-        description=body.description.strip(),
-        fields=json.dumps([f.model_dump() for f in unique_fields], ensure_ascii=False),
-        thank_you_message=body.thank_you_message.strip() or "Thanks! We'll be in touch soon.",
-        redirect_url=body.redirect_url.strip(),
-        public_slug=_lf_public_slug(),
-        is_active=body.is_active,
-    )
-    session.add(lf)
-    session.commit()
-    session.refresh(lf)
-    return _leadform_to_out(lf, lead_count=0)
-
-
-@app.get("/lead-forms", response_model=LeadFormListResponse)
-def list_lead_forms(
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    stmt = (
-        select(LeadForm)
-        .where(LeadForm.user_id == current_user.id)
-        .order_by(LeadForm.updated_at.desc())
-    )
-    rows = list(session.exec(stmt).all())
-    out: List[LeadFormOut] = []
-    for lf in rows:
-        count = len(list(session.exec(select(Lead).where(Lead.form_id == lf.id)).all()))
-        out.append(_leadform_to_out(lf, lead_count=count))
-    return LeadFormListResponse(items=out, total=len(out))
-
-
-@app.get("/lead-forms/{form_id}", response_model=LeadFormOut)
-def get_lead_form(
-    form_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    lf = session.get(LeadForm, form_id)
-    if not lf or lf.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Lead form not found")
-    count = len(list(session.exec(select(Lead).where(Lead.form_id == lf.id)).all()))
-    return _leadform_to_out(lf, lead_count=count)
-
-
-@app.put("/lead-forms/{form_id}", response_model=LeadFormOut)
-def update_lead_form(
-    form_id: int,
-    body: LeadFormUpdateRequest,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    lf = session.get(LeadForm, form_id)
-    if not lf or lf.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Lead form not found")
-    if body.name is not None:
-        lf.name = body.name.strip() or lf.name
-    if body.headline is not None:
-        lf.headline = body.headline.strip()
-    if body.description is not None:
-        lf.description = body.description.strip()
-    if body.fields is not None:
-        seen = set()
-        unique: List[LeadFormField] = []
-        for f in body.fields:
-            if f.key in seen:
-                continue
-            seen.add(f.key); unique.append(f)
-        lf.fields = json.dumps([f.model_dump() for f in unique], ensure_ascii=False)
-    if body.thank_you_message is not None:
-        lf.thank_you_message = body.thank_you_message.strip() or lf.thank_you_message
-    if body.redirect_url is not None:
-        lf.redirect_url = body.redirect_url.strip()
-    if body.is_active is not None:
-        lf.is_active = bool(body.is_active)
-    lf.updated_at = datetime.utcnow()
-    session.add(lf)
-    session.commit()
-    session.refresh(lf)
-    count = len(list(session.exec(select(Lead).where(Lead.form_id == lf.id)).all()))
-    return _leadform_to_out(lf, lead_count=count)
-
-
-@app.delete("/lead-forms/{form_id}")
-def delete_lead_form(
-    form_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    lf = session.get(LeadForm, form_id)
-    if not lf or lf.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Lead form not found")
-    # Detach from any campaigns that reference this form
-    linked = list(session.exec(select(Campaign).where(Campaign.lead_form_id == form_id)).all())
-    for c in linked:
-        c.lead_form_id = None
-        session.add(c)
-    # Delete leads + form
-    leads = list(session.exec(select(Lead).where(Lead.form_id == form_id)).all())
-    for l in leads:
-        session.delete(l)
-    session.delete(lf)
-    session.commit()
-    return {"ok": True, "deleted": form_id, "detached_campaigns": [c.id for c in linked]}
-
-
-@app.get("/public/lead-forms/{slug}", response_model=LeadFormOut)
-def public_get_lead_form(slug: str, session: Session = Depends(get_session)):
-    """Unauthenticated read — used by the public form renderer page."""
-    lf = session.exec(select(LeadForm).where(LeadForm.public_slug == slug)).first()
-    if not lf or not lf.is_active:
-        raise HTTPException(status_code=404, detail="Form not found")
-    return _leadform_to_out(lf)
-
-
-@app.post("/public/lead-forms/{slug}/submit", response_model=LeadSubmitResponse)
-def public_submit_lead_form(
-    slug: str,
-    body: LeadSubmitRequest,
-    request: Request,
-    session: Session = Depends(get_session),
-):
-    lf = session.exec(select(LeadForm).where(LeadForm.public_slug == slug)).first()
-    if not lf or not lf.is_active:
-        raise HTTPException(status_code=404, detail="Form not found")
-
-    spec_fields = _parse_fields(lf.fields)
-    # Validate: every required field must be present and non-empty
-    cleaned: Dict[str, Any] = {}
-    for raw in spec_fields:
-        try:
-            fld = LeadFormField(**raw)
-        except Exception:
-            continue
-        val = body.data.get(fld.key)
-        if fld.required and (val is None or (isinstance(val, str) and not val.strip())):
-            raise HTTPException(status_code=400, detail=f"Missing required field: {fld.label}")
-        if val is not None:
-            # Clip outrageously long strings to protect the DB
-            if isinstance(val, str) and len(val) > 2000:
-                val = val[:2000]
-            cleaned[fld.key] = val
-
-    # Reject submissions with zero captured fields
-    if not cleaned:
-        raise HTTPException(status_code=400, detail="No valid fields submitted")
-
-    ip = request.client.host if request.client else ""
-    ua = request.headers.get("user-agent", "")[:500]
-
-    lead = Lead(
-        form_id=lf.id,
-        user_id=lf.user_id,
-        data=json.dumps(cleaned, ensure_ascii=False),
-        source=(body.source or "")[:120],
-        utm_campaign=(body.utm_campaign or "")[:120],
-        utm_source=(body.utm_source or "")[:120],
-        ip=ip,
-        user_agent=ua,
-    )
-    session.add(lead)
-    session.commit()
-    session.refresh(lead)
-
-    return LeadSubmitResponse(
-        ok=True,
-        lead_id=lead.id,
-        thank_you_message=lf.thank_you_message or "Thanks! We'll be in touch soon.",
-        redirect_url=lf.redirect_url or "",
-    )
-
-
-def _lead_to_out(l: Lead) -> LeadOut:
-    try:
-        data = json.loads(l.data or "{}")
-        if not isinstance(data, dict):
-            data = {}
-    except Exception:
-        data = {}
-    return LeadOut(
-        id=l.id,
-        form_id=l.form_id,
-        data=data,
-        source=l.source or "",
-        utm_campaign=l.utm_campaign or "",
-        utm_source=l.utm_source or "",
-        captured_at=l.captured_at,
-    )
-
-
-@app.get("/lead-forms/{form_id}/leads", response_model=LeadListResponse)
-def list_form_leads(
-    form_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    lf = session.get(LeadForm, form_id)
-    if not lf or lf.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Lead form not found")
-    rows = list(session.exec(
-        select(Lead).where(Lead.form_id == form_id).order_by(Lead.captured_at.desc())
-    ).all())
-    return LeadListResponse(items=[_lead_to_out(r) for r in rows], total=len(rows))
-
-
-@app.get("/lead-forms/{form_id}/leads.csv", response_class=PlainTextResponse)
-def export_form_leads_csv(
-    form_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    import csv, io
-    lf = session.get(LeadForm, form_id)
-    if not lf or lf.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Lead form not found")
-    spec = [LeadFormField(**f) for f in _parse_fields(lf.fields) if isinstance(f, dict)]
-    rows = list(session.exec(
-        select(Lead).where(Lead.form_id == form_id).order_by(Lead.captured_at.asc())
-    ).all())
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    header = ["id", "captured_at", "source", "utm_campaign", "utm_source"] + [f.key for f in spec]
-    writer.writerow(header)
-    for r in rows:
-        try:
-            data = json.loads(r.data or "{}") or {}
-        except Exception:
-            data = {}
-        writer.writerow(
-            [r.id, r.captured_at.isoformat(), r.source or "", r.utm_campaign or "", r.utm_source or ""]
-            + [str(data.get(f.key, "")) for f in spec]
-        )
-    return PlainTextResponse(
-        content=buf.getvalue(),
-        media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="leads_form_{form_id}.csv"'},
-    )
-
-
-@app.post("/campaigns/{campaign_id}/lead-form", response_model=CampaignOut)
-def attach_lead_form(
-    campaign_id: int,
-    body: AttachLeadFormRequest,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    camp = session.get(Campaign, campaign_id)
-    if not camp or camp.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    if body.lead_form_id is not None:
-        lf = session.get(LeadForm, body.lead_form_id)
-        if not lf or lf.user_id != current_user.id:
-            raise HTTPException(status_code=404, detail="Lead form not found")
-        camp.lead_form_id = lf.id
-    else:
-        camp.lead_form_id = None
-    camp.updated_at = datetime.utcnow()
-    session.add(camp)
-    session.commit()
-    session.refresh(camp)
-    return CampaignOut.model_validate(camp)
-
-
-@app.get("/lead/{slug}", response_class=FileResponse)
-def public_lead_form_page(slug: str):
-    """Serve the public-facing form renderer page (no auth).
-    Accepts both `/lead/abc123` and `/lead/abc123.html`.
-    """
-    return FileResponse("frontend/lead-form-public.html")
-
-
-@app.get("/leads.html", response_class=FileResponse)
-def leads_admin_page():
-    return FileResponse("frontend/leads.html")
-
-
-@app.get("/lead-forms.html", response_class=FileResponse)
-def lead_forms_admin_page():
-    return FileResponse("frontend/lead-forms.html")
-
-
 # =========================================================================
 # Phase 2 #4 — Comment-to-DM automations
 # =========================================================================
@@ -3062,7 +2892,7 @@ def _automation_to_out(a: "CommentAutomation") -> CommentAutomationOut:
         reply_comment_enabled=bool(a.reply_comment_enabled),
         reply_comment_template=a.reply_comment_template or "",
         dm_enabled=bool(a.dm_enabled), dm_template=a.dm_template or "",
-        lead_form_id=a.lead_form_id, link_url=a.link_url or "",
+        link_url=a.link_url or "",
         is_active=bool(a.is_active), trigger_count=int(a.trigger_count or 0),
         last_triggered_at=a.last_triggered_at,
         created_at=a.created_at, updated_at=a.updated_at,
@@ -3093,15 +2923,10 @@ def _match_comment(text: str, keywords: list[str], mode: str, case_sensitive: bo
     return False, ""
 
 
-def _render_link(aut: CommentAutomation, session: Session, request: Request) -> str:
-    """Resolve {link} for DM template: prefer explicit link_url, else lead-form public URL."""
+def _render_link(aut: CommentAutomation) -> str:
+    """Resolve {link} for DM template from explicit link_url."""
     if (aut.link_url or "").strip():
         return aut.link_url.strip()
-    if aut.lead_form_id:
-        lf = session.get(LeadForm, aut.lead_form_id)
-        if lf and lf.public_slug:
-            base = str(request.base_url).rstrip("/")
-            return f"{base}/lead/{lf.public_slug}"
     return ""
 
 
@@ -3128,10 +2953,6 @@ def create_comment_automation(
         c = session.get(Campaign, p.campaign_id)
         if not c or c.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not allowed")
-    if body.lead_form_id is not None:
-        lf = session.get(LeadForm, body.lead_form_id)
-        if not lf or lf.user_id != current_user.id:
-            raise HTTPException(status_code=404, detail="Lead form not found")
     a = CommentAutomation(
         user_id=current_user.id,
         name=body.name.strip(),
@@ -3145,7 +2966,6 @@ def create_comment_automation(
         reply_comment_template=body.reply_comment_template,
         dm_enabled=body.dm_enabled,
         dm_template=body.dm_template,
-        lead_form_id=body.lead_form_id,
         link_url=(body.link_url or "").strip(),
         is_active=body.is_active,
     )
@@ -3213,13 +3033,6 @@ def update_comment_automation(
             if not c or c.user_id != current_user.id:
                 raise HTTPException(status_code=403, detail="Not allowed")
         a.post_id = pid
-    if "lead_form_id" in data:
-        lfid = data["lead_form_id"]
-        if lfid is not None:
-            lf = session.get(LeadForm, lfid)
-            if not lf or lf.user_id != current_user.id:
-                raise HTTPException(status_code=404, detail="Lead form not found")
-        a.lead_form_id = lfid
     for f in (
         "name", "platform", "external_post_id", "match_mode", "case_sensitive",
         "reply_comment_enabled", "reply_comment_template",
@@ -3268,7 +3081,7 @@ def simulate_comment_automation(
     resp = CommentSimulateResponse(matched=matched, matched_keyword=mk)
     if not matched:
         return resp
-    link = _render_link(a, session, request)
+    link = _render_link(a)
     resp.rendered_reply = _render_template(
         a.reply_comment_template, handle=body.commenter_handle, link=link,
         keyword=mk, comment=body.comment_text,
@@ -3360,7 +3173,7 @@ async def comment_webhook(
         matched, mk = _match_comment(payload.comment_text, kws, a.match_mode, a.case_sensitive)
         if not matched:
             continue
-        link = _render_link(a, session, request)
+        link = _render_link(a)
         rendered_reply = _render_template(
             a.reply_comment_template, handle=payload.commenter_handle, link=link,
             keyword=mk, comment=payload.comment_text,
@@ -3521,271 +3334,6 @@ async def generate_post_slides(
     return GenerateSlidesResponse(slides=slides)
 
 
-# =========================================================================
-# Phase 2 #6 — Canva integration
-# =========================================================================
-
-def _canva_design_out(d: CanvaDesign) -> CanvaDesignOut:
-    try:
-        af = json.loads(d.autofill_data) if d.autofill_data else {}
-    except Exception:
-        af = {}
-    return CanvaDesignOut(
-        id=d.id, user_id=d.user_id, post_id=d.post_id, campaign_id=d.campaign_id,
-        external_id=d.external_id or "", template_id=d.template_id or "",
-        title=d.title or "", design_type=d.design_type or "instagram-post",
-        edit_url=d.edit_url or "", share_url=d.share_url or "",
-        thumbnail_url=d.thumbnail_url or "", export_url=d.export_url or "",
-        export_format=d.export_format or "png",
-        prompt=d.prompt or "",
-        autofill_data=af if isinstance(af, dict) else {},
-        status=d.status or "pending", error=d.error or "",
-        created_at=d.created_at, updated_at=d.updated_at,
-    )
-
-
-_CANVA_DESIGN_TYPE_TO_URL = {
-    "instagram-post": "https://www.canva.com/design/?category=tAFwXW2Fjj4",
-    "instagram-story": "https://www.canva.com/design/?category=tAFwdjEIkDA",
-    "instagram-reel": "https://www.canva.com/design/?category=tAFwhUSGqJo",
-    "facebook-post": "https://www.canva.com/design/?category=tAFwhxwXibg",
-    "facebook-cover": "https://www.canva.com/design/?category=tAFwoVfMvgs",
-    "linkedin-post": "https://www.canva.com/design/?category=tACZClbBh4s",
-    "linkedin-banner": "https://www.canva.com/design/?category=tAFwEjJrLg8",
-    "presentation": "https://www.canva.com/design/?category=tACZCns7aVM",
-    "square-post": "https://www.canva.com/design/?category=tACZCjWMEfY",
-    "vertical-video": "https://www.canva.com/design/?category=tAFwJOBAv1w",
-    "custom": "https://www.canva.com/",
-}
-
-
-@app.get("/canva/status", response_model=CanvaStatusResponse)
-def canva_status(current_user: User = Depends(get_current_user)) -> CanvaStatusResponse:
-    token = (os.getenv("CANVA_API_TOKEN") or "").strip()
-    client_id = (os.getenv("CANVA_CLIENT_ID") or "").strip()
-    # If API token present, we're in "api" mode; otherwise we use link-out
-    mode = "api" if token else "link-out"
-    return CanvaStatusResponse(
-        configured=True,  # link-out is always available
-        connected=bool(token),
-        auth_url=f"https://www.canva.com/api/oauth/authorize?client_id={client_id}" if client_id else "",
-        mode=mode,
-    )
-
-
-@app.post("/canva/designs", response_model=CanvaDesignOut)
-async def create_canva_design(
-    body: CanvaDesignCreateRequest,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-) -> CanvaDesignOut:
-    """Create a design record.
-
-    Modes:
-    - **link-out** (default): returns a deep link to Canva's editor with title +
-      prompt pre-encoded in the URL, so the user can build the design manually.
-    - **API autofill** (when CANVA_API_TOKEN is set + template_id provided):
-      calls Canva Connect `/v1/autofills` to programmatically fill a brand
-      template with the caption / caption fields, then returns the resulting
-      edit URL.
-    """
-    if body.post_id is not None:
-        _assert_post_owner(body.post_id, current_user.id, session)
-
-    from urllib.parse import urlencode
-
-    canva_token = (os.getenv("CANVA_API_TOKEN") or "").strip()
-    template_id = (body.template_id or "").strip()
-
-    edit_url = ""
-    external_id = ""
-    autofill_status = "pending"
-    autofill_error = ""
-    resolved_autofill_data: dict = body.autofill_data or {}
-
-    # ── API autofill path ─────────────────────────────────────────────────────
-    if canva_token and template_id:
-        try:
-            import httpx
-
-            # Build autofill data payload from body fields + caption
-            # The caller may pass arbitrary key→value pairs in autofill_data;
-            # we wrap each as a Canva "text" field.
-            data_fields: dict = {}
-            for field_key, field_value in (resolved_autofill_data or {}).items():
-                if isinstance(field_value, str):
-                    data_fields[field_key] = {"type": "text", "text": field_value[:5000]}
-
-            # Add prompt/caption as a "headline" field if not already present
-            if body.prompt and "headline" not in data_fields:
-                data_fields["headline"] = {"type": "text", "text": body.prompt[:5000]}
-            if body.title and "title" not in data_fields:
-                data_fields["title"] = {"type": "text", "text": body.title[:500]}
-
-            canva_payload = {
-                "brand_template_id": template_id,
-                "title": body.title or f"BrokerAI {body.design_type}",
-                "data": data_fields,
-            }
-
-            async with httpx.AsyncClient(timeout=20) as client:
-                resp = await client.post(
-                    "https://api.canva.com/rest/v1/autofills",
-                    json=canva_payload,
-                    headers={
-                        "Authorization": f"Bearer {canva_token}",
-                        "Content-Type": "application/json",
-                    },
-                )
-
-            if resp.status_code in (200, 201):
-                resp_data = resp.json()
-                # Canva returns { "job": { "id": "...", "status": "..." } }
-                job = resp_data.get("job") or {}
-                external_id = job.get("id") or ""
-                autofill_status = "autofill_submitted"
-                # The edit URL is available after the job completes; poll or
-                # store the job ID so the client can fetch it later.
-                # For now we return the job ID as a placeholder edit_url so the
-                # frontend can query /canva/designs/{id}/status.
-                edit_url = job.get("urls", {}).get("edit_url") or ""
-                log.info(
-                    "[canva] autofill job submitted external_id=%s user_id=%s",
-                    external_id, current_user.id,
-                )
-            else:
-                log.warning(
-                    "[canva] autofill API error status=%s body=%s",
-                    resp.status_code, resp.text[:300],
-                )
-                autofill_error = f"Canva API {resp.status_code}: {resp.text[:200]}"
-                autofill_status = "error"
-                # Fall through to link-out below
-
-        except Exception as exc:
-            log.exception("[canva] autofill call failed: %s", exc)
-            autofill_error = str(exc)[:300]
-            autofill_status = "error"
-
-    # ── Link-out path (fallback / no token) ───────────────────────────────────
-    if not edit_url:
-        base_url = _CANVA_DESIGN_TYPE_TO_URL.get(body.design_type, "https://www.canva.com/")
-        query = urlencode({
-            "title": body.title or f"BrokerAI {body.design_type}",
-            "prompt": (body.prompt or "")[:500],
-        })
-        edit_url = f"{base_url}&{query}" if "?" in base_url else f"{base_url}?{query}"
-        if autofill_status == "pending":
-            autofill_status = "link-out"
-
-    d = CanvaDesign(
-        user_id=current_user.id,
-        post_id=body.post_id,
-        campaign_id=body.campaign_id,
-        external_id=external_id,
-        template_id=template_id,
-        title=body.title or "",
-        design_type=body.design_type,
-        edit_url=edit_url,
-        prompt=body.prompt or "",
-        autofill_data=json.dumps(resolved_autofill_data),
-        status=autofill_status,
-        error=autofill_error,
-    )
-    session.add(d); session.commit(); session.refresh(d)
-    return _canva_design_out(d)
-
-
-@app.get("/canva/designs", response_model=CanvaDesignListResponse)
-def list_canva_designs(
-    post_id: Optional[int] = None,
-    status: Optional[str] = None,
-    design_type: Optional[str] = None,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-) -> CanvaDesignListResponse:
-    q = select(CanvaDesign).where(CanvaDesign.user_id == current_user.id)
-    if post_id is not None:
-        q = q.where(CanvaDesign.post_id == post_id)
-    if status:
-        q = q.where(CanvaDesign.status == status)
-    if design_type:
-        q = q.where(CanvaDesign.design_type == design_type)
-    rows = list(session.exec(q).all())
-    rows.sort(key=lambda d: d.created_at, reverse=True)
-    return CanvaDesignListResponse(
-        items=[_canva_design_out(d) for d in rows],
-        total=len(rows),
-    )
-
-
-@app.get("/canva/designs/{design_id}", response_model=CanvaDesignOut)
-def get_canva_design(
-    design_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-) -> CanvaDesignOut:
-    d = session.get(CanvaDesign, design_id)
-    if not d or d.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Design not found")
-    return _canva_design_out(d)
-
-
-@app.post("/canva/designs/{design_id}/import", response_model=CanvaDesignOut)
-def import_canva_design(
-    design_id: int,
-    body: CanvaDesignImportRequest,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-) -> CanvaDesignOut:
-    d = session.get(CanvaDesign, design_id)
-    if not d or d.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Design not found")
-    d.export_url = body.export_url.strip()
-    d.thumbnail_url = (body.thumbnail_url or "").strip() or d.thumbnail_url
-    d.share_url = (body.share_url or "").strip() or d.share_url
-    d.export_format = body.export_format
-    d.status = "imported"
-    d.updated_at = datetime.utcnow()
-    session.add(d)
-
-    if body.attach_to_post and d.post_id:
-        p = session.get(Post, d.post_id)
-        if p:
-            c = session.get(Campaign, p.campaign_id) if p.campaign_id else None
-            if c and c.user_id == current_user.id:
-                if body.as_slide:
-                    current = _slides_list(p.slides)
-                    current.append({
-                        "image_url": d.export_url,
-                        "caption_overlay": "",
-                        "alt_text": d.title or "",
-                        "order": len(current),
-                    })
-                    p.slides = json.dumps(current)
-                    p.is_carousel = len(current) >= 2
-                    if not (p.image_url or "").strip():
-                        p.image_url = d.export_url
-                else:
-                    p.image_url = d.export_url
-                session.add(p)
-    session.commit(); session.refresh(d)
-    return _canva_design_out(d)
-
-
-@app.delete("/canva/designs/{design_id}")
-def delete_canva_design(
-    design_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    d = session.get(CanvaDesign, design_id)
-    if not d or d.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Design not found")
-    session.delete(d); session.commit()
-    return {"ok": True, "deleted_id": design_id}
-
-
 @app.get("/health")
 @app.get("/healthz")
 async def health():
@@ -3812,6 +3360,7 @@ async def health():
         "openai_configured": bool(_openai_api_key()),
         "unsplash_configured": bool(os.getenv("UNSPLASH_ACCESS_KEY", "").strip()),
         "replicate_configured": bool(os.getenv("REPLICATE_API_TOKEN", "").strip()),
+        "video_backend": _video_backend(),
     }
     if db_error:
         payload["db_error"] = db_error

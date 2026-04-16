@@ -96,8 +96,6 @@ class Campaign(SQLModel, table=True):
     facebook_url: str = ""
     instagram_url: str = ""
     linkedin_url: str = ""
-    # Optional lead capture form attached to this campaign
-    lead_form_id: Optional[int] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -119,6 +117,8 @@ class Post(SQLModel, table=True):
     slides: str = Field(default="[]", sa_column=Column(Text))
     is_carousel: bool = Field(default=False)
     video_script: str = ""
+    # Denormalized playable URL (wizard / Sora serve); kept so review UI survives JSON churn.
+    embed_video_url: str = Field(default="", sa_column=Column(Text))
     day_label: Optional[str] = None
     publish_platforms: List[str] = Field(
         default_factory=lambda: ["facebook"],
@@ -164,53 +164,12 @@ class CampaignTemplate(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class LeadForm(SQLModel, table=True):
-    """User-owned lead capture form. Fields are a JSON array of
-    {key, label, type, required, options}."""
-    __tablename__ = "lead_forms"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id", index=True)
-    team_id: Optional[int] = Field(default=None, foreign_key="teams.id", index=True)
-    name: str = Field(default="Untitled Lead Form", sa_column=Column(Text))
-    headline: str = Field(default="", sa_column=Column(Text))
-    description: str = Field(default="", sa_column=Column(Text))
-    # JSON array string: [{"key":"email","label":"Email","type":"email","required":true}, ...]
-    fields: str = Field(default="[]", sa_column=Column(Text))
-    thank_you_message: str = Field(
-        default="Thanks! We'll be in touch soon.",
-        sa_column=Column(Text),
-    )
-    redirect_url: str = Field(default="", sa_column=Column(Text))
-    public_slug: str = Field(default="", index=True)
-    is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class Lead(SQLModel, table=True):
-    """A single lead capture row."""
-    __tablename__ = "leads"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    form_id: int = Field(foreign_key="lead_forms.id", index=True)
-    user_id: int = Field(foreign_key="users.id", index=True)
-    # JSON blob of submitted values keyed by field.key
-    data: str = Field(default="{}", sa_column=Column(Text))
-    source: str = Field(default="", sa_column=Column(Text))  # e.g. "campaign:42" or "post:123"
-    utm_campaign: str = Field(default="", sa_column=Column(Text))
-    utm_source: str = Field(default="", sa_column=Column(Text))
-    ip: str = Field(default="")
-    user_agent: str = Field(default="", sa_column=Column(Text))
-    captured_at: datetime = Field(default_factory=datetime.utcnow)
-
-
 class CommentAutomation(SQLModel, table=True):
     """Keyword-triggered comment-to-DM automation attached to a post (or catch-all).
 
     When a matching comment is received on the target post, we (a) optionally
     post a public reply to the comment and (b) send a DM to the commenter
-    containing a call-to-action — usually a lead-form link.
+    containing a call-to-action link.
     """
     __tablename__ = "comment_automations"
 
@@ -241,8 +200,6 @@ class CommentAutomation(SQLModel, table=True):
         default="Hi {handle}! Here's the info you asked about: {link}",
         sa_column=Column(Text),
     )
-    # Optional associated lead form (we attach its public slug into {link})
-    lead_form_id: Optional[int] = Field(default=None, foreign_key="lead_forms.id", index=True)
     link_url: str = Field(default="", sa_column=Column(Text))
 
     is_active: bool = Field(default=True)
@@ -290,43 +247,3 @@ class BrandAsset(SQLModel, table=True):
     content_type: str = Field(default="application/octet-stream")
     size_bytes: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
-
-
-class CanvaDesign(SQLModel, table=True):
-    """A Canva design generated for (or imported into) a post.
-
-    We don't proxy Canva's API from the server unless CANVA_API_TOKEN is set —
-    instead we store design metadata (edit_url, export_url) and let the
-    frontend link out to Canva for editing. Once the user exports, the
-    export_url is attached back to the Post as image/slide media.
-    """
-    __tablename__ = "canva_designs"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id", index=True)
-    post_id: Optional[int] = Field(default=None, foreign_key="posts.id", index=True)
-    campaign_id: Optional[int] = Field(default=None, foreign_key="campaigns.id", index=True)
-
-    # Canva identifiers
-    external_id: str = Field(default="", index=True)  # Canva design ID
-    template_id: str = Field(default="")
-
-    title: str = Field(default="", sa_column=Column(Text))
-    design_type: str = Field(default="instagram-post")  # presentation | instagram-post | facebook-post | etc
-
-    edit_url: str = Field(default="", sa_column=Column(Text))      # Canva editor deep-link
-    share_url: str = Field(default="", sa_column=Column(Text))     # public view
-    thumbnail_url: str = Field(default="", sa_column=Column(Text))
-    export_url: str = Field(default="", sa_column=Column(Text))    # hosted PNG/JPG/MP4 url
-    export_format: str = Field(default="png")
-
-    # AI prompt + element data used to generate/fill the design (JSON)
-    prompt: str = Field(default="", sa_column=Column(Text))
-    autofill_data: str = Field(default="{}", sa_column=Column(Text))  # JSON
-
-    # pending | ready | failed | imported
-    status: str = Field(default="pending")
-    error: str = Field(default="", sa_column=Column(Text))
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)

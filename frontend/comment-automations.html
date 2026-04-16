@@ -12,7 +12,7 @@
   <title>Comment Automations — BrokerAI</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+<body class="flex min-h-screen flex-col bg-slate-50 text-slate-900 antialiased">
   <header class="border-b border-slate-200 bg-white">
     <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
       <div class="flex items-center gap-3">
@@ -23,7 +23,7 @@
     </div>
   </header>
 
-  <main class="mx-auto max-w-6xl px-6 py-8">
+  <main class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8">
     <div class="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <strong>How it works:</strong> Rules run on <em>public comments</em> after a post is live. Set a keyword, a short public reply, and a DM body. Templates may use
       <code class="rounded bg-amber-100 px-1">{handle}</code>, <code class="rounded bg-amber-100 px-1">{link}</code>, <code class="rounded bg-amber-100 px-1">{keyword}</code>, and <code class="rounded bg-amber-100 px-1">{comment}</code>.
@@ -46,7 +46,7 @@
       <div class="flex-1 space-y-4 overflow-y-auto px-6 py-5">
         <div>
           <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Name</label>
-          <input id="f-name" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Instagram: PRICE keyword → lead form" />
+          <input id="f-name" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Instagram: PRICE keyword → DM with link" />
         </div>
         <div class="grid gap-3 sm:grid-cols-2">
           <div>
@@ -91,17 +91,9 @@
             <input id="f-dm-enabled" type="checkbox" class="rounded" checked /> Send DM
           </label>
           <textarea id="f-dm" rows="3" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Hi {handle}! Here's the info you asked about: {link}"></textarea>
-          <div class="mt-2 grid gap-2 sm:grid-cols-2">
-            <div>
-              <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Attach lead form</label>
-              <select id="f-leadform" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-                <option value="">— None —</option>
-              </select>
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Or custom link</label>
-              <input id="f-link" type="url" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="https://..." />
-            </div>
+          <div class="mt-2">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Link for <code class="text-[10px]">{link}</code></label>
+            <input id="f-link" type="url" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="https://..." />
           </div>
         </div>
         <label class="flex items-center gap-2 text-sm text-slate-700">
@@ -152,7 +144,7 @@ if (!TOKEN) { window.location.href = "/login.html"; }
 const H = { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" };
 
 const $ = (id) => document.getElementById(id);
-const state = { editing: null, forms: [] };
+const state = { editing: null };
 
 async function api(path, opts={}) {
   const r = await fetch(path, { headers: H, ...opts });
@@ -177,7 +169,6 @@ function openModal(a) {
   $("f-reply").value = a?.reply_comment_template || "Thanks for the interest! Just sent you a DM 📩";
   $("f-dm-enabled").checked = a?.dm_enabled ?? true;
   $("f-dm").value = a?.dm_template || "Hi {handle}! Here's the info you asked about: {link}";
-  $("f-leadform").value = a?.lead_form_id ? String(a.lead_form_id) : "";
   $("f-link").value = a?.link_url || "";
   $("f-active").checked = a?.is_active ?? true;
   $("modal").classList.remove("hidden"); $("modal").classList.add("flex");
@@ -186,16 +177,6 @@ function openModal(a) {
 function closeModal() {
   $("modal").classList.add("hidden"); $("modal").classList.remove("flex");
   state.editing = null;
-}
-
-async function loadLeadForms() {
-  try {
-    const j = await api("/lead-forms");
-    state.forms = j.items || [];
-    const sel = $("f-leadform");
-    sel.innerHTML = '<option value="">— None —</option>' +
-      state.forms.map(f => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join("");
-  } catch(e) { /* ignore */ }
 }
 
 function escapeHtml(s) {
@@ -286,7 +267,6 @@ async function load() {
 async function save() {
   const keywords = $("f-keywords").value.split(",").map(s => s.trim()).filter(Boolean);
   if (!keywords.length) { BrokerAI.showToast("Enter at least one keyword.", "error"); return; }
-  const leadFormVal = $("f-leadform").value;
   const body = {
     name: $("f-name").value.trim() || "Untitled",
     platform: $("f-platform").value,
@@ -298,7 +278,6 @@ async function save() {
     reply_comment_template: $("f-reply").value,
     dm_enabled: $("f-dm-enabled").checked,
     dm_template: $("f-dm").value,
-    lead_form_id: leadFormVal ? parseInt(leadFormVal) : null,
     link_url: $("f-link").value.trim(),
     is_active: $("f-active").checked,
   };
@@ -354,7 +333,7 @@ $("trun").onclick = async () => {
   }
 };
 
-loadLeadForms().then(load);
+load();
 </script>
 <script src="/static/js/app.js" defer></script>
 </body>

@@ -1,12 +1,11 @@
 """
-Post performance ingestion: Ayrshare analytics API with realistic simulation fallback.
+Post performance ingestion: Ayrshare analytics API when a post id exists; otherwise zeros.
 
 Engagement rate (product): (likes + comments) / max(impressions, 1) × 100 (shares still stored separately).
 """
 from __future__ import annotations
 
 import json
-import random
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlmodel import Session, select
@@ -85,18 +84,6 @@ def aggregate_ayrshare_analytics_body(body: Any) -> Tuple[int, int, int, int]:
     return likes, comments, shares, impressions
 
 
-def simulated_metrics(seed: int) -> Tuple[int, int, int, int, float]:
-    """Randomized realistic metrics when Ayrshare is unavailable (non-blocking)."""
-    rng = random.Random(seed)
-    likes = rng.randint(10, 500)
-    comments = rng.randint(1, 50)
-    impressions = rng.randint(500, 10000)
-    impressions = max(impressions, likes + comments + 1)
-    shares = rng.randint(0, min(80, likes // 3 + 5))
-    rate = compute_engagement_rate(likes, comments, impressions)
-    return likes, comments, shares, impressions, rate
-
-
 def _resolve_ayrshare_id(row: Post, stored: Any) -> str:
     sid = (getattr(row, "social_post_id", None) or "").strip()
     if sid:
@@ -124,8 +111,7 @@ async def fetch_post_analytics(
     platform: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Pull metrics from Ayrshare when possible; otherwise simulated data.
-    Persists likes, comments, shares, impressions, engagement_rate.
+    Pull metrics from Ayrshare when possible; otherwise persist zeros (no fabricated metrics).
     """
     row = session.get(Post, post_id)
     if row is None or row.user_id != user_id:
@@ -171,14 +157,8 @@ async def fetch_post_analytics(
             engagement_rate = compute_engagement_rate(likes, comments, impressions)
             source = "ayrshare"
         else:
-            likes, comments, shares, impressions, engagement_rate = simulated_metrics(
-                post_id * 9973 + user_id
-            )
             source = "placeholder"
     else:
-        likes, comments, shares, impressions, engagement_rate = simulated_metrics(
-            post_id * 9973 + user_id
-        )
         source = "placeholder"
 
     row.likes = likes

@@ -48,7 +48,7 @@
       class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl md:block"
     ></aside>
 
-    <div class="flex min-h-screen flex-col md:pl-64">
+    <div id="app-layout" class="flex min-h-screen flex-col md:pl-64">
       <header
         id="app-topnav"
         class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"
@@ -202,7 +202,7 @@
           return p.compliance_passed === true;
         }).length;
         document.getElementById("stat-images").textContent = posts.filter(function (p) {
-          return p.image_url && /^https?:\/\//i.test(p.image_url);
+          return !!safeImageUrl(p.image_url);
         }).length;
         document.getElementById("stat-platforms").textContent = posts.length ? "Active" : "-";
 
@@ -217,6 +217,92 @@
               '<a href="/wizard.html" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition hover:scale-[1.02]">✨ Run the wizard</a>' +
             '</div>';
           return;
+        }
+
+        function escVideoAttr(s) {
+          return String(s || "")
+            .replace(/&/g, "&amp;")
+            .replace(/"/g, "&quot;")
+            .replace(/</g, "&lt;");
+        }
+
+        /** Escape a string for use inside double-quoted HTML attributes (e.g. img src). */
+        function escAttr(s) {
+          return escVideoAttr(s);
+        }
+
+        function safeImageUrl(u) {
+          var s = String(u || "").trim();
+          if (s.length < 6) return "";
+          if (/^https?:\/\//i.test(s) || s.charAt(0) === "/") return s;
+          return "";
+        }
+
+        function resolvePostVideoUrl(p) {
+          var u = (p && p.video_url && String(p.video_url).trim()) || "";
+          if (u.length > 4 && /^https?:\/\//i.test(u)) return u;
+          if (u.length > 1 && u.charAt(0) === "/") {
+            try {
+              return (window.location.origin || "") + u;
+            } catch (_e) {
+              return u;
+            }
+          }
+          var raw = (p && p.video_script && String(p.video_script).trim()) || "";
+          if (!raw) return "";
+          try {
+            var o = JSON.parse(raw);
+            if (o && typeof o === "object" && !Array.isArray(o)) {
+              var keys = ["video_url", "wizard_external_video_url", "url", "src"];
+              for (var ki = 0; ki < keys.length; ki++) {
+                var c = o[keys[ki]];
+                if (c && String(c).trim().length > 4) {
+                  var s2 = String(c).trim();
+                  if (/^https?:\/\//i.test(s2)) return s2;
+                  if (s2.charAt(0) === "/") {
+                    try {
+                      return (window.location.origin || "") + s2;
+                    } catch (_e2) {
+                      return s2;
+                    }
+                  }
+                }
+              }
+            }
+          } catch (_pe) {}
+          return "";
+        }
+
+        function isVideoOnlyScriptObj(o) {
+          if (!o || typeof o !== "object" || Array.isArray(o)) return false;
+          var allowed = {
+            video_url: 1,
+            wizard_external_video_url: 1,
+            source: 1,
+            kind: 1,
+            url: 1,
+            src: 1,
+          };
+          var k = Object.keys(o);
+          if (!k.length) return false;
+          for (var i = 0; i < k.length; i++) {
+            if (!allowed[k[i]]) return false;
+          }
+          return true;
+        }
+
+        function hasRenderableScriptObj(vsObj) {
+          if (!vsObj || typeof vsObj !== "object" || Array.isArray(vsObj)) return false;
+          if (isVideoOnlyScriptObj(vsObj)) return false;
+          if (String(vsObj.hook || "").trim()) return true;
+          if (String(vsObj.voiceover || "").trim()) return true;
+          if (String(vsObj.cta || "").trim()) return true;
+          if (Array.isArray(vsObj.scenes)) {
+            for (var si = 0; si < vsObj.scenes.length; si++) {
+              if (String(vsObj.scenes[si] || "").trim()) return true;
+            }
+          }
+          return false;
         }
 
         posts.forEach(function (p, idx) {
@@ -263,12 +349,13 @@
             "</div>";
 
           var body = '<div class="grid gap-0 lg:grid-cols-[minmax(0,320px)_1fr]">';
-          if (p.image_url && p.image_url.length > 5) {
+          var imgSrc = safeImageUrl(p.image_url);
+          if (imgSrc) {
             body +=
               '<div class="relative aspect-video overflow-hidden bg-slate-100 lg:aspect-auto lg:min-h-[220px]">' +
               '<span class="absolute left-2 top-2 z-10 rounded-md bg-slate-900/75 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">AI Generated Media</span>' +
               '<img src="' +
-              p.image_url +
+              escAttr(imgSrc) +
               '" alt="" class="h-full w-full object-cover" loading="lazy" />' +
               "</div>";
           } else {
@@ -279,10 +366,15 @@
           body += '<div class="space-y-4 p-5 lg:p-6">';
 
           body += '<div id="caption-display-' + p.id + '">';
-          var rendered =
-            typeof marked !== "undefined"
-              ? marked.parse(p.caption || "")
-              : (p.caption || "").replace(/\n/g, "<br/>");
+          var rendered = "";
+          try {
+            rendered =
+              typeof marked !== "undefined"
+                ? marked.parse(p.caption || "")
+                : (p.caption || "").replace(/\n/g, "<br/>");
+          } catch (_mdErr) {
+            rendered = (p.caption || "").replace(/</g, "&lt;").replace(/\n/g, "<br/>");
+          }
           body +=
             '<div class="max-w-none text-sm leading-relaxed text-slate-800 [&_a]:text-amber-600 [&_strong]:text-slate-900">' +
             rendered +
@@ -292,8 +384,6 @@
             '<button type="button" onclick="startEdit(' +
             p.id +
             ')" class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:scale-105 active:scale-95">Edit caption</button>' +
-            '<a href="/post-editor.html?id=' + p.id + '" class="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 shadow-sm transition hover:scale-105 active:scale-95">🎠 Slides & Canva' +
-            (p.is_carousel ? ' (' + ((p.slides || []).length) + ')' : '') + '</a>' +
             '</div>';
           body += "</div>";
 
@@ -324,6 +414,29 @@
           });
           body += "</div>";
 
+          var vUrl = resolvePostVideoUrl(p);
+          if (vUrl && (/^https?:\/\//i.test(vUrl) || vUrl.indexOf("/wizard-video-serve") !== -1)) {
+            body +=
+              '<div class="mx-auto w-full max-w-3xl overflow-hidden rounded-xl border border-slate-200 bg-slate-950 shadow-inner">' +
+              '<p class="border-b border-slate-800/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-300">Video</p>' +
+              '<div class="relative aspect-video w-full min-h-[300px] max-h-[min(72vh,720px)] bg-black">';
+            var vLower = vUrl.toLowerCase();
+            var looksLikeDirectMp4 =
+              vLower.indexOf("wizard-video-serve") !== -1 || /\.mp4(\?|#|$)/i.test(vUrl);
+            if (looksLikeDirectMp4) {
+              body +=
+                '<video src="' +
+                escVideoAttr(vUrl) +
+                '" class="h-full w-full object-contain" controls playsinline preload="metadata"></video>';
+            } else {
+              body +=
+                '<iframe class="aspect-video h-full min-h-[300px] w-full border-0 bg-black" src="' +
+                escVideoAttr(vUrl) +
+                '" title="Campaign video" allow="autoplay; fullscreen; encrypted-media" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>';
+            }
+            body += "</div></div>";
+          }
+
           if (p.compliance_passed === false && p.compliance_issues && p.compliance_issues.length) {
             body +=
               '<div class="rounded-xl border border-red-200 bg-red-50/80 px-3 py-2 text-xs text-red-900">';
@@ -334,55 +447,89 @@
             body += "</ul></div>";
           }
 
-          if (p.video_script) {
+          if (p.video_script && !vUrl) {
             var vsRaw = (p.video_script || "").trim();
-            var vsBlock = "";
+            var vsObj = null;
             try {
-              var vsObj = JSON.parse(vsRaw);
-              if (vsObj && typeof vsObj === "object" && !Array.isArray(vsObj)) {
-                vsBlock =
-                  '<div class="space-y-2 text-xs text-slate-700">' +
-                  (vsObj.hook
-                    ? '<p><span class="font-semibold text-slate-900">Hook:</span> ' +
-                      String(vsObj.hook).replace(/</g, "&lt;") +
-                      "</p>"
-                    : "") +
-                  (Array.isArray(vsObj.scenes) && vsObj.scenes.length
-                    ? "<div><span class=\"font-semibold text-slate-900\">Scenes:</span><ol class=\"mt-1 list-decimal pl-4\">" +
-                      vsObj.scenes
-                        .map(function (s) {
-                          return "<li>" + String(s).replace(/</g, "&lt;") + "</li>";
-                        })
-                        .join("") +
-                      "</ol></div>"
-                    : "") +
-                  (vsObj.voiceover
-                    ? '<p><span class="font-semibold text-slate-900">Voiceover:</span> ' +
-                      String(vsObj.voiceover).replace(/</g, "&lt;") +
-                      "</p>"
-                    : "") +
-                  (vsObj.cta
-                    ? '<p><span class="font-semibold text-slate-900">CTA:</span> ' +
-                      String(vsObj.cta).replace(/</g, "&lt;") +
-                      "</p>"
-                    : "") +
-                  "</div>";
-              }
+              vsObj = JSON.parse(vsRaw);
             } catch (e) {
-              vsBlock = "";
+              vsObj = null;
             }
-            if (!vsBlock) {
-              vsBlock =
+            if (vsObj && typeof vsObj === "object" && !Array.isArray(vsObj) && isVideoOnlyScriptObj(vsObj)) {
+              var rawPlay =
+                String(vsObj.video_url || vsObj.wizard_external_video_url || vsObj.url || vsObj.src || "").trim();
+              var metaUrl = rawPlay;
+              if (metaUrl && metaUrl.charAt(0) === "/") {
+                try {
+                  metaUrl = (window.location.origin || "") + metaUrl;
+                } catch (_e3) {
+                  /* keep relative */
+                }
+              }
+              var metaNote =
+                '<p class="text-xs text-slate-600">A campaign video attachment is stored for this post (wizard preview or generated reel).</p>' +
+                (metaUrl && (/^https?:\/\//i.test(metaUrl) || metaUrl.indexOf("/wizard-video-serve") !== -1)
+                  ? '<p class="mt-2 text-xs"><a class="font-semibold text-amber-700 hover:underline" href="' +
+                    escAttr(metaUrl) +
+                    '" target="_blank" rel="noopener noreferrer">Open video</a></p>'
+                  : "");
+              body +=
+                '<details class="group mt-3 rounded-xl border border-slate-200 bg-slate-50/80 open:bg-white open:shadow-sm">' +
+                '<summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-amber-700 marker:hidden [&::-webkit-details-marker]:hidden">Video attachment <span class="text-slate-400 group-open:hidden">· tap to expand</span></summary>' +
+                '<div class="border-t border-slate-100 p-3">' +
+                metaNote +
+                "</div></details>";
+            } else if (hasRenderableScriptObj(vsObj)) {
+              var vsBlock =
+                '<div class="space-y-2 text-xs text-slate-700">' +
+                (String(vsObj.hook || "").trim()
+                  ? '<p><span class="font-semibold text-slate-900">Hook:</span> ' +
+                    String(vsObj.hook).replace(/</g, "&lt;") +
+                    "</p>"
+                  : "") +
+                (Array.isArray(vsObj.scenes) && vsObj.scenes.some(function (s) { return String(s || "").trim(); })
+                  ? "<div><span class=\"font-semibold text-slate-900\">Scenes:</span><ol class=\"mt-1 list-decimal pl-4\">" +
+                    vsObj.scenes
+                      .map(function (s) {
+                        var t = String(s || "").trim();
+                        return t ? "<li>" + t.replace(/</g, "&lt;") + "</li>" : "";
+                      })
+                      .join("") +
+                    "</ol></div>"
+                  : "") +
+                (String(vsObj.voiceover || "").trim()
+                  ? '<p><span class="font-semibold text-slate-900">Voiceover:</span> ' +
+                    String(vsObj.voiceover).replace(/</g, "&lt;") +
+                    "</p>"
+                  : "") +
+                (String(vsObj.cta || "").trim()
+                  ? '<p><span class="font-semibold text-slate-900">CTA:</span> ' +
+                    String(vsObj.cta).replace(/</g, "&lt;") +
+                    "</p>"
+                  : "") +
+                "</div>";
+              if (vsBlock.replace(/<[^>]+>/g, "").trim()) {
+                body +=
+                  '<details class="group rounded-xl border border-slate-200 bg-slate-50/80 open:bg-white open:shadow-sm">';
+                body +=
+                  '<summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-amber-700 marker:hidden [&::-webkit-details-marker]:hidden">AI video script <span class="text-slate-400 group-open:hidden">· tap to expand</span></summary>';
+                body += '<div class="border-t border-slate-100 p-3">' + vsBlock + "</div>";
+                body += "</details>";
+              }
+            } else if (!vsObj && vsRaw) {
+              var vsPlain =
                 '<pre class="max-h-48 overflow-auto whitespace-pre-wrap text-xs leading-relaxed text-slate-700">' +
                 vsRaw.replace(/</g, "&lt;") +
                 "</pre>";
+              if (vsRaw.replace(/\s/g, "").length) {
+                body +=
+                  '<details class="group rounded-xl border border-slate-200 bg-slate-50/80 open:bg-white open:shadow-sm">';
+                body +=
+                  '<summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-amber-700 marker:hidden [&::-webkit-details-marker]:hidden">AI video script <span class="text-slate-400 group-open:hidden">· tap to expand</span></summary>';
+                body += '<div class="border-t border-slate-100 p-3">' + vsPlain + "</div>";
+                body += "</details>";
+              }
             }
-            body +=
-              '<details class="group rounded-xl border border-slate-200 bg-slate-50/80 open:bg-white open:shadow-sm">';
-            body +=
-              '<summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-amber-700 marker:hidden [&::-webkit-details-marker]:hidden">AI video script <span class="text-slate-400 group-open:hidden">· tap to expand</span></summary>';
-            body += '<div class="border-t border-slate-100 p-3">' + vsBlock + "</div>";
-            body += "</details>";
           }
 
           body += '<div class="flex flex-wrap items-center gap-4 border-t border-slate-100 pt-4">';
@@ -576,9 +723,7 @@
             body: JSON.stringify({ campaign_id: campaignId }),
           });
           BrokerAI.showToast("Campaign approved — posts are scheduled.", "success");
-          setTimeout(function () {
-            window.location.href = "/dashboard.html";
-          }, 1200);
+          await load();
         } catch (err) {
           BrokerAI.showToast(err.message, "error");
           btn.disabled = false;

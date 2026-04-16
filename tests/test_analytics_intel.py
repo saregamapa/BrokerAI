@@ -80,7 +80,8 @@ def test_analytics_update_and_posts_sorted(client):
     assert rows[0]["engagement_rate"] >= rows[1]["engagement_rate"]
 
     summ = client.get("/analytics/summary", headers=h).json()
-    assert summ["total_likes"] > 0
+    assert summ["total_likes"] == 0
+    assert summ["total_impressions"] == 0
     assert summ["published_count"] == 2
 
 

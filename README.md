@@ -11,9 +11,8 @@ git clone <repo> brokerai && cd brokerai
 cp .env.example .env                  # fill in OPENAI_API_KEY + JWT_SECRET_KEY at minimum
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python -m scripts.seed_demo --reset   # creates demo@brokerai.app / demo1234
 uvicorn backend.main:app --reload --port 8000
-open http://localhost:8000            # landing → /login
+open http://localhost:8000            # landing → /signup or /login
 ```
 
 ---
@@ -25,9 +24,8 @@ open http://localhost:8000            # landing → /login
    - `OPENAI_API_KEY` — required. `/generate-campaign` returns 503 without it.
    - `JWT_SECRET_KEY` — any 32+ char random string. Rotating invalidates all sessions.
 3. `pip install -r requirements.txt`
-4. `python -m scripts.seed_demo --reset` (optional — see [Demo account](#demo-account))
-5. `uvicorn backend.main:app --reload --port 8000`
-6. Visit `http://localhost:8000`. SQLite DB lands at `./brokerai.db`.
+4. `uvicorn backend.main:app --reload --port 8000`
+5. Visit `http://localhost:8000`. SQLite DB lands at `./brokerai.db`.
 
 **Tests:** `pytest -q` — smoke suite in `tests/test_smoke_journey.py` covers the full signup → login → generate → approve → publish path with Ayrshare and OpenAI mocked. Keep it green.
 
@@ -56,7 +54,7 @@ Grouped by concern. Only the ones marked **required** must be set for the app to
 ### Core (required)
 | Var | Purpose |
 | --- | --- |
-| `OPENAI_API_KEY` | GPT-4 class model for the LangGraph pipeline. |
+| `OPENAI_API_KEY` | LangGraph pipeline + wizard **Sora** video preview (`/video/generate`, default). |
 | `JWT_SECRET_KEY` | 32+ char random string. Signs auth tokens. |
 | `DATABASE_URL` | SQLite by default (`sqlite:///./brokerai.db`). Swap for Postgres in prod. |
 
@@ -74,7 +72,9 @@ Grouped by concern. Only the ones marked **required** must be set for the app to
 | Var | Purpose |
 | --- | --- |
 | `UNSPLASH_ACCESS_KEY` | Fallback stock imagery when OpenAI image gen is skipped. |
-| `REPLICATE_API_TOKEN` | Video generation (`/video/generate`). |
+| `BROKERAI_VIDEO_BACKEND` | `openai` (default, Sora) or `replicate` for `/video/generate`. |
+| `REPLICATE_API_TOKEN` | Video generation only when `BROKERAI_VIDEO_BACKEND=replicate`. |
+| `OPENAI_SORA_MODEL` | Optional; default `sora-2` (or `sora-2-pro`). |
 | `OPENAI_IMAGE_MODEL` | Override default `dall-e-3`. |
 | `APP_VERSION` | Exposed in `/health`. Falls back to `RENDER_GIT_COMMIT` then `"dev"`. |
 | `LOG_FORMAT` | `json` for structured logs; default text. |
@@ -103,21 +103,6 @@ frontend/ (vanilla HTML + Tailwind) ──►  FastAPI (backend/main.py)
 - **Rate limiting** via `slowapi` with Starlette middleware. Disabled in tests.
 - **Security headers** middleware adds CSP, HSTS, Referrer-Policy, Permissions-Policy.
 - **Structured logging** — `backend/core/logger.py` exposes `log_event(name, **fields)` and `time_block(...)`. Emails are scrubbed to `a***@domain`.
-
----
-
-## Demo account
-
-```bash
-python -m scripts.seed_demo --reset
-```
-
-Creates `demo@brokerai.app` / `demo1234` with:
-- 2 campaigns (Austin Open House + First-Time Buyer Funnel)
-- 14 review-ready posts across Facebook, Instagram, LinkedIn
-- `social_connected=True` so dashboard + analytics render without OAuth
-
-Safe to run on any environment — it only touches rows for the demo user. Drop `--reset` for idempotent re-runs (no-op when already seeded).
 
 ---
 
@@ -168,7 +153,7 @@ static/
   img/favicon.svg
 tests/                 pytest suite (smoke journey in test_smoke_journey.py)
 scripts/
-  seed_demo.py         create demo@brokerai.app + pre-filled campaigns
+  verify_ayrshare.py   optional: validate Ayrshare env + JWT without the browser
 Dockerfile, render.yaml, requirements.txt, .env.example
 ```
 

@@ -67,14 +67,23 @@ def test_connect_social_reuses_cached_profile_key_without_duplicate_create(
 ) -> None:
     h, uid = _auth_headers(client, "soc3@example.com")
     with Session(engine) as s:
-        s.add(
-            SocialAccount(
+        row = s.exec(
+            select(SocialAccount).where(
+                SocialAccount.user_id == uid,
+                SocialAccount.platform == "ayrshare_profile",
+            )
+        ).first()
+        if row is None:
+            row = SocialAccount(
                 user_id=uid,
                 platform="ayrshare_profile",
                 is_connected=False,
                 profile_key="pytest-ayrshare-profile-key",
             )
-        )
+        else:
+            row.is_connected = False
+            row.profile_key = "pytest-ayrshare-profile-key"
+        s.add(row)
         s.commit()
 
     with patch("backend.main.create_ayrshare_profile") as create_mock, patch(
