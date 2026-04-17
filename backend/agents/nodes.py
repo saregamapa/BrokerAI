@@ -237,6 +237,13 @@ class OnePost(BaseModel):
     hashtags: List[str] = Field(default_factory=list)
     image_prompt: str = ""
     video_script: str = ""
+    ab_variant_b: str = Field(
+        default="",
+        description=(
+            "ALTERNATIVE CAPTION for A/B testing — different hook and angle from the main caption, "
+            "same platform tone and length requirements. Leave empty string if not applicable."
+        ),
+    )
 
 
 class ContentPack(BaseModel):
@@ -395,6 +402,32 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
             f"{b.get('kind','doc')}:{b.get('filename','')}" for b in brand_docs[:12]
         )
 
+    # Inject structured brand_kit into the strategy prompt when available.
+    brand_kit = state.get("brand_kit") or {}
+    brand_kit_note = ""
+    if brand_kit:
+        bk_voice = (brand_kit.get("voice") or "").strip()
+        bk_tone = (brand_kit.get("tone") or "").strip()
+        bk_messages = (brand_kit.get("key_messages") or "").strip()
+        bk_forbidden = (brand_kit.get("forbidden_words") or "").strip()
+        bk_palette = (brand_kit.get("color_palette") or "").strip()
+        bk_visual = (brand_kit.get("visual_style") or "").strip()
+        lines = []
+        if bk_voice:
+            lines.append(f"  Brand Voice: {bk_voice}")
+        if bk_tone:
+            lines.append(f"  Tone: {bk_tone}")
+        if bk_messages:
+            lines.append(f"  Key Messages: {bk_messages}")
+        if bk_forbidden:
+            lines.append(f"  Forbidden Words/Phrases: {bk_forbidden}")
+        if bk_palette:
+            lines.append(f"  Color Palette: {bk_palette}")
+        if bk_visual:
+            lines.append(f"  Visual Style: {bk_visual}")
+        if lines:
+            brand_kit_note = "\n\nBRAND KIT (apply to all themes and angles):\n" + "\n".join(lines)
+
     try:
         llm = _llm(key).with_structured_output(StrategyPlan)
         msg = (
@@ -418,7 +451,7 @@ def strategy_node(state: AgentState) -> Dict[str, Any]:
             f"that match this campaign, goal, and locale ({location}). Think like a marketer doing keyword research.\n"
             "- visual_style_brief: 2–4 sentences describing how imagery should look to stay consistent with the "
             "selected template/brand (colors, mood, composition, level of polish).\n"
-            f"{tpl_note}{brand_note}"
+            f"{tpl_note}{brand_note}{brand_kit_note}"
         )
         plan: StrategyPlan = llm.invoke(
             [
@@ -507,8 +540,26 @@ def research_node(state: AgentState) -> Dict[str, Any]:
 
     key = _openai_api_key()
     if not key:
-        log.warning("[agent:research] no OpenAI key — skipping research")
-        return {"research_insights": {}, "step_log": ["research: skipped (no API key)"]}
+        log.warning("[agent:research] no OpenAI key — using platform best-practice fallback")
+        fallback_insights = [
+            PlatformInsight(
+                platform=bp["platform"],
+                trending_formats=bp["trending_formats"],
+                engagement_patterns=bp["engagement_patterns"],
+                hook_styles=bp["hook_styles"],
+                avoid=bp["avoid"],
+            )
+            for plat in platforms
+            if (bp := _PLATFORM_BEST_PRACTICES.get(plat.lower()))
+        ]
+        fallback_plan = ResearchPlan(
+            insights=fallback_insights,
+            overall_content_direction="Platform best-practice defaults (no API key).",
+        )
+        return {
+            "research_insights": fallback_plan.model_dump(),
+            "step_log": [f"research: using best-practice fallback for {len(fallback_insights)} platforms (no API key)"],
+        }
 
     platform_list = ", ".join(platforms)
     msg = (
@@ -537,6 +588,25 @@ def research_node(state: AgentState) -> Dict[str, Any]:
             HumanMessage(content=msg),
         ])
 
+        # If LLM returned no insights, fill in best-practice fallback for each requested platform
+        if not plan.insights:
+            fallback_insights = []
+            for plat in platforms:
+                bp = _PLATFORM_BEST_PRACTICES.get(plat.lower())
+                if bp:
+                    fallback_insights.append(PlatformInsight(
+                        platform=bp["platform"],
+                        trending_formats=bp["trending_formats"],
+                        engagement_patterns=bp["engagement_patterns"],
+                        hook_styles=bp["hook_styles"],
+                        avoid=bp["avoid"],
+                    ))
+            if fallback_insights:
+                plan = ResearchPlan(
+                    insights=fallback_insights,
+                    overall_content_direction="Using platform best-practice defaults (research API unavailable).",
+                )
+
         log.info(
             "[agent:research] insights for %s platforms, direction_len=%s",
             len(plan.insights),
@@ -547,9 +617,66 @@ def research_node(state: AgentState) -> Dict[str, Any]:
             "step_log": [f"research: platform insights ready ({len(plan.insights)} platforms)"],
         }
     except Exception as e:
-        log.warning("[agent:research] failed (%s) — continuing without insights", e)
-        return {"research_insights": {}, "step_log": ["research: skipped (error)"]}
+        log.warning("[agent:research] failed (%s) — using platform best-practice fallback", e)
+        fallback_insights = [
+            PlatformInsight(
+                platform=bp["platform"],
+                trending_formats=bp["trending_formats"],
+                engagement_patterns=bp["engagement_patterns"],
+                hook_styles=bp["hook_styles"],
+                avoid=bp["avoid"],
+            )
+            for plat in platforms
+            if (bp := _PLATFORM_BEST_PRACTICES.get(plat.lower()))
+        ]
+        fallback_plan = ResearchPlan(
+            insights=fallback_insights,
+            overall_content_direction="Platform best-practice defaults (research node failed).",
+        )
+        return {
+            "research_insights": fallback_plan.model_dump(),
+            "step_log": [f"research: using best-practice fallback for {len(fallback_insights)} platforms"],
+        }
 
+
+# Platform best-practice fallback used when research_node returns empty
+_PLATFORM_BEST_PRACTICES: dict = {
+    "instagram": {
+        "platform": "instagram",
+        "trending_formats": ["Carousel posts (3-7 slides)", "Reels (15-30s)", "Story polls"],
+        "engagement_patterns": ["Ask questions in captions", "Use location tags", "Reply to comments within 1h", "Mix of educational and behind-the-scenes content"],
+        "hook_styles": ["Bold statement opening", "Question that challenges assumptions", "Surprising local stat or fact", "Pattern interrupt (unexpected angle)"],
+        "avoid": ["Generic stock-photo vibes", "Over-edited filters", "Keyword stuffing in captions"],
+    },
+    "linkedin": {
+        "platform": "linkedin",
+        "trending_formats": ["Text posts with 3-5 paragraphs", "Document carousels", "Native video"],
+        "engagement_patterns": ["Tag relevant people/companies", "End with a thought-provoking question", "Post Tue-Thu for max reach"],
+        "hook_styles": ["Professional insight that challenges convention", "Data-driven opening stat", "Personal story with business lesson", "First 2 lines must hook before 'see more' fold"],
+        "avoid": ["Overly promotional language", "More than 5 hashtags", "Cross-posting Instagram content verbatim"],
+    },
+    "twitter": {
+        "platform": "twitter",
+        "trending_formats": ["Single punchy tweet (<200 chars)", "Thread (3-5 tweets)", "Quote tweet with commentary"],
+        "engagement_patterns": ["Use threads for long-form content", "Engage with trending topics when relevant", "Post 2-3x daily"],
+        "hook_styles": ["Hook in 10 words or fewer", "Conversational and direct", "Witty or contrarian take"],
+        "avoid": ["Corporate speak", "More than 2 hashtags per tweet", "Overlong single tweets"],
+    },
+    "facebook": {
+        "platform": "facebook",
+        "trending_formats": ["Photo with caption", "Native video", "Link posts with custom thumbnail"],
+        "engagement_patterns": ["Boost top organic posts", "Run contests/giveaways", "Respond to all comments within 24h"],
+        "hook_styles": ["Community-focused question", "Local event or news tie-in", "Behind-the-scenes reveal"],
+        "avoid": ["More than 3 hashtags", "Overly long captions (aim for 40-80 words)", "Reposting without adding commentary"],
+    },
+    "tiktok": {
+        "platform": "tiktok",
+        "trending_formats": ["15-30s native video", "Duet/Stitch responses", "Trending audio clips"],
+        "engagement_patterns": ["Use trending sounds", "First 3 seconds must hook", "Post 1-3x daily for algorithm"],
+        "hook_styles": ["Immediate visual action in first frame", "On-screen text hook in first 2 seconds", "Curiosity gap ('Wait for it...')"],
+        "avoid": ["Watermarked content from other platforms", "Overly polished 'ad-like' production", "Missing trending audio opportunities"],
+    },
+}
 
 _CONTENT_SYSTEM = """\
 You are a top-performing social media copywriter. Your captions \
@@ -742,6 +869,27 @@ def content_node(state: AgentState) -> Dict[str, Any]:
         if research.get("overall_content_direction"):
             research_block += f"\nOVERALL DIRECTION: {research['overall_content_direction']}\n"
 
+    # Inject brand_kit guidelines if the user has a brand configured.
+    brand_kit = state.get("brand_kit") or {}
+    brand_kit_block = ""
+    if brand_kit:
+        bk_voice = brand_kit.get("voice", "professional")
+        bk_tone = brand_kit.get("tone", "friendly")
+        bk_messages = brand_kit.get("key_messages", "")
+        bk_forbidden = brand_kit.get("forbidden_words", "")
+        bk_cta = brand_kit.get("cta_style", "")
+        brand_kit_block = (
+            "\n\nBRAND GUIDELINES (apply strictly):\n"
+            f"- Brand Voice: {bk_voice}\n"
+            f"- Tone: {bk_tone}\n"
+        )
+        if bk_messages:
+            brand_kit_block += f"- Key Messages: {bk_messages}\n"
+        if bk_forbidden:
+            brand_kit_block += f"- Forbidden Words: {bk_forbidden}\n"
+        if bk_cta:
+            brand_kit_block += f"- CTA Style: {bk_cta}\n"
+
     msg = (
         f"Write exactly {num_posts} social media posts for a {biz} in {location}.\n\n"
         f"GOAL: {goal}\n"
@@ -749,9 +897,13 @@ def content_node(state: AgentState) -> Dict[str, Any]:
         f"AUDIENCE: {audience}\n"
         f"PLATFORMS: {platform_str}\n"
         f"VOICE / TONE: {tone} — match this consistently across hooks and body copy.\n\n"
-        f"{social_block}{strat_block}{tmpl_ctx}{brand_ctx}{hook_ctx}{cap_hint}{research_block}\n\n"
+        f"{social_block}{strat_block}{tmpl_ctx}{brand_ctx}{hook_ctx}{cap_hint}{research_block}"
+        f"{brand_kit_block}\n\n"
         "For each post, provide: day (matching strategy), caption, hashtags (array), "
-        'image_prompt (detailed DALL·E-oriented prompt), video_script (always "").\n\n'
+        'image_prompt (detailed DALL·E-oriented prompt), video_script (always ""), '
+        "and ab_variant_b (an ALTERNATIVE CAPTION using a different hook and angle — "
+        "same platform tone/length requirements as the main caption; different opening line, "
+        "different framing, different CTA).\n\n"
         "IMPORTANT: Make every caption feel like it was written by someone who LIVES in "
         f"{location} and knows the market inside out. Reference specific neighborhoods, "
         "streets, local businesses, parks, or market stats when possible.\n\n"
@@ -904,6 +1056,24 @@ def media_node(state: AgentState) -> Dict[str, Any]:
             "for stock imagery, or pick a stock image in the wizard."
         )
 
+    # Build brand visual suffix once — appended to each post's image_prompt below.
+    brand_kit = state.get("brand_kit") or {}
+    brand_visual_suffix = ""
+    if brand_kit:
+        bk_visual = (brand_kit.get("visual_style") or "").strip()
+        bk_palette = (brand_kit.get("color_palette") or "").strip()
+        bk_logo = (brand_kit.get("logo_description") or "").strip()
+        parts = []
+        if bk_visual or bk_palette or bk_logo:
+            if bk_visual or bk_palette:
+                parts.append(
+                    f"Visual brand requirements: {bk_visual}. Color palette: {bk_palette}."
+                )
+            if bk_logo:
+                parts.append(bk_logo)
+        if parts:
+            brand_visual_suffix = " " + " ".join(parts)
+
     out: List[Dict[str, Any]] = []
     used_photo_ids: set = set()  # Track used Unsplash IDs to prevent duplicate images
 
@@ -956,10 +1126,13 @@ def media_node(state: AgentState) -> Dict[str, Any]:
                 raise OpenAINotConfiguredError(
                     "OPENAI_API_KEY is required for DALL·E when Unsplash returns no images."
                 )
+            # Append brand visual requirements to the per-post image_prompt (if brand_kit set).
+            base_img_prompt = str(p.get("image_prompt") or "")
+            branded_img_prompt = base_img_prompt + brand_visual_suffix
             full_prompt = build_image_prompt(
                 cap,
                 campaign_theme=theme,
-                content_image_prompt=str(p.get("image_prompt") or ""),
+                content_image_prompt=branded_img_prompt,
                 location=str(data.get("location") or ""),
                 goal=str(data.get("goal") or ""),
             )
@@ -1030,7 +1203,13 @@ def media_node(state: AgentState) -> Dict[str, Any]:
     }
 
 
-def _compliance_one(caption: str, *, use_llm: bool) -> ComplianceLLM:
+def _compliance_one(
+    caption: str,
+    *,
+    use_llm: bool,
+    brand_forbidden_words: str = "",
+    brand_compliance_notes: str = "",
+) -> ComplianceLLM:
     key = _openai_api_key()
     if use_llm:
         if not key:
@@ -1045,8 +1224,16 @@ def _compliance_one(caption: str, *, use_llm: bool) -> ComplianceLLM:
                 "Return JSON fields passed, issues[], fixed_caption. "
                 "If minor issues, set passed true and still list suggestions. "
                 "If serious risk, passed false and fixed_caption must be a compliant rewrite.\n\n"
-                f"Caption:\n{caption}"
             )
+            # Inject brand-specific compliance rules when available.
+            if brand_forbidden_words:
+                msg += (
+                    f"BRAND PROHIBITED TERMS (treat any use as a compliance failure): "
+                    f"{brand_forbidden_words}\n\n"
+                )
+            if brand_compliance_notes:
+                msg += f"ADDITIONAL BRAND COMPLIANCE RULES:\n{brand_compliance_notes}\n\n"
+            msg += f"Caption:\n{caption}"
             return llm.invoke(
                 [
                     SystemMessage(content="You are a compliance reviewer."),
@@ -1064,23 +1251,36 @@ def _compliance_one(caption: str, *, use_llm: bool) -> ComplianceLLM:
 def compliance_node(state: AgentState) -> Dict[str, Any]:
     """ComplianceAgent — per-post caption review (wizard Step 4 mirrors ``/check-compliance``)."""
     posts = list(state.get("posts") or [])
-    data = _campaign_data(state)
-    pin0 = _wizard_post0_pinned(data) is not None
     use_llm = _ai_text_on(state) and bool(_openai_api_key())
-    log.info("[agent:compliance] posts=%s openai_review=%s", len(posts), use_llm)
+
+    # Extract brand-specific compliance rules from brand_kit (graceful fallback if absent).
+    brand_kit = state.get("brand_kit") or {}
+    brand_forbidden_words = (brand_kit.get("forbidden_words") or "").strip()
+    brand_compliance_notes = (brand_kit.get("compliance_notes") or "").strip()
+
+    log.info(
+        "[agent:compliance] posts=%s openai_review=%s brand_rules=%s (all posts including pinned)",
+        len(posts),
+        use_llm,
+        bool(brand_forbidden_words or brand_compliance_notes),
+    )
     out = []
     for idx, p in enumerate(posts):
-        if idx == 0 and pin0:
-            np = dict(p)
-            np["compliance_passed"] = True
-            np["compliance_issues"] = []
-            out.append(np)
-            continue
         cap = p.get("caption") or ""
-        r = _compliance_one(cap, use_llm=use_llm)
+        r = _compliance_one(
+            cap,
+            use_llm=use_llm,
+            brand_forbidden_words=brand_forbidden_words,
+            brand_compliance_notes=brand_compliance_notes,
+        )
         if use_llm and not r.passed and r.fixed_caption:
             cap2 = r.fixed_caption
-            r2 = _compliance_one(cap2, use_llm=use_llm)
+            r2 = _compliance_one(
+                cap2,
+                use_llm=use_llm,
+                brand_forbidden_words=brand_forbidden_words,
+                brand_compliance_notes=brand_compliance_notes,
+            )
             r = r2
             cap = cap2
         np = dict(p)
@@ -1213,6 +1413,9 @@ def persist_posts_node(state: AgentState) -> Dict[str, Any]:
             primary_plat = plats[0] if plats else "facebook"
             vs_store = str(p.get("video_script") or "")
             embed_vu = video_url_from_script_json(vs_store)
+            # S5-02: A/B caption — variant B from content_node (graceful: None if missing/empty)
+            raw_ab_b = str(p.get("ab_variant_b") or "").strip()
+            ab_variant_b_val: Optional[str] = raw_ab_b if raw_ab_b else None
             row = Post(
                 user_id=uid,
                 campaign_id=cid,
@@ -1233,6 +1436,8 @@ def persist_posts_node(state: AgentState) -> Dict[str, Any]:
                 platform_response="{}",
                 publish_attempts=0,
                 max_attempts=3,
+                ab_variant_b=ab_variant_b_val,
+                ab_status="testing" if ab_variant_b_val else None,
             )
             session.add(row)
         session.commit()

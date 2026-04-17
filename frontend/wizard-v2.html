@@ -18,10 +18,13 @@
     .ctype-card.active { @apply border-amber-500 ring-2 ring-amber-300 bg-amber-50; }
     .pill-btn { @apply rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-400 hover:bg-slate-50; }
     .score-ring { background: conic-gradient(#10b981 calc(var(--p,0) * 1%), #e5e7eb 0); }
+    .chip-btn { background: #fff; color: #64748b; border-color: #e2e8f0; }
+    .chip-btn:hover { background: #f8fafc; border-color: #cbd5e1; color: #1e293b; }
+    .chip-active { background: #fef3c7 !important; border-color: #f59e0b !important; color: #92400e !important; }
   </style>
 </head>
 <body class="flex min-h-screen flex-col bg-slate-50 text-slate-900 antialiased">
-  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/80 backdrop-blur">
+  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
     <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
       <a href="/dashboard.html" class="flex items-center gap-2 text-sm font-semibold text-slate-700">
         <span class="text-amber-500">⚡</span> BrokerAI
@@ -31,14 +34,45 @@
         <a href="/wizard.html" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">Classic wizard</a>
       </div>
     </div>
+    <!-- Step progress bar -->
+    <div id="wizard-progress" class="border-t border-slate-100 px-6 py-2.5">
+      <div class="mx-auto flex max-w-6xl items-center gap-3">
+        <!-- Mobile: compact step text, hidden on lg -->
+        <div class="lg:hidden text-sm text-slate-500 shrink-0">
+          Step <span id="mob-step-num">1</span> of 6 — <span id="mob-step-name">Start with your idea</span>
+        </div>
+        <!-- Desktop: step number + segments -->
+        <span class="hidden lg:inline shrink-0 text-[11px] font-semibold text-slate-500 tabular-nums">
+          Step <span id="prog-current">1</span>&hairsp;/&hairsp;6
+        </span>
+        <div class="hidden lg:flex flex-1 gap-1" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="6" id="prog-segments">
+          <div class="h-1.5 flex-1 rounded-full bg-amber-500 transition-all duration-300" data-seg="1"></div>
+          <div class="h-1.5 flex-1 rounded-full bg-slate-200 transition-all duration-300" data-seg="2"></div>
+          <div class="h-1.5 flex-1 rounded-full bg-slate-200 transition-all duration-300" data-seg="3"></div>
+          <div class="h-1.5 flex-1 rounded-full bg-slate-200 transition-all duration-300" data-seg="4"></div>
+          <div class="h-1.5 flex-1 rounded-full bg-slate-200 transition-all duration-300" data-seg="5"></div>
+          <div class="h-1.5 flex-1 rounded-full bg-slate-200 transition-all duration-300" data-seg="6"></div>
+        </div>
+        <!-- Mobile progress bar strip -->
+        <div class="flex lg:hidden flex-1 gap-1" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="6" id="prog-segments-mob">
+          <div class="h-1.5 flex-1 rounded-full bg-amber-500 transition-all duration-300" data-seg="1"></div>
+          <div class="h-1.5 flex-1 rounded-full bg-slate-200 transition-all duration-300" data-seg="2"></div>
+          <div class="h-1.5 flex-1 rounded-full bg-slate-200 transition-all duration-300" data-seg="3"></div>
+          <div class="h-1.5 flex-1 rounded-full bg-slate-200 transition-all duration-300" data-seg="4"></div>
+          <div class="h-1.5 flex-1 rounded-full bg-slate-200 transition-all duration-300" data-seg="5"></div>
+          <div class="h-1.5 flex-1 rounded-full bg-slate-200 transition-all duration-300" data-seg="6"></div>
+        </div>
+        <span id="prog-title" class="hidden max-w-[160px] truncate text-[11px] text-slate-400 lg:block">Start with your idea</span>
+      </div>
+    </div>
   </header>
 
-  <main class="mx-auto flex w-full max-w-4xl flex-1 flex-col px-6 pb-32 pt-10">
+  <main class="mx-auto flex w-full max-w-4xl flex-1 flex-col px-4 lg:px-6 pb-32 lg:pb-32 pt-6 lg:pt-10">
     <!-- ENTRY POINT -->
-    <section class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+    <section id="step-1" class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-5 lg:p-8 shadow-sm">
       <div class="mb-4 flex items-center gap-3">
         <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">1</span>
-        <h2 class="text-2xl font-semibold">Start with your idea</h2>
+        <h2 class="text-xl lg:text-2xl font-semibold">Start with your idea</h2>
       </div>
       <p class="mb-6 text-sm text-slate-500">Give your campaign a name, pick a goal, and describe it in one sentence. We'll pre-fill the rest.</p>
 
@@ -76,10 +110,10 @@
     </section>
 
     <!-- STEP 1: CONTENT TYPE -->
-    <section class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+    <section id="step-2" class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-5 lg:p-8 shadow-sm">
       <div class="mb-4 flex items-center gap-3">
         <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">2</span>
-        <h2 class="text-2xl font-semibold">Choose content type</h2>
+        <h2 class="text-xl lg:text-2xl font-semibold">Choose content type</h2>
       </div>
       <div class="grid grid-cols-2 gap-4 md:grid-cols-5">
         <div class="ctype-card active" data-ctype="single_image">
@@ -111,10 +145,10 @@
     </section>
 
     <!-- STEP 2: MEDIA & DESIGN -->
-    <section class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+    <section id="step-3" class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-5 lg:p-8 shadow-sm">
       <div class="mb-4 flex items-center gap-3">
         <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">3</span>
-        <h2 class="text-2xl font-semibold">Media &amp; Design</h2>
+        <h2 class="text-xl lg:text-2xl font-semibold">Media &amp; Design</h2>
       </div>
 
       <!-- Brand Kit -->
@@ -125,7 +159,10 @@
             <div class="text-xs text-slate-500">Applied automatically to every AI-generated asset.</div>
           </div>
           <div class="flex gap-2">
-            <button id="btn-brand-upload" class="pill-btn">Upload logo</button>
+            <label class="pill-btn cursor-pointer" title="Upload a logo image from your device">
+              <span>Upload logo</span>
+              <input id="logo-file-input" type="file" accept="image/*" class="sr-only" />
+            </label>
             <button id="btn-brand-ai" class="pill-btn">✨ AI-generate</button>
           </div>
         </div>
@@ -161,6 +198,13 @@
 
       <!-- Smart Image Selector (Unsplash) -->
       <div id="media-image" class="mb-6">
+        <div id="image-category-chips" class="flex flex-nowrap overflow-x-auto lg:flex-wrap gap-2 mb-3 pb-2 lg:pb-0">
+          <button class="chip-active chip-btn text-xs px-3 py-1.5 rounded-full border font-medium transition flex-shrink-0" data-q="luxury real estate home" onclick="searchChip(this, 'luxury real estate home')">🏠 Luxury Homes</button>
+          <button class="chip-btn text-xs px-3 py-1.5 rounded-full border font-medium transition flex-shrink-0" data-q="modern apartment interior" onclick="searchChip(this, 'modern apartment interior')">🛋️ Interiors</button>
+          <button class="chip-btn text-xs px-3 py-1.5 rounded-full border font-medium transition flex-shrink-0" data-q="real estate city skyline" onclick="searchChip(this, 'real estate city skyline')">🌆 City Views</button>
+          <button class="chip-btn text-xs px-3 py-1.5 rounded-full border font-medium transition flex-shrink-0" data-q="swimming pool villa outdoor" onclick="searchChip(this, 'swimming pool villa outdoor')">🏊 Outdoor &amp; Pool</button>
+          <button class="chip-btn text-xs px-3 py-1.5 rounded-full border font-medium transition flex-shrink-0" data-q="commercial office building" onclick="searchChip(this, 'commercial office building')">🏢 Commercial</button>
+        </div>
         <div class="mb-2 flex items-center gap-2">
           <input id="unsplash-q" class="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Search Unsplash (e.g., 'luxury condo kitchen')" />
           <button id="btn-unsplash" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600">Search</button>
@@ -195,10 +239,10 @@
     </section>
 
     <!-- STEP 3: AI CONTENT -->
-    <section class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+    <section id="step-4" class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-5 lg:p-8 shadow-sm">
       <div class="mb-4 flex items-center gap-3">
         <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">4</span>
-        <h2 class="text-2xl font-semibold">AI Content</h2>
+        <h2 class="text-xl lg:text-2xl font-semibold">AI Content</h2>
       </div>
 
       <div class="mb-4 grid gap-3 md:grid-cols-3">
@@ -234,7 +278,10 @@
       <div id="captions-list" class="space-y-3"></div>
 
       <div class="mt-4">
-        <label class="mb-1 block text-xs font-semibold text-slate-600">Selected caption (edit freely)</label>
+        <div class="mb-1 flex items-center justify-between gap-2">
+          <label class="text-xs font-semibold text-slate-600">Selected caption (edit freely)</label>
+          <button type="button" id="btn-use-library" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 shadow-sm transition hover:border-amber-400 hover:bg-amber-50 hover:text-amber-800">&#x1F4DA; Use from Library</button>
+        </div>
         <textarea id="f-caption" rows="5" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"></textarea>
         <div class="mt-2 flex flex-wrap gap-2">
           <button class="pill-btn mod" data-m="shorter">Shorter</button>
@@ -255,10 +302,10 @@
     </section>
 
     <!-- STEP 4: CAMPAIGN BUILDER -->
-    <section class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+    <section id="step-5" class="step-card mb-10 rounded-3xl border border-slate-200 bg-white p-5 lg:p-8 shadow-sm">
       <div class="mb-4 flex items-center gap-3">
         <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">5</span>
-        <h2 class="text-2xl font-semibold">Campaign Builder</h2>
+        <h2 class="text-xl lg:text-2xl font-semibold">Campaign Builder</h2>
       </div>
       <p class="mb-4 text-sm text-slate-500">Publish a single post, or let AI build a full multi-day campaign with our Content Mix (40% tips · 30% listings · 20% engagement · 10% promos).</p>
       <div class="grid gap-3 md:grid-cols-4">
@@ -302,16 +349,67 @@
           <input id="f-start" type="date" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
         </div>
       </div>
+
+      <div class="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-5" id="content-mix-block">
+        <h4 class="text-sm font-semibold text-slate-700 mb-1">Content Mix</h4>
+        <p class="text-xs text-slate-500 mb-4">Balance post types across your campaign. Values auto-adjust to 100%.</p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3" id="mix-sliders">
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-600 w-28 shrink-0">📚 Educational</span>
+            <input type="range" min="0" max="100" value="40" class="flex-1 accent-amber-500 h-2 lg:h-1" id="mix-educational" oninput="updateMix()">
+            <span class="text-xs font-semibold text-slate-700 w-8 text-right" id="mix-educational-val">40%</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-600 w-28 shrink-0">📣 Promotional</span>
+            <input type="range" min="0" max="100" value="30" class="flex-1 accent-amber-500 h-2 lg:h-1" id="mix-promotional" oninput="updateMix()">
+            <span class="text-xs font-semibold text-slate-700 w-8 text-right" id="mix-promotional-val">30%</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-600 w-28 shrink-0">💬 Engagement</span>
+            <input type="range" min="0" max="100" value="20" class="flex-1 accent-amber-500 h-2 lg:h-1" id="mix-engagement" oninput="updateMix()">
+            <span class="text-xs font-semibold text-slate-700 w-8 text-right" id="mix-engagement-val">20%</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-600 w-28 shrink-0">✨ Brand Story</span>
+            <input type="range" min="0" max="100" value="10" class="flex-1 accent-amber-500 h-2 lg:h-1" id="mix-brand" oninput="updateMix()">
+            <span class="text-xs font-semibold text-slate-700 w-8 text-right" id="mix-brand-val">10%</span>
+          </div>
+        </div>
+
+        <!-- Visual bar chart of mix -->
+        <div class="mt-4 flex rounded-lg overflow-hidden h-4" id="mix-bar">
+          <div class="bg-blue-400 transition-all duration-200" style="width:40%" title="Educational"></div>
+          <div class="bg-amber-400 transition-all duration-200" style="width:30%" title="Promotional"></div>
+          <div class="bg-emerald-400 transition-all duration-200" style="width:20%" title="Engagement"></div>
+          <div class="bg-violet-400 transition-all duration-200" style="width:10%" title="Brand Story"></div>
+        </div>
+        <div class="flex gap-4 mt-2 text-[10px] text-slate-500">
+          <span><span class="inline-block w-2 h-2 rounded-sm bg-blue-400 mr-1"></span>Educational</span>
+          <span><span class="inline-block w-2 h-2 rounded-sm bg-amber-400 mr-1"></span>Promotional</span>
+          <span><span class="inline-block w-2 h-2 rounded-sm bg-emerald-400 mr-1"></span>Engagement</span>
+          <span><span class="inline-block w-2 h-2 rounded-sm bg-violet-400 mr-1"></span>Brand Story</span>
+        </div>
+      </div>
+
+      <!-- Post timeline preview -->
+      <div class="mt-4 rounded-xl border border-slate-200 bg-white p-5" id="timeline-preview-block">
+        <h4 class="text-sm font-semibold text-slate-700 mb-3">📅 Publishing Timeline Preview</h4>
+        <div id="timeline-dots" class="flex flex-wrap gap-2">
+          <!-- populated by JS -->
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Preview based on your frequency settings above.</p>
+      </div>
     </section>
 
     <!-- STEP 5: PREVIEW & PUBLISH -->
-    <section class="step-card mb-24 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+    <section id="step-6" class="step-card mb-24 rounded-3xl border border-slate-200 bg-white p-5 lg:p-8 shadow-sm">
       <div class="mb-4 flex items-center gap-3">
         <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">6</span>
-        <h2 class="text-2xl font-semibold">Preview &amp; Publish</h2>
+        <h2 class="text-xl lg:text-2xl font-semibold">Preview &amp; Publish</h2>
       </div>
 
-      <div class="grid gap-6 md:grid-cols-[1fr,260px]">
+      <div class="grid gap-6 grid-cols-1 md:grid-cols-[1fr,260px]">
         <!-- Live preview -->
         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
           <div class="mb-2 flex items-center gap-2 text-xs text-slate-500">
@@ -343,15 +441,58 @@
   </main>
 
   <!-- Sticky action bar -->
-  <div class="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white/90 backdrop-blur">
-    <div class="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
+  <div id="action-bar" class="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white/90 backdrop-blur" style="padding-bottom: max(12px, env(safe-area-inset-bottom))">
+    <!-- Mobile layout: two rows -->
+    <div class="flex lg:hidden items-center justify-between px-4 pt-3 pb-1">
+      <a href="/dashboard.html" class="text-sm text-slate-500 hover:text-slate-700">← Cancel</a>
+      <div class="flex items-center gap-1.5">
+        <button id="btn-templates-mob" class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Templates">📁</button>
+        <button id="btn-save-draft-mob" class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Save as draft">💾</button>
+        <button id="btn-schedule-mob" class="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100" title="Schedule for review">📋</button>
+      </div>
+    </div>
+    <div class="flex lg:hidden items-center gap-2 px-4 pb-2">
+      <button id="btn-publish-mob" class="flex-1 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/25 active:scale-95 transition">✨ Generate Campaign</button>
+    </div>
+    <!-- Desktop layout: single row -->
+    <div class="hidden lg:flex mx-auto max-w-4xl items-center justify-between px-6 py-3">
       <a href="/dashboard.html" class="text-sm text-slate-500 hover:text-slate-700">← Cancel</a>
       <div class="flex items-center gap-2">
         <button id="btn-templates" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Templates">📁 Templates</button>
         <button id="btn-save-template" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Save current settings as a reusable template">💾 Save as Template</button>
-        <button id="btn-save-draft" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Save draft</button>
-        <button id="btn-schedule" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">📅 Schedule</button>
-        <button id="btn-publish" class="rounded-lg bg-amber-500 px-5 py-2 text-sm font-bold text-white hover:bg-amber-600">🚀 Generate &amp; Publish</button>
+        <button id="btn-save-draft" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Save as draft to finish later">💾 Save for Later</button>
+        <button id="btn-schedule" class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100" title="Submit for team review and scheduling">📋 Schedule for Review</button>
+        <button id="btn-publish" class="rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2 text-sm font-bold text-white shadow-md shadow-amber-500/25 hover:scale-105 transition active:scale-95">✨ Generate Campaign</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generation progress overlay (S2-03) -->
+  <div id="gen-progress-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm hidden">
+    <div class="bg-white rounded-2xl p-8 shadow-2xl w-full max-w-md mx-4">
+      <div class="text-center mb-6">
+        <div class="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 mb-3">
+          <svg class="h-7 w-7 text-amber-500 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+        </div>
+        <h3 class="text-lg font-bold text-slate-800">Generating your campaign</h3>
+        <p class="text-sm text-slate-500 mt-1" id="gen-step-label">Starting up...</p>
+      </div>
+
+      <!-- Steps -->
+      <div class="space-y-3 mb-6" id="gen-steps-list">
+        <!-- filled by JS -->
+      </div>
+
+      <!-- Progress bar -->
+      <div class="rounded-full bg-slate-100 h-2 overflow-hidden">
+        <div id="gen-progress-bar" class="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full transition-all duration-500" style="width:0%"></div>
+      </div>
+      <div class="flex justify-between mt-2 text-xs text-slate-400">
+        <span id="gen-progress-pct">0%</span>
+        <span id="gen-eta">~2 min remaining</span>
       </div>
     </div>
   </div>
@@ -380,6 +521,98 @@
       t.textContent = msg; document.body.appendChild(t);
       setTimeout(() => t.remove(), 3500);
     };
+
+    // ---- generation progress (S2-03) ----
+    var GEN_STEPS = [
+      { label: '🧠 Analyzing your brief', duration: 12 },
+      { label: '📋 Building campaign strategy', duration: 18 },
+      { label: '✍️ Writing post captions', duration: 22 },
+      { label: '🖼️ Generating image prompts', duration: 15 },
+      { label: '✅ Running compliance checks', duration: 10 },
+      { label: '📅 Scheduling posts', duration: 8 },
+      { label: '🎉 Finalizing your campaign', duration: 5 },
+    ];
+
+    var _genTimer = null;
+    var _genStepIdx = 0;
+    var _genStartTime = null;
+
+    function showGenProgress() {
+      _genStepIdx = 0;
+      _genStartTime = Date.now();
+      var overlay = document.getElementById('gen-progress-overlay');
+      if (!overlay) return;
+      overlay.classList.remove('hidden');
+
+      var list = document.getElementById('gen-steps-list');
+      if (list) {
+        list.innerHTML = GEN_STEPS.map(function(s, i) {
+          return '<div id="gen-step-' + i + '" class="flex items-center gap-3 text-sm">' +
+            '<div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full ' + (i === 0 ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400') + ' text-xs font-bold">' +
+            (i + 1) + '</div>' +
+            '<span class="' + (i === 0 ? 'text-slate-800 font-medium' : 'text-slate-400') + '">' + s.label + '</span>' +
+            '<span id="gen-step-check-' + i + '" class="ml-auto text-emerald-500 hidden">✓</span>' +
+            '</div>';
+        }).join('');
+      }
+
+      advanceGenStep();
+    }
+
+    function advanceGenStep() {
+      if (_genStepIdx >= GEN_STEPS.length) return;
+      var step = GEN_STEPS[_genStepIdx];
+      var pct = Math.round((_genStepIdx / GEN_STEPS.length) * 90);
+
+      var bar = document.getElementById('gen-progress-bar');
+      var pctEl = document.getElementById('gen-progress-pct');
+      var etaEl = document.getElementById('gen-eta');
+      var labelEl = document.getElementById('gen-step-label');
+
+      if (bar) bar.style.width = pct + '%';
+      if (pctEl) pctEl.textContent = pct + '%';
+      if (labelEl) labelEl.textContent = step.label;
+
+      var totalDuration = GEN_STEPS.reduce(function(a,s){return a+s.duration;}, 0);
+      var elapsed = (Date.now() - _genStartTime) / 1000;
+      var remaining = Math.max(5, totalDuration - elapsed);
+      if (etaEl) etaEl.textContent = '~' + Math.ceil(remaining / 60) + ' min remaining';
+
+      GEN_STEPS.forEach(function(_, i) {
+        var el = document.getElementById('gen-step-' + i);
+        var check = document.getElementById('gen-step-check-' + i);
+        if (!el) return;
+        var num = el.querySelector('div');
+        var lbl = el.querySelector('span');
+        if (i < _genStepIdx) {
+          if (num) { num.className = 'flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 text-xs font-bold'; }
+          if (lbl) { lbl.className = 'text-slate-500'; }
+          if (check) check.classList.remove('hidden');
+        } else if (i === _genStepIdx) {
+          if (num) { num.className = 'flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold'; }
+          if (lbl) { lbl.className = 'text-slate-800 font-medium'; }
+        }
+      });
+
+      _genStepIdx++;
+      if (_genStepIdx < GEN_STEPS.length) {
+        _genTimer = setTimeout(advanceGenStep, step.duration * 1000 / 7);
+      }
+    }
+
+    function hideGenProgress(success) {
+      if (_genTimer) clearTimeout(_genTimer);
+      var bar = document.getElementById('gen-progress-bar');
+      var pctEl = document.getElementById('gen-progress-pct');
+      var etaEl = document.getElementById('gen-eta');
+      if (bar) bar.style.width = '100%';
+      if (pctEl) pctEl.textContent = '100%';
+      if (etaEl) etaEl.textContent = success ? 'Done!' : 'Failed';
+      setTimeout(function() {
+        var overlay = document.getElementById('gen-progress-overlay');
+        if (overlay) overlay.classList.add('hidden');
+      }, 800);
+    }
 
     // ---- chips ----
     document.querySelectorAll("#goal-chips .chip").forEach(c => {
@@ -426,8 +659,8 @@
     }
 
     // ---- unsplash ----
-    $("btn-unsplash").addEventListener("click", async () => {
-      const q = $("unsplash-q").value.trim() || $("f-objective").value.slice(0, 60) || "real estate";
+    async function searchUnsplash(q) {
+      q = (q || $("unsplash-q").value.trim() || $("f-objective").value.slice(0, 60) || "real estate");
       try {
         const d = await api(`/unsplash/search?q=${encodeURIComponent(q)}&per_page=12`);
         const grid = $("unsplash-grid"); grid.innerHTML = "";
@@ -443,7 +676,36 @@
           grid.appendChild(img);
         });
       } catch (e) { toast(e.message, true); }
+    }
+    $("btn-unsplash").addEventListener("click", () => {
+      const q = $("unsplash-q").value.trim() || $("f-objective").value.slice(0, 60) || "real estate";
+      searchUnsplash(q);
     });
+
+    function searchChip(btn, query) {
+      document.querySelectorAll('.chip-btn').forEach(function(b) { b.classList.remove('chip-active'); });
+      btn.classList.add('chip-active');
+      var inp = document.getElementById('unsplash-q');
+      if (inp) { inp.value = query; }
+      if (typeof searchUnsplash === 'function') searchUnsplash(query);
+    }
+
+    // Auto-load default images when step-3 section comes into view
+    (function() {
+      var s3 = document.getElementById('step-3');
+      if (!s3) return;
+      var loaded = false;
+      var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting && !loaded) {
+            loaded = true;
+            var firstChip = document.querySelector('[data-q]');
+            if (firstChip) searchChip(firstChip, firstChip.getAttribute('data-q'));
+          }
+        });
+      }, { threshold: 0.3 });
+      obs.observe(s3);
+    })();
 
     // ---- brand kit ----
     async function loadBrandKit() {
@@ -479,9 +741,32 @@
         toast("AI brand kit generated ✔︎");
       } catch (e) { toast(e.message, true); }
     });
-    $("btn-brand-upload").addEventListener("click", () => {
-      const url = prompt("Paste your hosted logo URL (https://…)");
-      if (url) $("bk-logo").value = url;
+    $("logo-file-input").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) { toast("Logo must be under 5 MB", true); return; }
+      // Optimistic local preview via data URL
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target.result;
+        $("bk-logo").value = dataUrl;
+        toast("Logo loaded — it will be uploaded when you generate the campaign.");
+      };
+      reader.readAsDataURL(file);
+      // Attempt server-side upload if endpoint exists
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/upload/logo", {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token },
+          body: fd,
+        });
+        if (res.ok) {
+          const d = await res.json();
+          if (d && d.url) { $("bk-logo").value = d.url; toast("Logo uploaded ✔︎"); }
+        }
+      } catch (_) { /* silently keep the data URL */ }
     });
 
     // ---- video ----
@@ -632,6 +917,7 @@
     async function submit(action) {
       const body = campaignPayload();
       if (!body.goal) return toast("Pick a goal first", true);
+      showGenProgress();
       BrokerAI.setLoading(true, "Building your strategy…");
       const progress = BrokerAI.progressCycle([
         "Building your strategy…",
@@ -644,10 +930,12 @@
         const d = await api("/generate-campaign", { method:"POST", body: JSON.stringify(body) });
         progress.stop();
         BrokerAI.setLoadingText("Done ✔︎");
+        hideGenProgress(true);
         toast(action === "publish" ? "Campaign queued ✔︎" : "Campaign saved ✔︎");
         setTimeout(() => window.location.href = `/review.html?campaign=${d.campaign_id}`, 700);
       } catch (e) {
         progress.stop();
+        hideGenProgress(false);
         toast(e.message, true);
       } finally {
         BrokerAI.setLoading(false);
@@ -656,6 +944,11 @@
     $("btn-publish").addEventListener("click", () => submit("publish"));
     $("btn-schedule").addEventListener("click", () => submit("schedule"));
     $("btn-save-draft").addEventListener("click", () => submit("draft"));
+    // Mobile action bar button wiring
+    if ($("btn-publish-mob")) $("btn-publish-mob").addEventListener("click", () => submit("publish"));
+    if ($("btn-schedule-mob")) $("btn-schedule-mob").addEventListener("click", () => submit("schedule"));
+    if ($("btn-save-draft-mob")) $("btn-save-draft-mob").addEventListener("click", () => submit("draft"));
+    if ($("btn-templates-mob")) $("btn-templates-mob").addEventListener("click", () => $("btn-templates").click());
 
     // ============================================================
     // Templates — Save-as-template, Load, Delete
@@ -867,15 +1160,28 @@
     }
 
     // Sidebar UI
+    // Desktop toggle button — hidden on mobile (FAB handles mobile)
     const assistantBtn = document.createElement("button");
     assistantBtn.id = "assistant-toggle";
     assistantBtn.innerHTML = "✨ AI Assistant";
-    assistantBtn.className = "fixed bottom-20 right-6 z-30 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-5 py-3 text-sm font-bold text-white shadow-xl hover:scale-105 transition";
+    assistantBtn.className = "hidden lg:flex fixed bottom-20 right-6 z-30 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-5 py-3 text-sm font-bold text-white shadow-xl hover:scale-105 transition";
     document.body.appendChild(assistantBtn);
+
+    // Mobile FAB
+    const aiFab = document.createElement("button");
+    aiFab.id = "ai-fab";
+    aiFab.className = "lg:hidden fixed bottom-24 right-4 z-50 w-12 h-12 rounded-full bg-amber-500 text-white shadow-lg flex items-center justify-center text-xl";
+    aiFab.setAttribute("aria-label", "Open AI Assistant");
+    aiFab.innerHTML = "💡";
+    document.body.appendChild(aiFab);
 
     const panel = document.createElement("div");
     panel.id = "assistant-panel";
-    panel.className = "fixed right-0 top-0 z-40 hidden h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl";
+    // On mobile: bottom sheet (translate-y-full by default, slides up on open)
+    // On desktop: right sidebar
+    panel.className = "fixed right-0 z-40 flex-col border-l border-slate-200 bg-white shadow-2xl " +
+      "bottom-0 left-0 max-h-[70vh] overflow-y-auto rounded-t-2xl transition-transform duration-300 translate-y-full " +
+      "lg:top-0 lg:bottom-auto lg:left-auto lg:h-full lg:w-full lg:max-w-md lg:max-h-none lg:overflow-visible lg:rounded-none lg:translate-y-0 lg:transition-none";
     panel.innerHTML = `
       <div class="flex items-center justify-between border-b border-slate-200 px-5 py-3">
         <div>
@@ -904,24 +1210,39 @@
     const history = [];
 
     function openPanel() {
-      panel.style.display = "flex";
-      panel.classList.remove("hidden");
+      panel.style.display = “flex”;
+      panel.classList.remove(“hidden”);
+      // Mobile: slide up from bottom
+      if (window.innerWidth < 1024) {
+        panel.classList.remove(“translate-y-full”);
+        panel.classList.add(“translate-y-0”);
+      }
       if (!panelMsgs.dataset.inited) {
-        addMsg("assistant", "Hey! I can read everything you've filled in and help you refine it. Try: “write 3 more captions with a bold tone” or “switch to LinkedIn and make it professional”.");
+        addMsg(“assistant”, “Hey! I can read everything you've filled in and help you refine it. Try: “write 3 more captions with a bold tone” or “switch to LinkedIn and make it professional”.”);
         renderSuggestions([
-          "Give me 3 caption options for a new listing",
-          "Make the tone more playful",
-          "Add 5 scroll-stopping hooks",
-          "Switch to Reel + 14-day campaign"
+          “Give me 3 caption options for a new listing”,
+          “Make the tone more playful”,
+          “Add 5 scroll-stopping hooks”,
+          “Switch to Reel + 14-day campaign”
         ]);
-        panelMsgs.dataset.inited = "1";
+        panelMsgs.dataset.inited = “1”;
       }
       setTimeout(() => panelInput.focus(), 50);
     }
-    function closePanel() { panel.style.display = "none"; }
+    function closePanel() {
+      // Mobile: slide down
+      if (window.innerWidth < 1024) {
+        panel.classList.add(“translate-y-full”);
+        panel.classList.remove(“translate-y-0”);
+        setTimeout(() => { panel.style.display = “none”; }, 300);
+      } else {
+        panel.style.display = “none”;
+      }
+    }
 
-    assistantBtn.addEventListener("click", openPanel);
-    panel.querySelector("#assistant-close").addEventListener("click", closePanel);
+    assistantBtn.addEventListener(“click”, openPanel);
+    aiFab.addEventListener(“click”, openPanel);
+    panel.querySelector(“#assistant-close”).addEventListener(“click”, closePanel);
 
     function addMsg(role, text, meta) {
       const wrap = document.createElement("div");
@@ -950,6 +1271,186 @@
         panelSugg.appendChild(b);
       });
     }
+
+    // ---- content mix sliders (Task 2) ----
+    function updateMix() {
+      var keys = ['educational','promotional','engagement','brand'];
+      var vals = keys.map(function(k) { return parseInt(document.getElementById('mix-'+k).value) || 0; });
+      var total = vals.reduce(function(a,b){return a+b;}, 0);
+      var bar = document.getElementById('mix-bar');
+      if (bar && bar.children) {
+        Array.from(bar.children).forEach(function(el, i) {
+          el.style.width = (total > 0 ? (vals[i]/total*100).toFixed(1) : 0) + '%';
+        });
+      }
+      keys.forEach(function(k, i) {
+        var el = document.getElementById('mix-'+k+'-val');
+        if (el) el.textContent = (total > 0 ? Math.round(vals[i]/total*100) : 0) + '%';
+      });
+      updateTimeline();
+    }
+
+    function updateTimeline() {
+      var tl = document.getElementById('timeline-dots');
+      if (!tl) return;
+      var modeInput = document.querySelector('input[name="mode"]:checked');
+      var modeVal = modeInput ? modeInput.value : 'single';
+      var postsPerWeek = modeVal === 'single' ? 1 : 5;
+      var totalWeeks = modeVal === '7' ? 1 : (modeVal === '14' ? 2 : (modeVal === '30' ? 4 : 1));
+      var totalPosts = Math.min(postsPerWeek * totalWeeks, 28);
+      if (modeVal === 'single') totalPosts = 1;
+      var days = ['M','T','W','T','F','S','S'];
+      var html = '';
+      for (var i = 0; i < totalPosts; i++) {
+        var weekNum = Math.floor(i / 7) + 1;
+        html += '<div title="Week '+weekNum+' '+days[i%7]+'" class="flex items-center justify-center w-7 h-7 rounded-full text-[10px] font-bold ' +
+          (i < 7 ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-500') + '">' + days[i%7] + '</div>';
+      }
+      tl.innerHTML = html || '<span class="text-xs text-slate-400">Select a campaign mode above to preview.</span>';
+    }
+
+    // Init mix display and wire up mode radio buttons for timeline
+    document.addEventListener('DOMContentLoaded', function() {
+      updateMix();
+      document.querySelectorAll('input[name="mode"]').forEach(function(r) {
+        r.addEventListener('change', updateTimeline);
+      });
+    });
+
+    // ── Content Library Slide-out Panel (Step 4) ─────────────────────────
+    (function() {
+      // Build the panel DOM once
+      var libPanel = document.createElement("div");
+      libPanel.id = "content-lib-panel";
+      libPanel.style.cssText = "transform:translateX(100%);transition:transform 0.3s ease;";
+      libPanel.className = "fixed right-0 top-0 z-40 h-full w-72 flex flex-col border-l border-slate-200 bg-white shadow-2xl";
+      libPanel.innerHTML =
+        '<div class="flex items-center justify-between border-b border-slate-200 px-4 py-3 shrink-0">' +
+          '<div class="text-sm font-bold text-slate-900">&#x1F4DA; Content Library</div>' +
+          '<button id="lib-panel-close" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100 text-sm">&#x2715;</button>' +
+        '</div>' +
+        '<div class="flex gap-2 border-b border-slate-100 px-4 py-2 shrink-0">' +
+          '<select id="lib-filter-kind" class="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs">' +
+            '<option value="">All types</option>' +
+            '<option value="caption">Caption</option>' +
+            '<option value="hashtag_set">Hashtag set</option>' +
+            '<option value="template">Template</option>' +
+          '</select>' +
+          '<select id="lib-filter-platform" class="flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs">' +
+            '<option value="">All platforms</option>' +
+            '<option value="instagram">Instagram</option>' +
+            '<option value="linkedin">LinkedIn</option>' +
+            '<option value="twitter">Twitter</option>' +
+            '<option value="facebook">Facebook</option>' +
+          '</select>' +
+        '</div>' +
+        '<div id="lib-items-list" class="flex-1 overflow-y-auto px-3 py-2 space-y-2"></div>';
+      document.body.appendChild(libPanel);
+
+      var libOpen = false;
+
+      function openLibPanel() {
+        libPanel.style.transform = "translateX(0)";
+        libOpen = true;
+        fetchLibItems();
+      }
+      function closeLibPanel() {
+        libPanel.style.transform = "translateX(100%)";
+        libOpen = false;
+      }
+
+      document.getElementById("lib-panel-close").addEventListener("click", closeLibPanel);
+
+      document.getElementById("lib-filter-kind").addEventListener("change", function() { if (libOpen) fetchLibItems(); });
+      document.getElementById("lib-filter-platform").addEventListener("change", function() { if (libOpen) fetchLibItems(); });
+
+      async function fetchLibItems() {
+        var kind = document.getElementById("lib-filter-kind").value;
+        var platform = document.getElementById("lib-filter-platform").value;
+        var qs = [];
+        if (kind) qs.push("kind=" + encodeURIComponent(kind));
+        if (platform) qs.push("platform=" + encodeURIComponent(platform));
+        var url = "/content-library" + (qs.length ? "?" + qs.join("&") : "");
+
+        var list = document.getElementById("lib-items-list");
+        list.innerHTML = '<div class="py-6 text-center text-xs text-slate-400">Loading…</div>';
+
+        try {
+          var data = await api(url);
+          var items = (data && data.items) || [];
+          list.innerHTML = "";
+          if (!items.length) {
+            list.innerHTML = '<div class="py-8 text-center text-xs text-slate-400 px-2">No saved content yet.<br>Save captions from the Review page.</div>';
+            return;
+          }
+          items.forEach(function(item) {
+            var row = document.createElement("div");
+            row.className = "cursor-pointer rounded-xl border border-slate-200 bg-slate-50 p-3 hover:border-amber-400 hover:bg-amber-50 transition";
+
+            // Platform badge color mapping
+            var platColors = {
+              instagram: "bg-pink-100 text-pink-700",
+              facebook: "bg-blue-100 text-blue-700",
+              linkedin: "bg-sky-100 text-sky-700",
+              twitter: "bg-slate-200 text-slate-700",
+              x: "bg-slate-200 text-slate-700",
+            };
+            var platCls = platColors[(item.platform || "").toLowerCase()] || "bg-slate-100 text-slate-600";
+
+            row.innerHTML =
+              '<div class="mb-1 flex items-center justify-between gap-1">' +
+                '<span class="truncate text-xs font-semibold text-slate-800">' + (item.label || "Untitled").replace(/</g,'&lt;') + '</span>' +
+                (item.platform ? '<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ' + platCls + '">' + item.platform + '</span>' : '') +
+              '</div>' +
+              '<p class="text-[11px] leading-relaxed text-slate-600 overflow-hidden" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">' +
+                (item.content || "").replace(/</g,'&lt;').replace(/\n/g,' ') +
+              '</p>' +
+              '<div class="mt-1.5 flex items-center gap-2">' +
+                '<span class="text-[10px] text-slate-400">Used ' + (item.use_count || 0) + 'x</span>' +
+                (Array.isArray(item.tags) && item.tags.length ? '<span class="text-[10px] text-slate-400">' + item.tags.slice(0,3).map(function(t){return '#'+t;}).join(' ') + '</span>' : '') +
+              '</div>';
+
+            row.addEventListener("click", async function() {
+              try {
+                var updated = await api("/content-library/" + item.id + "/use", { method: "POST" });
+                var caption = (updated && updated.content) || item.content || "";
+                var ta = document.getElementById("f-caption");
+                if (ta) {
+                  ta.value = caption;
+                  ta.dispatchEvent(new Event("input"));
+                  // updatePreview is defined in the main wizard script
+                  if (typeof updatePreview === "function") updatePreview();
+                }
+                closeLibPanel();
+                toast("Caption inserted from library ✔\uFE0E");
+                // Update use count display
+                var countEl = row.querySelector(".text-slate-400");
+                if (countEl) countEl.textContent = "Used " + ((updated && updated.use_count) || (item.use_count + 1)) + "x";
+              } catch(e) {
+                toast("Failed to insert: " + e.message, true);
+              }
+            });
+
+            list.appendChild(row);
+          });
+        } catch(e) {
+          list.innerHTML = '<div class="py-6 text-center text-xs text-rose-500 px-2">Error: ' + (e.message || "Failed to load").replace(/</g,'&lt;') + '</div>';
+        }
+      }
+
+      // Wire up the "Use from Library" button in Step 4
+      var libTrigger = document.getElementById("btn-use-library");
+      if (libTrigger) {
+        libTrigger.addEventListener("click", function() {
+          if (libOpen) {
+            closeLibPanel();
+          } else {
+            openLibPanel();
+          }
+        });
+      }
+    })();
+    // ─────────────────────────────────────────────────────────────────────
 
     panelForm.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -982,5 +1483,107 @@
     });
   </script>
 <script src="/static/js/app.js" defer></script>
+<script>
+  // ── Wizard step progress indicator ───────────────────────────────────────
+  (function () {
+    var STEPS = [
+      { id: "step-1", title: "Start with your idea" },
+      { id: "step-2", title: "Content type" },
+      { id: "step-3", title: "Media \u0026 Design" },
+      { id: "step-4", title: "AI Content" },
+      { id: "step-5", title: "Campaign Builder" },
+      { id: "step-6", title: "Preview \u0026 Publish" },
+    ];
+
+    function updateProgress(activeIdx) {
+      var numEl = document.getElementById("prog-current");
+      var titleEl = document.getElementById("prog-title");
+      var segContainer = document.getElementById("prog-segments");
+      var mobNumEl = document.getElementById("mob-step-num");
+      var mobNameEl = document.getElementById("mob-step-name");
+      var mobSegContainer = document.getElementById("prog-segments-mob");
+      if (!numEl || !segContainer) return;
+
+      var step = activeIdx + 1; // 1-based
+      numEl.textContent = step;
+      if (titleEl) titleEl.textContent = STEPS[activeIdx].title;
+      // Update mobile indicators
+      if (mobNumEl) mobNumEl.textContent = step;
+      if (mobNameEl) mobNameEl.textContent = STEPS[activeIdx].title;
+      // Update mobile segment bar
+      if (mobSegContainer) {
+        var mobSegs = mobSegContainer.querySelectorAll("[data-seg]");
+        mobSegs.forEach(function (seg) {
+          var n = parseInt(seg.getAttribute("data-seg"), 10);
+          if (n < step) { seg.style.background = "#f59e0b"; seg.style.opacity = "0.55"; }
+          else if (n === step) { seg.style.background = "#f59e0b"; seg.style.opacity = "1"; }
+          else { seg.style.background = ""; seg.style.opacity = "1"; }
+        });
+      }
+
+      var segs = segContainer.querySelectorAll("[data-seg]");
+      segs.forEach(function (seg) {
+        var n = parseInt(seg.getAttribute("data-seg"), 10);
+        if (n < step) {
+          seg.style.background = "#f59e0b"; // completed — amber solid
+          seg.style.opacity = "0.55";
+        } else if (n === step) {
+          seg.style.background = "#f59e0b"; // active — amber
+          seg.style.opacity = "1";
+        } else {
+          seg.style.background = ""; // future — slate via Tailwind class
+          seg.style.opacity = "1";
+        }
+      });
+
+      var progressbar = segContainer;
+      progressbar.setAttribute("aria-valuenow", step);
+      progressbar.setAttribute("aria-valuetext", "Step " + step + " of 6: " + STEPS[activeIdx].title);
+    }
+
+    // Use IntersectionObserver — track which step is most visible
+    var activeIdx = 0;
+    var ratios = new Array(STEPS.length).fill(0);
+
+    if ("IntersectionObserver" in window) {
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          var id = entry.target.id;
+          var idx = STEPS.findIndex(function (s) { return s.id === id; });
+          if (idx >= 0) ratios[idx] = entry.intersectionRatio;
+        });
+        // The step with the highest intersection ratio wins
+        var maxRatio = -1;
+        var maxIdx = 0;
+        ratios.forEach(function (r, i) { if (r > maxRatio) { maxRatio = r; maxIdx = i; } });
+        if (maxIdx !== activeIdx) {
+          activeIdx = maxIdx;
+          updateProgress(activeIdx);
+        }
+      }, { threshold: [0, 0.1, 0.25, 0.5, 0.75, 1.0] });
+
+      STEPS.forEach(function (s) {
+        var el = document.getElementById(s.id);
+        if (el) obs.observe(el);
+      });
+    } else {
+      // Fallback: scroll-based detection
+      window.addEventListener("scroll", function () {
+        var best = 0;
+        STEPS.forEach(function (s, i) {
+          var el = document.getElementById(s.id);
+          if (!el) return;
+          var rect = el.getBoundingClientRect();
+          var visible = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+          if (visible > 0 && visible > (STEPS[best] ? document.getElementById(STEPS[best].id).getBoundingClientRect().height * 0 : 0)) best = i;
+        });
+        if (best !== activeIdx) { activeIdx = best; updateProgress(activeIdx); }
+      }, { passive: true });
+    }
+
+    // Initialise on load
+    document.addEventListener("DOMContentLoaded", function () { updateProgress(0); });
+  })();
+</script>
 </body>
 </html>

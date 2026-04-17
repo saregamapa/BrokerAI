@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="BrokerAI pricing — AI-powered social media campaigns for real estate. Starter $29, Growth $79, Pro $199/mo." />
+  <title>Pricing — BrokerAI</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body class="brokerai-app min-h-screen bg-gradient-to-br from-slate-50 via-white to-amber-50/30 text-slate-900 antialiased">
+
+<!-- Loading overlay -->
+<div id="brokerai-loading" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-white/70 backdrop-blur-sm">
+  <div class="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-xl">
+    <div class="brokerai-spinner"></div>
+    <p class="text-sm font-medium text-slate-700">Loading…</p>
+  </div>
+</div>
+
+<!-- Top nav -->
+<header class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 shadow-sm backdrop-blur-md">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+    <a href="/" class="flex items-center gap-2 text-lg font-bold text-slate-900 transition hover:opacity-80">
+      <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-sm font-black text-white shadow-md">B</span>
+      Broker<span class="text-amber-500">AI</span>
+    </a>
+    <nav class="flex items-center gap-4 text-sm">
+      <a href="/dashboard.html" class="hidden font-medium text-slate-600 hover:text-slate-900 sm:inline">Dashboard</a>
+      <a href="/login.html" id="nav-login" class="rounded-xl border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">Log in</a>
+      <a href="/signup.html" class="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 font-semibold text-white shadow-md shadow-amber-500/20 transition hover:scale-105">Sign up free</a>
+    </nav>
+  </div>
+</header>
+
+<main class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+
+  <!-- Hero -->
+  <div class="mb-14 text-center">
+    <span class="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-bold text-amber-800">⚡ Launch offer — 14-day free trial on all plans</span>
+    <h1 class="mt-4 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">Simple, transparent pricing</h1>
+    <p class="mt-4 text-lg text-slate-500">Generate a month of AI social media content in minutes.<br class="hidden sm:block" />Scale from solo agent to full agency without changing tools.</p>
+    <!-- Toggle annual/monthly -->
+    <div class="mt-8 inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+      <button id="btn-monthly" onclick="setBilling('monthly')" class="rounded-lg px-5 py-2 text-sm font-semibold transition bg-slate-900 text-white">Monthly</button>
+      <button id="btn-annual" onclick="setBilling('annual')" class="rounded-lg px-5 py-2 text-sm font-semibold transition text-slate-600 hover:text-slate-900">
+        Annual <span class="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">Save 20%</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Plan grid -->
+  <div class="grid gap-6 lg:grid-cols-4">
+
+    <!-- Starter -->
+    <div class="relative flex flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-lg transition hover:-translate-y-1 hover:shadow-xl">
+      <div class="mb-5">
+        <p class="text-xs font-bold uppercase tracking-widest text-blue-600">Starter</p>
+        <p class="mt-1 text-sm text-slate-500">Solo real estate agents</p>
+        <div class="mt-4 flex items-end gap-1">
+          <span id="starter-price" class="text-4xl font-extrabold text-slate-900">$29</span>
+          <span class="mb-1 text-sm text-slate-400">/mo</span>
+        </div>
+        <p id="starter-note" class="mt-1 text-xs text-slate-400">billed monthly</p>
+      </div>
+      <button onclick="startCheckout('starter')" class="mb-6 w-full rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 active:scale-95">Get Started</button>
+      <ul class="flex-1 space-y-3 text-sm text-slate-700">
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>3 campaigns / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>15 posts / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Instagram, Facebook, LinkedIn</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>1 user (solo only)</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>AI captions &amp; hashtags</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Basic engagement metrics</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Email support (48h SLA)</li>
+        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Team members / RBAC</li>
+        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>AI video generation</li>
+        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Analytics charts &amp; date filter</li>
+      </ul>
+    </div>
+
+    <!-- Growth — FEATURED -->
+    <div class="relative flex flex-col rounded-2xl border-2 border-amber-500 bg-white p-7 shadow-2xl shadow-amber-500/10 transition hover:-translate-y-1 hover:shadow-amber-500/20 lg:scale-105">
+      <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-500 px-4 py-1 text-[11px] font-black text-white shadow">⭐ BEST VALUE</div>
+      <div class="mb-5">
+        <p class="text-xs font-bold uppercase tracking-widest text-amber-600">Growth</p>
+        <p class="mt-1 text-sm text-slate-500">Small brokerages (2–5 agents)</p>
+        <div class="mt-4 flex items-end gap-1">
+          <span id="growth-price" class="text-4xl font-extrabold text-slate-900">$79</span>
+          <span class="mb-1 text-sm text-slate-400">/mo</span>
+        </div>
+        <p id="growth-note" class="mt-1 text-xs text-slate-400">billed monthly</p>
+      </div>
+      <button onclick="startCheckout('growth')" class="mb-6 w-full rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition hover:scale-[1.02] active:scale-95">Start Growing</button>
+      <ul class="flex-1 space-y-3 text-sm text-slate-700">
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>10 campaigns / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>60 posts / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>All platforms incl. TikTok &amp; X</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Up to 5 users + RBAC + approval flow</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>AI captions, hooks, compliance + brand kit</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Charts, date filter, per-platform analytics</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>3 AI videos / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Email support (24h SLA)</li>
+        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>A/B caption testing</li>
+        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Client PDF reports</li>
+      </ul>
+    </div>
+
+    <!-- Pro -->
+    <div class="relative flex flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-lg transition hover:-translate-y-1 hover:shadow-xl">
+      <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-violet-600 px-4 py-1 text-[11px] font-black text-white shadow">MAXIMUM POWER</div>
+      <div class="mb-5">
+        <p class="text-xs font-bold uppercase tracking-widest text-violet-600">Pro</p>
+        <p class="mt-1 text-sm text-slate-500">Power brokers &amp; marketing teams</p>
+        <div class="mt-4 flex items-end gap-1">
+          <span id="pro-price" class="text-4xl font-extrabold text-slate-900">$199</span>
+          <span class="mb-1 text-sm text-slate-400">/mo</span>
+        </div>
+        <p id="pro-note" class="mt-1 text-xs text-slate-400">billed monthly</p>
+      </div>
+      <button onclick="startCheckout('pro')" class="mb-6 w-full rounded-xl bg-violet-600 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-700 active:scale-95">Go Pro</button>
+      <ul class="flex-1 space-y-3 text-sm text-slate-700">
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Unlimited campaigns</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Unlimited posts</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>All platforms + custom scheduling</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Up to 15 users + audit log + RBAC</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>A/B testing, auto-winner, content library</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Full analytics + client PDF reports + export</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Unlimited AI video</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Priority support (4h SLA) + onboarding call</li>
+      </ul>
+    </div>
+
+    <!-- Agency — Connect With Us (replaces pricing card) -->
+    <div class="relative flex flex-col overflow-hidden rounded-2xl border-2 border-slate-800 p-7 shadow-lg transition hover:-translate-y-1 hover:shadow-xl" style="background: linear-gradient(135deg, #111827 0%, #1f2937 100%);">
+      <div class="mb-6 text-center">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-amber-500 mb-4">
+          <span class="text-2xl">🏢</span>
+        </div>
+        <div class="text-xl font-bold text-white">Agency</div>
+        <div class="text-sm text-slate-400 mt-1">Marketing agencies · Multi-client</div>
+      </div>
+      <div class="text-center mb-6">
+        <div class="text-4xl font-extrabold text-amber-400">Custom</div>
+        <div class="text-sm text-slate-400 mt-1">Negotiated enterprise pricing</div>
+      </div>
+      <!-- Features preview -->
+      <ul class="flex-1 space-y-2 mb-6">
+        <li class="flex items-start gap-2 text-sm text-slate-300"><span class="text-amber-400 font-bold flex-shrink-0 mt-0.5">✓</span>Multi-account management</li>
+        <li class="flex items-start gap-2 text-sm text-slate-300"><span class="text-amber-400 font-bold flex-shrink-0 mt-0.5">✓</span>Unlimited campaigns + white-label</li>
+        <li class="flex items-start gap-2 text-sm text-slate-300"><span class="text-amber-400 font-bold flex-shrink-0 mt-0.5">✓</span>Everything in Pro + custom AI tuning</li>
+        <li class="flex items-start gap-2 text-sm text-slate-300"><span class="text-amber-400 font-bold flex-shrink-0 mt-0.5">✓</span>Dedicated account manager + SLA</li>
+        <li class="flex items-start gap-2 text-sm text-slate-400"><span class="text-slate-500 font-bold flex-shrink-0 mt-0.5">+</span>Unlimited users + API access</li>
+        <li class="flex items-start gap-2 text-sm text-slate-400"><span class="text-slate-500 font-bold flex-shrink-0 mt-0.5">+</span>Cross-client analytics dashboard</li>
+      </ul>
+      <!-- CTA -->
+      <a href="/contact.html"
+        class="block w-full rounded-xl py-3 px-4 text-center font-semibold text-slate-900 bg-amber-400 hover:bg-amber-300 transition-colors text-sm">
+        Connect With Us →
+      </a>
+      <p class="text-center text-xs text-slate-500 mt-3">No credit card required · Custom onboarding call</p>
+    </div>
+
+  </div>
+
+  <!-- Feature comparison table -->
+  <div class="mt-20">
+    <h2 class="mb-8 text-center text-2xl font-bold text-slate-900">Full feature comparison</h2>
+    <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-lg">
+      <table class="w-full border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-slate-100">
+            <th class="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Feature</th>
+            <th class="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider text-blue-600">Starter</th>
+            <th class="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider text-amber-600">Growth</th>
+            <th class="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider text-violet-600">Pro</th>
+            <th class="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-900">Agency</th>
+          </tr>
+        </thead>
+        <tbody id="feature-table-body" class="divide-y divide-slate-50"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="mt-20">
+    <h2 class="mb-8 text-center text-2xl font-bold text-slate-900">Frequently asked questions</h2>
+    <div class="mx-auto max-w-2xl space-y-4" id="faq-list"></div>
+  </div>
+
+  <!-- CTA banner -->
+  <div class="mt-20 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 px-8 py-14 text-center shadow-2xl">
+    <h2 class="text-3xl font-extrabold text-white">Ready to 10× your listing content?</h2>
+    <p class="mt-3 text-slate-400">Start your 14-day free trial. No credit card required.</p>
+    <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+      <a href="/signup.html" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-amber-500/30 transition hover:scale-105">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Start free trial
+      </a>
+      <a href="https://calendly.com/brokerai-demo" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-white/5 px-8 py-3.5 text-sm font-bold text-white transition hover:bg-white/10">
+        Book a demo
+      </a>
+    </div>
+  </div>
+
+</main>
+
+<footer class="mt-16 border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-400">
+  <p>© 2026 BrokerAI. All rights reserved. &nbsp;·&nbsp; <a href="/privacy.html" class="hover:text-slate-600">Privacy</a> &nbsp;·&nbsp; <a href="/terms.html" class="hover:text-slate-600">Terms</a></p>
+</footer>
+
+<script src="/static/js/app.js" defer></script>
+<script>
+  // ── Billing toggle ────────────────────────────────────────────────────────
+  var billingMode = 'monthly';
+  var PRICES = {
+    starter: { monthly: 29, annual: 23 },
+    growth:  { monthly: 79, annual: 63 },
+    pro:     { monthly: 199, annual: 159 },
+  };
+
+  function setBilling(mode) {
+    billingMode = mode;
+    var isAnnual = mode === 'annual';
+    document.getElementById('btn-monthly').className =
+      'rounded-lg px-5 py-2 text-sm font-semibold transition ' +
+      (isAnnual ? 'text-slate-600 hover:text-slate-900' : 'bg-slate-900 text-white');
+    document.getElementById('btn-annual').className =
+      'rounded-lg px-5 py-2 text-sm font-semibold transition ' +
+      (isAnnual ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900');
+    ['starter','growth','pro'].forEach(function(plan) {
+      var p = isAnnual ? PRICES[plan].annual : PRICES[plan].monthly;
+      document.getElementById(plan + '-price').textContent = '$' + p;
+      document.getElementById(plan + '-note').textContent =
+        isAnnual ? 'billed annually (save 20%)' : 'billed monthly';
+    });
+  }
+
+  // ── Checkout redirect ─────────────────────────────────────────────────────
+  async function startCheckout(plan) {
+    var token = window.BrokerAI && BrokerAI.getToken ? BrokerAI.getToken() : null;
+    if (!token) {
+      window.location.href = '/signup.html?plan=' + plan;
+      return;
+    }
+    try {
+      window.BrokerAI && BrokerAI.setLoading && BrokerAI.setLoading(true);
+      var res = await BrokerAI.apiJson('/billing/checkout', {
+        method: 'POST',
+        body: JSON.stringify({ plan: plan, billing_period: billingMode }),
+      });
+      if (res && res.url) window.location.href = res.url;
+      else throw new Error('No checkout URL returned');
+    } catch (err) {
+      window.BrokerAI && BrokerAI.showToast && BrokerAI.showToast(err.message || 'Checkout failed', 'error');
+    } finally {
+      window.BrokerAI && BrokerAI.setLoading && BrokerAI.setLoading(false);
+    }
+  }
+
+  // ── Feature comparison table ──────────────────────────────────────────────
+  var ROWS = [
+    ['Campaigns / month','3','10','Unlimited','Unlimited'],
+    ['Posts / month','15','60','Unlimited','Unlimited'],
+    ['Team seats','1','5','15','Unlimited'],
+    ['AI video generation','—','3/mo','Unlimited','Unlimited'],
+    ['Brand kit','—','✅','✅','✅'],
+    ['A/B caption testing','—','—','✅','✅'],
+    ['Analytics charts','—','✅','✅','✅'],
+    ['Date range filter','—','✅','✅','✅'],
+    ['Content library','—','—','✅','✅'],
+    ['Client PDF reports','—','—','✅','✅'],
+    ['Audit log','—','—','✅','✅'],
+    ['Multi-account (Agency)','—','—','—','✅'],
+    ['White-label','—','—','—','✅'],
+    ['API access','—','—','—','✅'],
+  ];
+  var tbody = document.getElementById('feature-table-body');
+  ROWS.forEach(function(row, i) {
+    var tr = document.createElement('tr');
+    tr.style.background = i % 2 === 0 ? '#fff' : '#f9fafb';
+    tr.innerHTML = '<td class="px-5 py-3.5 font-medium text-slate-700">' + row[0] + '</td>' +
+      row.slice(1).map(function(v) {
+        var color = v === '—' ? '#d1d5db' : v === '✅' ? '#16a34a' : '#0f172a';
+        var weight = v === '—' ? '400' : '700';
+        return '<td class="px-4 py-3.5 text-center" style="color:' + color + ';font-weight:' + weight + ';">' + v + '</td>';
+      }).join('');
+    tbody.appendChild(tr);
+  });
+
+  // ── FAQ ───────────────────────────────────────────────────────────────────
+  var FAQS = [
+    ['Can I try BrokerAI for free?','Yes — every plan includes a 14-day free trial with full features. No credit card required to start.'],
+    ['What happens when I hit my campaign limit?','You\'ll see a friendly upgrade prompt. Existing campaigns and posts are never deleted.'],
+    ['Can I switch plans at any time?','Absolutely. Upgrade or downgrade at any time. Upgrades take effect immediately; downgrades apply at the next billing cycle.'],
+    ['Is annual billing required?','No. Monthly billing is always available. Annual billing saves you 20%.'],
+    ['What social platforms are supported?','Instagram, Facebook, LinkedIn, TikTok, X (Twitter), and Pinterest. YouTube Shorts support is coming in 2026.'],
+    ['How does the Agency plan work?','Agency is custom-priced based on the number of client accounts, features, and SLA required. Click "Connect With Us" to schedule a call.'],
+  ];
+  var faqEl = document.getElementById('faq-list');
+  FAQS.forEach(function(faq) {
+    var details = document.createElement('details');
+    details.className = 'group rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm open:shadow-md transition-all';
+    details.innerHTML =
+      '<summary class="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-slate-800 [&::-webkit-details-marker]:hidden">' +
+        faq[0] +
+        '<svg class="h-4 w-4 shrink-0 text-slate-400 transition group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
+      '</summary>' +
+      '<p class="mt-3 text-sm leading-relaxed text-slate-600">' + faq[1] + '</p>';
+    faqEl.appendChild(details);
+  });
+
+  // Hide login button if already logged in
+  document.addEventListener('DOMContentLoaded', function() {
+    if (window.BrokerAI && BrokerAI.getToken && BrokerAI.getToken()) {
+      var loginBtn = document.getElementById('nav-login');
+      if (loginBtn) loginBtn.style.display = 'none';
+    }
+  });
+</script>
+</body>
+</html>

@@ -313,6 +313,35 @@ def _finalize_publish_result(
         row.published_at = now_naive
         row.last_error = ""
         row.next_publish_attempt_at = None
+        # Fire in-app notification (best-effort, non-blocking)
+        try:
+            from backend.services.notification_service import create_notification
+            create_notification(
+                int(row.user_id),
+                "post_published",
+                "Post published! 🎉",
+                f"Your post on {row.platform or 'social media'} was published successfully.",
+                action_url=f"/review.html?campaign={row.campaign_id or ''}",
+                metadata={"post_id": row.id, "campaign_id": row.campaign_id},
+            )
+        except Exception:
+            pass  # Notifications are non-critical
+        # Send transactional email (best-effort)
+        try:
+            from backend.services.email_service import send_post_published_email
+            from sqlmodel import Session as _Session
+            from backend.db import engine as _engine
+            with _Session(_engine) as _s:
+                _user = _s.get(User, int(row.user_id))
+                if _user and _user.email:
+                    send_post_published_email(
+                        _user.email,
+                        row.platform or "social media",
+                        f"Campaign {row.campaign_id or ''}",
+                        f"/review.html?campaign={row.campaign_id or ''}",
+                    )
+        except Exception:
+            pass
         body = last_result.get("body")
         if isinstance(body, dict):
             sid, plat = extract_ayrshare_publish_metadata(body)
@@ -340,6 +369,34 @@ def _finalize_publish_result(
         except ValueError:
             row.status = POST_FAILED
         row.next_publish_attempt_at = None
+        # Fire failure notification (best-effort)
+        try:
+            from backend.services.notification_service import create_notification
+            create_notification(
+                int(row.user_id),
+                "post_failed",
+                "Post failed to publish",
+                f"Publishing failed after {attempts} attempt(s). Please check your social connection.",
+                action_url="/connect.html",
+                metadata={"post_id": row.id},
+            )
+        except Exception:
+            pass
+        # Send failure email (best-effort)
+        try:
+            from backend.services.email_service import send_post_failed_email
+            from sqlmodel import Session as _Session
+            from backend.db import engine as _engine
+            with _Session(_engine) as _s:
+                _user = _s.get(User, int(row.user_id))
+                if _user and _user.email:
+                    send_post_failed_email(
+                        _user.email,
+                        row.platform or "social media",
+                        str(row.last_error or "")[:200],
+                    )
+        except Exception:
+            pass
         log.warning(
             "publish_terminal_failure post_id=%s attempts=%s body=%s",
             row.id,

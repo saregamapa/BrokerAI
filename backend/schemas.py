@@ -121,6 +121,10 @@ class PostOut(BaseModel):
     engagement_rate: float = 0.0
     slides: List[Dict[str, Any]] = Field(default_factory=list)
     is_carousel: bool = False
+    # S5-02: A/B caption testing
+    ab_variant_b: Optional[str] = None
+    ab_winner: Optional[str] = None  # "a" | "b" | None
+    ab_status: Optional[str] = None  # "testing" | "selected" | None
 
 
 class AnalyticsPostRow(BaseModel):
@@ -160,6 +164,27 @@ class AnalyticsBulkUpdateOut(BaseModel):
     updated: int
     failed: int
     total: int
+
+
+class PlatformBreakdownRow(BaseModel):
+    """Aggregated metrics for a single platform."""
+    platform: str
+    post_count: int
+    published_count: int
+    total_likes: int
+    total_comments: int
+    total_impressions: int
+    avg_engagement_rate: float
+
+
+class TimeSeriesPoint(BaseModel):
+    """One calendar-day data point for the engagement trend chart."""
+    date: str  # ISO YYYY-MM-DD
+    post_count: int
+    likes: int
+    comments: int
+    impressions: int
+    avg_engagement_rate: float
 
 
 class InviteOut(BaseModel):
@@ -880,3 +905,71 @@ class WowManusVisualTemplatesResponse(BaseModel):
     source: Literal["openai_unsplash", "manus", "fallback", "unavailable"] = "fallback"
     error: str = ""
     templates: List[ManusVisualTemplateOut] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# S5-06: Comment Automation Rules — /automations CRUD API
+# ---------------------------------------------------------------------------
+
+class AutomationCreateRequest(BaseModel):
+    name: str = Field(default="", max_length=200)
+    trigger_keywords: str = Field(
+        default="",
+        description="Comma-separated keywords, e.g. 'hello,hi,interested'",
+        max_length=2000,
+    )
+    reply_template: str = Field(
+        default="",
+        description="Public reply body. Supports {{name}} placeholder.",
+        max_length=2000,
+    )
+    dm_template: Optional[str] = Field(
+        default=None,
+        description="Optional DM body. Supports {{name}} placeholder.",
+        max_length=2000,
+    )
+    post_id: Optional[int] = None
+    campaign_id: Optional[int] = None
+    is_active: bool = True
+
+
+class AutomationUpdateRequest(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=200)
+    trigger_keywords: Optional[str] = Field(default=None, max_length=2000)
+    reply_template: Optional[str] = Field(default=None, max_length=2000)
+    dm_template: Optional[str] = Field(default=None, max_length=2000)
+    post_id: Optional[int] = None
+    campaign_id: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class AutomationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    post_id: Optional[int] = None
+    campaign_id: Optional[int] = None
+    name: str = ""
+    trigger_keywords: str = ""
+    reply_template: str = ""
+    dm_template: Optional[str] = None
+    is_active: bool = True
+    match_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+class AutomationListResponse(BaseModel):
+    automations: List[AutomationOut] = Field(default_factory=list)
+    total: int = 0
+
+
+class AutomationSimulateRequest(BaseModel):
+    test_comment: str = Field(min_length=1, max_length=2000)
+
+
+class AutomationSimulateResponse(BaseModel):
+    triggered: bool = False
+    matched_keyword: str = ""
+    reply_preview: str = ""

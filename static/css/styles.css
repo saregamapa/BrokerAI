@@ -409,3 +409,52 @@ img, video { max-width: 100%; height: auto; }
   h1 { font-size: 1.5rem !important; }
   h2 { font-size: 1.25rem !important; }
 }
+
+/* ============================================================
+   Touch-target hardening (WCAG 2.5.5 — 44 × 44 px minimum)
+   Applies only on coarse pointer (touch) devices.
+   ============================================================ */
+@media (pointer: coarse) {
+  button,
+  a,
+  [role="button"],
+  [role="link"],
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Checkbox/radio: use padding trick to hit-area without changing size */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    min-height: unset;
+    min-width: unset;
+    padding: 12px;
+    background-clip: content-box;
+  }
+  /* Extra breathing room between tappable nav links */
+  #app-sidebar nav a {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  /* Larger close/open button in top nav on touch screens */
+  #brokerai-sidebar-toggle {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+/* ============================================================
+   Sidebar: show a ×-close button inside the drawer on mobile
+   ============================================================ */
+#sidebar-close-btn {
+  display: none;
+}
+@media (max-width: 767px) {
+  #sidebar-close-btn {
+    display: flex;
+  }
+}

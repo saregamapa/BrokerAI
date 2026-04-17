@@ -1,340 +1,767 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="BrokerAI — AI-powered social media campaigns for any business. Generate, schedule, and publish a month of content in minutes." />
     <meta name="og:site_name" content="BrokerAI" />
     <meta property="og:type" content="website" />
-    <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg" />
-    <link rel="apple-touch-icon" href="/static/img/favicon.svg" />
-    <meta name="theme-color" content="#f59e0b" />
-  <title>Comment Automations — BrokerAI</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="flex min-h-screen flex-col bg-slate-50 text-slate-900 antialiased">
-  <header class="border-b border-slate-200 bg-white">
-    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-      <div class="flex items-center gap-3">
-        <a href="/dashboard.html" class="text-sm text-slate-500 hover:text-slate-700">← Dashboard</a>
-        <h1 class="text-xl font-bold">💬 Comment-to-DM Automations</h1>
+    <title>Comment Automations — BrokerAI</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23f59e0b'/><text x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-size='20' font-weight='900' fill='white' font-family='system-ui'>B</text></svg>" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body
+    class="brokerai-app min-h-screen bg-[#f9fafb] text-slate-900 antialiased"
+    data-page="comment-automations"
+  >
+    <!-- Global loading overlay -->
+    <div
+      id="brokerai-loading"
+      class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-white/70 backdrop-blur-sm"
+    >
+      <div class="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-xl">
+        <div class="brokerai-spinner" aria-label="Loading"></div>
+        <p class="text-sm font-medium text-slate-700">Loading…</p>
       </div>
-      <button id="btn-new" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600">+ New automation</button>
-    </div>
-  </header>
-
-  <main class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8">
-    <div class="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-      <strong>How it works:</strong> Rules run on <em>public comments</em> after a post is live. Set a keyword, a short public reply, and a DM body. Templates may use
-      <code class="rounded bg-amber-100 px-1">{handle}</code>, <code class="rounded bg-amber-100 px-1">{link}</code>, <code class="rounded bg-amber-100 px-1">{keyword}</code>, and <code class="rounded bg-amber-100 px-1">{comment}</code>.
-      To change captions before publishing, use Review — not this page.
     </div>
 
-    <div id="list" class="grid gap-4 md:grid-cols-2"></div>
-    <div id="empty" class="hidden rounded-2xl border border-dashed border-slate-300 p-12 text-center text-sm text-slate-500">
-      No automations yet. Create one to turn comments into DMs automatically.
-    </div>
-  </main>
+    <!-- Mobile sidebar overlay -->
+    <div
+      id="app-sidebar-overlay"
+      class="fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur-sm md:hidden"
+      aria-hidden="true"
+    ></div>
 
-  <!-- Editor modal -->
-  <div id="modal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 p-4">
-    <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
-      <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-        <h2 id="mtitle" class="text-lg font-bold">New automation</h2>
-        <button id="mclose" class="text-slate-400 hover:text-slate-700">✕</button>
-      </div>
-      <div class="flex-1 space-y-4 overflow-y-auto px-6 py-5">
-        <div>
-          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Name</label>
-          <input id="f-name" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Instagram: PRICE keyword → DM with link" />
+    <!-- Sidebar (filled by nav.js) -->
+    <aside
+      id="app-sidebar"
+      class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl hidden lg:block"
+    ></aside>
+
+    <div id="app-layout" class="flex min-h-screen flex-col lg:pl-64">
+      <!-- Top nav (filled by nav.js) -->
+      <header
+        id="app-topnav"
+        class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"
+      ></header>
+
+      <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/20 px-4 py-8 md:px-8 pb-24 lg:pb-8">
+        <div class="mx-auto max-w-6xl">
+
+          <!-- Page header -->
+          <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Comment Automations</h1>
+              <p class="mt-1 text-sm text-slate-500">Auto-reply to comments based on keyword triggers</p>
+            </div>
+            <button
+              type="button"
+              id="btn-new"
+              class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+              </svg>
+              ＋ New Automation
+            </button>
+          </div>
+
+          <!-- Info banner -->
+          <div class="mb-6 rounded-xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm text-amber-900">
+            <strong>How it works:</strong> Rules run on <em>public comments</em> after a post is live. Set a keyword, a short public reply, and optionally a DM body.
+            Templates may use
+            <code class="rounded bg-amber-100 px-1 font-mono text-xs">{handle}</code>,
+            <code class="rounded bg-amber-100 px-1 font-mono text-xs">{link}</code>,
+            <code class="rounded bg-amber-100 px-1 font-mono text-xs">{keyword}</code>, and
+            <code class="rounded bg-amber-100 px-1 font-mono text-xs">{comment}</code>.
+          </div>
+
+          <!-- Automations grid -->
+          <div id="automations-grid" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"></div>
+
+          <!-- Empty state -->
+          <div id="automations-empty" class="hidden rounded-2xl border-2 border-dashed border-slate-200 p-14 text-center">
+            <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100">
+              <svg class="h-7 w-7 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+              </svg>
+            </div>
+            <p class="text-base font-semibold text-slate-700">No automations yet</p>
+            <p class="mt-1 text-sm text-slate-500">Create your first one to turn comments into auto-replies.</p>
+            <button
+              type="button"
+              id="btn-new-empty"
+              class="mt-5 inline-flex items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-bold text-white shadow transition hover:bg-amber-600"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+              </svg>
+              Create Automation
+            </button>
+          </div>
+
+          <!-- Loading skeleton -->
+          <div id="automations-skeleton" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div class="brokerai-skeleton h-48 rounded-2xl"></div>
+            <div class="brokerai-skeleton h-48 rounded-2xl"></div>
+            <div class="brokerai-skeleton h-48 rounded-2xl"></div>
+          </div>
         </div>
-        <div class="grid gap-3 sm:grid-cols-2">
+      </main>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         CREATE / EDIT MODAL  (#automation-modal)
+    ═══════════════════════════════════════════════════════════════════════════ -->
+    <div
+      id="automation-modal"
+      class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div class="flex max-h-[92vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+        <!-- Modal header -->
+        <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h2 id="modal-title" class="text-lg font-bold text-slate-900">New Automation</h2>
+          <button
+            type="button"
+            id="modal-close"
+            aria-label="Close"
+            class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Modal body (scrollable) -->
+        <div class="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+
+          <!-- Name -->
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Platform</label>
-            <select id="f-platform" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="instagram">Instagram</option>
-              <option value="facebook">Facebook</option>
-              <option value="linkedin">LinkedIn</option>
-              <option value="tiktok">TikTok</option>
-              <option value="youtube">YouTube</option>
-            </select>
+            <label for="f-name" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Name <span class="text-red-500">*</span>
+            </label>
+            <input
+              id="f-name"
+              type="text"
+              placeholder="e.g. Instagram PRICE keyword → DM with link"
+              class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+            />
           </div>
+
+          <!-- Platform + Match Mode -->
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label for="f-platform" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Platform</label>
+              <select
+                id="f-platform"
+                class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+              >
+                <option value="instagram">Instagram</option>
+                <option value="facebook">Facebook</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+                <option value="twitter">Twitter / X</option>
+              </select>
+            </div>
+            <div>
+              <label for="f-mode" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Match Mode</label>
+              <select
+                id="f-mode"
+                class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+              >
+                <option value="any">Any keyword</option>
+                <option value="all">All keywords</option>
+                <option value="exact">Exact match</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Trigger Keywords -->
           <div>
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Match mode</label>
-            <select id="f-mode" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
-              <option value="any">Any keyword</option>
-              <option value="all">All keywords</option>
-              <option value="exact">Exact match</option>
-            </select>
+            <label for="f-keywords" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Trigger Keywords <span class="text-red-500">*</span>
+            </label>
+            <input
+              id="f-keywords"
+              type="text"
+              placeholder="PRICE, INFO, DETAILS  (comma-separated)"
+              class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+            />
+            <!-- Keyword chip preview -->
+            <div id="keyword-chips" class="mt-2 flex flex-wrap gap-1.5"></div>
+            <label class="mt-2 flex items-center gap-2 text-xs text-slate-500">
+              <input id="f-case" type="checkbox" class="rounded border-slate-300" />
+              Case-sensitive
+            </label>
+          </div>
+
+          <!-- Reply Template -->
+          <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <input id="f-reply-enabled" type="checkbox" class="rounded border-slate-300" checked />
+              Reply publicly to comment
+            </label>
+            <textarea
+              id="f-reply"
+              rows="2"
+              placeholder="Thanks for the interest! Just sent you a DM 📩"
+              class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+            ></textarea>
+            <div class="mt-2 rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Use <code class="font-mono">{{name}}</code> for the commenter's name,
+              <code class="font-mono">{handle}</code>, <code class="font-mono">{keyword}</code>, <code class="font-mono">{comment}</code>
+            </div>
+          </div>
+
+          <!-- DM Template -->
+          <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <input id="f-dm-enabled" type="checkbox" class="rounded border-slate-300" checked />
+              Send DM
+              <span class="ml-1 text-xs font-normal text-slate-400">(optional)</span>
+            </label>
+            <textarea
+              id="f-dm"
+              rows="3"
+              placeholder="Hi {handle}! Here's the info you asked about: {link}"
+              class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+            ></textarea>
+            <div class="mt-3">
+              <label for="f-link" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Link for <code class="font-mono">{link}</code>
+              </label>
+              <input
+                id="f-link"
+                type="url"
+                placeholder="https://…"
+                class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+              />
+            </div>
+          </div>
+
+          <!-- Link to Post (optional) -->
+          <div>
+            <label for="f-post" class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Link to Post
+              <span class="ml-1 font-normal normal-case text-slate-400">(optional — restricts to a specific post)</span>
+            </label>
+            <input
+              id="f-epost"
+              type="text"
+              placeholder="External post ID from Ayrshare (leave blank for catch-all)"
+              class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 font-mono text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+            />
+          </div>
+
+          <!-- Active toggle -->
+          <div class="flex items-center gap-3">
+            <label class="relative inline-flex cursor-pointer items-center">
+              <input id="f-active" type="checkbox" checked class="peer sr-only" />
+              <div class="peer h-6 w-11 rounded-full bg-slate-200 transition peer-checked:bg-amber-500 peer-focus:ring-2 peer-focus:ring-amber-400/40 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:after:translate-x-5"></div>
+            </label>
+            <span class="text-sm font-medium text-slate-700">Active</span>
           </div>
         </div>
-        <div>
-          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">External post ID (from Ayrshare)</label>
-          <input id="f-epost" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono" placeholder="e.g. 17895462...  — leave blank for catch-all" />
-          <p class="mt-1 text-xs text-slate-500">The post ID returned by Ayrshare when you publish. Required for webhooks to find this automation.</p>
-        </div>
-        <div>
-          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Keywords (comma-separated)</label>
-          <input id="f-keywords" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="PRICE, INFO, DETAILS" />
-          <label class="mt-2 flex items-center gap-2 text-xs text-slate-600">
-            <input id="f-case" type="checkbox" class="rounded" /> Case-sensitive
-          </label>
-        </div>
-        <div class="rounded-lg border border-slate-200 p-3">
-          <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-            <input id="f-reply-enabled" type="checkbox" class="rounded" checked /> Reply publicly to comment
-          </label>
-          <textarea id="f-reply" rows="2" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Thanks for the interest! Just sent you a DM 📩"></textarea>
-        </div>
-        <div class="rounded-lg border border-slate-200 p-3">
-          <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
-            <input id="f-dm-enabled" type="checkbox" class="rounded" checked /> Send DM
-          </label>
-          <textarea id="f-dm" rows="3" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Hi {handle}! Here's the info you asked about: {link}"></textarea>
-          <div class="mt-2">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Link for <code class="text-[10px]">{link}</code></label>
-            <input id="f-link" type="url" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="https://..." />
+
+        <!-- Modal footer -->
+        <div class="flex items-center justify-between border-t border-slate-200 px-6 py-4">
+          <div></div>
+          <div class="flex gap-2">
+            <button
+              type="button"
+              id="modal-cancel"
+              class="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:shadow"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              id="modal-save"
+              class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              Save Automation
+            </button>
           </div>
-        </div>
-        <label class="flex items-center gap-2 text-sm text-slate-700">
-          <input id="f-active" type="checkbox" class="rounded" checked /> Active
-        </label>
-      </div>
-      <div class="flex items-center justify-between gap-3 border-t border-slate-200 px-6 py-4">
-        <button id="btn-test" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Test with a comment…</button>
-        <div class="flex gap-2">
-          <button id="mcancel" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
-          <button id="msave" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white hover:bg-amber-600">Save automation</button>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Test modal -->
-  <div id="testmodal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4">
-    <div class="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-      <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-        <h2 class="text-lg font-bold">Test automation</h2>
-        <button id="tclose" class="text-slate-400 hover:text-slate-700">✕</button>
-      </div>
-      <div class="space-y-3 px-6 py-4">
-        <div>
-          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Commenter handle</label>
-          <input id="t-handle" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value="test_user" />
-        </div>
-        <div>
-          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Comment text</label>
-          <textarea id="t-text" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="PRICE please"></textarea>
-        </div>
-        <label class="flex items-center gap-2 text-xs text-slate-600">
-          <input id="t-execute" type="checkbox" class="rounded" /> Log as real trigger (increments counter)
-        </label>
-        <div id="t-result" class="hidden rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm"></div>
-      </div>
-      <div class="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
-        <button id="tcancel" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Close</button>
-        <button id="trun" class="rounded-lg bg-sky-500 px-4 py-2 text-sm font-bold text-white hover:bg-sky-600">Run test</button>
-      </div>
-    </div>
-  </div>
+    <!-- App JS (BrokerAI helpers + toast + confirm) -->
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/nav.js"></script>
 
-<script>
-const TOKEN = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
-if (!TOKEN) { window.location.href = "/login.html"; }
-const H = { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" };
+    <script>
+    "use strict";
 
-const $ = (id) => document.getElementById(id);
-const state = { editing: null };
+    /* ─────────────────────────────────────────────────────────────────────
+       Helpers
+    ───────────────────────────────────────────────────────────────────── */
+    const TOKEN = (function () {
+      try {
+        return (
+          localStorage.getItem("brokerai_token") ||
+          localStorage.getItem("token") ||
+          localStorage.getItem("access_token") ||
+          ""
+        );
+      } catch (e) { return ""; }
+    })();
 
-async function api(path, opts={}) {
-  const r = await fetch(path, { headers: H, ...opts });
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`${r.status}: ${t}`);
-  }
-  if (r.status === 204) return null;
-  return r.json();
-}
-
-function openModal(a) {
-  state.editing = a || null;
-  $("mtitle").textContent = a ? "Edit automation" : "New automation";
-  $("f-name").value = a?.name || "";
-  $("f-platform").value = a?.platform || "instagram";
-  $("f-mode").value = a?.match_mode || "any";
-  $("f-epost").value = a?.external_post_id || "";
-  $("f-keywords").value = (a?.keywords || []).join(", ");
-  $("f-case").checked = !!a?.case_sensitive;
-  $("f-reply-enabled").checked = a?.reply_comment_enabled ?? true;
-  $("f-reply").value = a?.reply_comment_template || "Thanks for the interest! Just sent you a DM 📩";
-  $("f-dm-enabled").checked = a?.dm_enabled ?? true;
-  $("f-dm").value = a?.dm_template || "Hi {handle}! Here's the info you asked about: {link}";
-  $("f-link").value = a?.link_url || "";
-  $("f-active").checked = a?.is_active ?? true;
-  $("modal").classList.remove("hidden"); $("modal").classList.add("flex");
-}
-
-function closeModal() {
-  $("modal").classList.add("hidden"); $("modal").classList.remove("flex");
-  state.editing = null;
-}
-
-function escapeHtml(s) {
-  return (s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-}
-
-async function load() {
-  const j = await api("/comment-automations");
-  const list = $("list");
-  list.innerHTML = "";
-  if (!j.items?.length) { $("empty").classList.remove("hidden"); return; }
-  $("empty").classList.add("hidden");
-  for (const a of j.items) {
-    const div = document.createElement("div");
-    div.className = "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm";
-    const statusPill = a.is_active
-      ? '<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">Active</span>'
-      : '<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Paused</span>';
-    div.innerHTML = `
-      <div class="flex items-start justify-between">
-        <div>
-          <h3 class="text-base font-bold">${escapeHtml(a.name)}</h3>
-          <p class="mt-1 text-xs text-slate-500">${escapeHtml(a.platform)} · ${a.trigger_count} triggers</p>
-        </div>
-        ${statusPill}
-      </div>
-      <div class="mt-3 text-sm">
-        <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Keywords</div>
-        <div class="mt-1 flex flex-wrap gap-1">
-          ${a.keywords.map(k => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(k)}</span>`).join("")}
-        </div>
-      </div>
-      ${a.external_post_id ? `<p class="mt-2 text-xs text-slate-500">Post: <code class="font-mono">${escapeHtml(a.external_post_id)}</code></p>` : '<p class="mt-2 text-xs text-amber-600">⚠ No external post ID — webhook can\'t route here</p>'}
-      <div class="mt-4 flex flex-wrap gap-2">
-        <button data-edit="${a.id}" class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-50">Edit</button>
-        <button data-triggers="${a.id}" class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-50">View triggers</button>
-        <button data-toggle="${a.id}" data-active="${a.is_active}" class="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold hover:bg-slate-50">${a.is_active ? "Pause" : "Activate"}</button>
-        <button data-del="${a.id}" class="rounded-lg border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Delete</button>
-      </div>
-    `;
-    list.appendChild(div);
-  }
-  list.querySelectorAll("[data-edit]").forEach(b => b.onclick = async () => {
-    const a = (await api("/comment-automations/" + b.dataset.edit));
-    openModal(a);
-  });
-  list.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
-    var ok = await BrokerAI.confirmDialog({
-      title: "Delete automation?",
-      message: "This will remove the automation and all its trigger history. This cannot be undone.",
-      confirmLabel: "Delete",
-      cancelLabel: "Keep",
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      await api("/comment-automations/" + b.dataset.del, { method: "DELETE" });
-      BrokerAI.showToast("Automation deleted.", "success");
-      load();
-    } catch (e) {
-      BrokerAI.showToast("Delete failed: " + e.message, "error");
+    if (!TOKEN) {
+      window.location.href = "/login.html";
     }
-  });
-  list.querySelectorAll("[data-toggle]").forEach(b => b.onclick = async () => {
-    const active = b.dataset.active === "true";
-    await api("/comment-automations/" + b.dataset.toggle, {
-      method: "PUT", body: JSON.stringify({ is_active: !active }),
-    });
-    load();
-  });
-  list.querySelectorAll("[data-triggers]").forEach(b => b.onclick = async () => {
-    const j = await api("/comment-automations/" + b.dataset.triggers + "/triggers");
-    const rows = (j.items || []).map(t => `
-      <tr class="border-b border-slate-100">
-        <td class="px-3 py-2 text-xs text-slate-500">${new Date(t.triggered_at+"Z").toLocaleString()}</td>
-        <td class="px-3 py-2 text-xs font-mono">@${escapeHtml(t.commenter_handle)}</td>
-        <td class="px-3 py-2 text-xs">${escapeHtml(t.comment_text)}</td>
-        <td class="px-3 py-2 text-xs">${t.dm_sent ? "✅" : "—"}</td>
-      </tr>`).join("");
-    const html = j.items?.length
-      ? `<table class="min-w-full text-sm"><thead><tr class="bg-slate-50 text-left"><th class="px-3 py-2">When</th><th class="px-3 py-2">Handle</th><th class="px-3 py-2">Comment</th><th class="px-3 py-2">DM</th></tr></thead><tbody>${rows}</tbody></table>`
-      : '<p class="p-4 text-sm text-slate-500">No triggers yet.</p>';
-    const w = window.open("", "_blank", "width=700,height=500");
-    w.document.write(`<html><head><title>Triggers</title><script src="https://cdn.tailwindcss.com"><\/script></head><body class="p-6">${html}</body></html>`);
-  });
-}
 
-async function save() {
-  const keywords = $("f-keywords").value.split(",").map(s => s.trim()).filter(Boolean);
-  if (!keywords.length) { BrokerAI.showToast("Enter at least one keyword.", "error"); return; }
-  const body = {
-    name: $("f-name").value.trim() || "Untitled",
-    platform: $("f-platform").value,
-    match_mode: $("f-mode").value,
-    external_post_id: $("f-epost").value.trim(),
-    keywords,
-    case_sensitive: $("f-case").checked,
-    reply_comment_enabled: $("f-reply-enabled").checked,
-    reply_comment_template: $("f-reply").value,
-    dm_enabled: $("f-dm-enabled").checked,
-    dm_template: $("f-dm").value,
-    link_url: $("f-link").value.trim(),
-    is_active: $("f-active").checked,
-  };
-  try {
-    if (state.editing) {
-      await api("/comment-automations/" + state.editing.id, { method: "PUT", body: JSON.stringify(body) });
-    } else {
-      await api("/comment-automations", { method: "POST", body: JSON.stringify(body) });
+    const API_BASE = (function () {
+      const o = window.location.origin;
+      return (!o || o === "null" || !/^https?:/i.test(o)) ? "http://127.0.0.1:8000" : "";
+    })();
+
+    function authFetch(path, opts) {
+      opts = opts || {};
+      opts.headers = Object.assign({
+        "Authorization": "Bearer " + TOKEN,
+        "Content-Type": "application/json",
+      }, opts.headers || {});
+      return fetch(API_BASE + path, opts).then(function (r) {
+        if (r.status === 204) return null;
+        if (!r.ok) return r.text().then(function (t) { throw new Error(r.status + ": " + t); });
+        return r.json();
+      });
     }
-    closeModal();
-    BrokerAI.showToast("Automation saved.", "success");
-    load();
-  } catch(e) {
-    BrokerAI.showToast("Save failed: " + e.message, "error");
-  }
-}
 
-$("btn-new").onclick = () => openModal(null);
-$("mclose").onclick = closeModal;
-$("mcancel").onclick = closeModal;
-$("msave").onclick = save;
+    function escHtml(s) {
+      return (s || "").replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
 
-$("btn-test").onclick = () => {
-  if (!state.editing) { BrokerAI.showToast("Save first, then test.", "info"); return; }
-  $("t-text").value = ""; $("t-result").classList.add("hidden");
-  $("testmodal").classList.remove("hidden"); $("testmodal").classList.add("flex");
-};
-$("tclose").onclick = $("tcancel").onclick = () => {
-  $("testmodal").classList.add("hidden"); $("testmodal").classList.remove("flex");
-};
-$("trun").onclick = async () => {
-  if (!state.editing) return;
-  try {
-    const j = await api(`/comment-automations/${state.editing.id}/simulate`, {
-      method: "POST",
-      body: JSON.stringify({
-        commenter_handle: $("t-handle").value || "test_user",
-        comment_text: $("t-text").value,
-        execute: $("t-execute").checked,
-      }),
+    function truncate(s, n) {
+      s = s || "";
+      return s.length > n ? s.slice(0, n) + "…" : s;
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       State
+    ───────────────────────────────────────────────────────────────────── */
+    var _editingId = null;          // null → create, number → update
+    var _simulatePanels = {};       // automation id → panel element
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Load & render automations
+    ───────────────────────────────────────────────────────────────────── */
+    function loadAutomations() {
+      var skeleton = document.getElementById("automations-skeleton");
+      var grid     = document.getElementById("automations-grid");
+      var empty    = document.getElementById("automations-empty");
+
+      if (skeleton) skeleton.classList.remove("hidden");
+      grid.innerHTML = "";
+      empty.classList.add("hidden");
+
+      authFetch("/comment-automations")
+        .then(function (data) {
+          if (skeleton) skeleton.classList.add("hidden");
+          var items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+          if (!items.length) {
+            empty.classList.remove("hidden");
+            return;
+          }
+          items.forEach(function (a) { grid.appendChild(buildCard(a)); });
+        })
+        .catch(function (err) {
+          if (skeleton) skeleton.classList.add("hidden");
+          if (window.BrokerAI && BrokerAI.showToast) {
+            BrokerAI.showToast("Failed to load automations: " + err.message, "error");
+          }
+        });
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Build card DOM element
+    ───────────────────────────────────────────────────────────────────── */
+    function buildCard(a) {
+      var wrapper = document.createElement("div");
+      wrapper.className = "rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm flex flex-col gap-4";
+      wrapper.dataset.automationId = a.id;
+
+      // Keyword chips HTML
+      var kw = (a.keywords || []);
+      var kwHtml = kw.map(function (k) {
+        return '<span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">' + escHtml(k) + '</span>';
+      }).join("");
+
+      // Platform badge
+      var platformColors = {
+        instagram: "bg-pink-100 text-pink-700",
+        facebook:  "bg-blue-100 text-blue-700",
+        linkedin:  "bg-sky-100 text-sky-700",
+        tiktok:    "bg-slate-100 text-slate-700",
+        youtube:   "bg-red-100 text-red-700",
+        twitter:   "bg-cyan-100 text-cyan-700",
+      };
+      var pClass = platformColors[a.platform] || "bg-slate-100 text-slate-700";
+
+      var replyPreview = truncate(a.reply_comment_template || "", 60);
+
+      var card = document.createElement("div");
+      card.className = "flex flex-col gap-4";
+      card.innerHTML =
+        // Top row: name + active toggle
+        '<div class="flex items-start justify-between gap-3">' +
+          '<div class="min-w-0 flex-1">' +
+            '<h3 class="truncate text-base font-bold text-slate-900">' + escHtml(a.name) + '</h3>' +
+            '<div class="mt-1 flex flex-wrap items-center gap-2">' +
+              '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ' + pClass + '">' + escHtml(a.platform || "") + '</span>' +
+              (a.external_post_id
+                ? '<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">Post: <code class="ml-1 font-mono">' + escHtml(truncate(a.external_post_id, 12)) + '</code></span>'
+                : "") +
+              '<span class="text-[11px] text-slate-400">' + (a.trigger_count || 0) + ' matches</span>' +
+            '</div>' +
+          '</div>' +
+          // Active toggle switch
+          '<label class="relative inline-flex cursor-pointer items-center" title="' + (a.is_active ? "Deactivate" : "Activate") + '">' +
+            '<input type="checkbox" ' + (a.is_active ? "checked" : "") + ' class="peer sr-only automation-toggle" data-id="' + a.id + '" data-active="' + (a.is_active ? "true" : "false") + '" />' +
+            '<div class="peer h-5 w-9 rounded-full bg-slate-200 transition peer-checked:bg-amber-500 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:after:translate-x-4"></div>' +
+          '</label>' +
+        '</div>' +
+        // Keywords
+        '<div>' +
+          '<p class="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Trigger keywords</p>' +
+          '<div class="flex flex-wrap gap-1">' + (kwHtml || '<span class="text-xs text-slate-400">No keywords</span>') + '</div>' +
+        '</div>' +
+        // Reply preview
+        (replyPreview
+          ? '<div class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 italic">"' + escHtml(replyPreview) + '"</div>'
+          : "") +
+        // Action buttons
+        '<div class="flex flex-wrap items-center gap-2">' +
+          '<button type="button" class="btn-edit inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:shadow-sm" data-id="' + a.id + '">' +
+            '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>' +
+            'Edit' +
+          '</button>' +
+          '<button type="button" class="btn-simulate inline-flex items-center gap-1.5 rounded-lg border border-sky-200 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-50" data-id="' + a.id + '">' +
+            '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>' +
+            'Test' +
+          '</button>' +
+          '<button type="button" class="btn-delete ml-auto inline-flex items-center gap-1.5 rounded-lg border border-red-100 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50" data-id="' + a.id + '">' +
+            '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>' +
+            'Delete' +
+          '</button>' +
+        '</div>' +
+        // Simulate panel (hidden inline)
+        '<div id="simulate-panel-' + a.id + '" class="hidden rounded-xl border border-sky-200 bg-sky-50 p-4 space-y-3">' +
+          '<p class="text-xs font-bold uppercase tracking-wide text-sky-700">Test Automation</p>' +
+          '<div>' +
+            '<label class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Test Comment</label>' +
+            '<input type="text" id="sim-comment-' + a.id + '" placeholder="Enter a test comment…" class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400/30" />' +
+          '</div>' +
+          '<button type="button" class="btn-run-simulate inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-sky-700 active:scale-95" data-id="' + a.id + '">Simulate</button>' +
+          '<div id="sim-result-' + a.id + '" class="hidden rounded-lg border p-3 text-sm"></div>' +
+        '</div>';
+
+      wrapper.appendChild(card);
+
+      // Wire buttons
+      wrapper.querySelector(".btn-edit").addEventListener("click", function () {
+        openModal(a.id);
+      });
+
+      wrapper.querySelector(".btn-delete").addEventListener("click", function () {
+        deleteAutomation(a.id);
+      });
+
+      wrapper.querySelector(".btn-simulate").addEventListener("click", function () {
+        var panel = document.getElementById("simulate-panel-" + a.id);
+        if (panel) {
+          var isHidden = panel.classList.contains("hidden");
+          // Close all other panels
+          document.querySelectorAll('[id^="simulate-panel-"]').forEach(function (p) { p.classList.add("hidden"); });
+          if (isHidden) {
+            panel.classList.remove("hidden");
+            var inp = document.getElementById("sim-comment-" + a.id);
+            if (inp) inp.focus();
+          }
+        }
+      });
+
+      var runBtn = wrapper.querySelector(".btn-run-simulate");
+      if (runBtn) {
+        runBtn.addEventListener("click", function () {
+          simulateAutomation(a.id);
+        });
+      }
+
+      var simInput = wrapper.querySelector("#sim-comment-" + a.id);
+      if (simInput) {
+        simInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") simulateAutomation(a.id);
+        });
+      }
+
+      var toggle = wrapper.querySelector(".automation-toggle");
+      if (toggle) {
+        toggle.addEventListener("change", function () {
+          toggleAutomation(a.id, toggle.dataset.active === "true");
+        });
+      }
+
+      return wrapper;
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Open create/edit modal
+    ───────────────────────────────────────────────────────────────────── */
+    function openModal(id) {
+      _editingId = id || null;
+      var title = document.getElementById("modal-title");
+      if (title) title.textContent = _editingId ? "Edit Automation" : "New Automation";
+
+      // Reset form
+      document.getElementById("f-name").value = "";
+      document.getElementById("f-platform").value = "instagram";
+      document.getElementById("f-mode").value = "any";
+      document.getElementById("f-keywords").value = "";
+      document.getElementById("f-case").checked = false;
+      document.getElementById("f-reply-enabled").checked = true;
+      document.getElementById("f-reply").value = "";
+      document.getElementById("f-dm-enabled").checked = true;
+      document.getElementById("f-dm").value = "";
+      document.getElementById("f-link").value = "";
+      document.getElementById("f-epost").value = "";
+      document.getElementById("f-active").checked = true;
+      renderKeywordChips("");
+
+      if (_editingId) {
+        // Fetch existing record and pre-fill
+        authFetch("/comment-automations/" + _editingId)
+          .then(function (a) {
+            if (!a) return;
+            document.getElementById("f-name").value = a.name || "";
+            document.getElementById("f-platform").value = a.platform || "instagram";
+            document.getElementById("f-mode").value = a.match_mode || "any";
+            var kw = (a.keywords || []).join(", ");
+            document.getElementById("f-keywords").value = kw;
+            document.getElementById("f-case").checked = !!a.case_sensitive;
+            document.getElementById("f-reply-enabled").checked = a.reply_comment_enabled !== false;
+            document.getElementById("f-reply").value = a.reply_comment_template || "";
+            document.getElementById("f-dm-enabled").checked = a.dm_enabled !== false;
+            document.getElementById("f-dm").value = a.dm_template || "";
+            document.getElementById("f-link").value = a.link_url || "";
+            document.getElementById("f-epost").value = a.external_post_id || "";
+            document.getElementById("f-active").checked = a.is_active !== false;
+            renderKeywordChips(kw);
+          })
+          .catch(function (err) {
+            if (window.BrokerAI && BrokerAI.showToast) BrokerAI.showToast("Failed to load automation: " + err.message, "error");
+          });
+      }
+
+      var modal = document.getElementById("automation-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeModal() {
+      var modal = document.getElementById("automation-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      _editingId = null;
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Keyword chip preview (live)
+    ───────────────────────────────────────────────────────────────────── */
+    function renderKeywordChips(raw) {
+      var container = document.getElementById("keyword-chips");
+      if (!container) return;
+      var kws = (raw || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+      if (!kws.length) { container.innerHTML = ""; return; }
+      container.innerHTML = kws.map(function (k) {
+        return '<span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">' + escHtml(k) + '</span>';
+      }).join("");
+    }
+
+    document.getElementById("f-keywords").addEventListener("input", function () {
+      renderKeywordChips(this.value);
     });
-    const r = $("t-result");
-    r.classList.remove("hidden");
-    r.innerHTML = j.matched
-      ? `<p class="font-semibold text-emerald-700">✅ Matched on "${escapeHtml(j.matched_keyword)}"</p>
-         <div class="mt-2"><strong>Reply:</strong> <span class="text-slate-700">${escapeHtml(j.rendered_reply) || '<em>disabled</em>'}</span></div>
-         <div class="mt-1"><strong>DM:</strong> <span class="text-slate-700">${escapeHtml(j.rendered_dm) || '<em>disabled</em>'}</span></div>
-         ${j.trigger_id ? `<p class="mt-2 text-xs text-slate-500">Logged as trigger #${j.trigger_id}</p>` : ""}`
-      : '<p class="text-slate-600">No match — try different keywords or comment text.</p>';
-    if ($("t-execute").checked) load();
-  } catch(e) {
-    BrokerAI.showToast("Test failed: " + e.message, "error");
-  }
-};
 
-load();
-</script>
-<script src="/static/js/app.js" defer></script>
-</body>
+    /* ─────────────────────────────────────────────────────────────────────
+       Save (create or update)
+    ───────────────────────────────────────────────────────────────────── */
+    function saveAutomation() {
+      var name = document.getElementById("f-name").value.trim();
+      var keywords = document.getElementById("f-keywords").value
+        .split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+
+      if (!name) {
+        if (window.BrokerAI && BrokerAI.showToast) BrokerAI.showToast("Please enter a name.", "error");
+        document.getElementById("f-name").focus();
+        return;
+      }
+      if (!keywords.length) {
+        if (window.BrokerAI && BrokerAI.showToast) BrokerAI.showToast("Enter at least one trigger keyword.", "error");
+        document.getElementById("f-keywords").focus();
+        return;
+      }
+
+      var body = {
+        name: name,
+        platform: document.getElementById("f-platform").value,
+        match_mode: document.getElementById("f-mode").value,
+        keywords: keywords,
+        case_sensitive: document.getElementById("f-case").checked,
+        reply_comment_enabled: document.getElementById("f-reply-enabled").checked,
+        reply_comment_template: document.getElementById("f-reply").value,
+        dm_enabled: document.getElementById("f-dm-enabled").checked,
+        dm_template: document.getElementById("f-dm").value,
+        link_url: document.getElementById("f-link").value.trim(),
+        external_post_id: document.getElementById("f-epost").value.trim(),
+        is_active: document.getElementById("f-active").checked,
+      };
+
+      var saveBtn = document.getElementById("modal-save");
+      saveBtn.disabled = true;
+
+      var method = _editingId ? "PUT" : "POST";
+      var path = _editingId ? "/comment-automations/" + _editingId : "/comment-automations";
+
+      authFetch(path, { method: method, body: JSON.stringify(body) })
+        .then(function () {
+          closeModal();
+          if (window.BrokerAI && BrokerAI.showToast) BrokerAI.showToast("Automation saved.", "success");
+          loadAutomations();
+        })
+        .catch(function (err) {
+          if (window.BrokerAI && BrokerAI.showToast) BrokerAI.showToast("Save failed: " + err.message, "error");
+        })
+        .finally(function () { saveBtn.disabled = false; });
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Toggle active state
+    ───────────────────────────────────────────────────────────────────── */
+    function toggleAutomation(id, currentActive) {
+      authFetch("/comment-automations/" + id + "/toggle", { method: "PATCH" })
+        .then(function () {
+          loadAutomations();
+        })
+        .catch(function (err) {
+          if (window.BrokerAI && BrokerAI.showToast) BrokerAI.showToast("Toggle failed: " + err.message, "error");
+          loadAutomations(); // re-sync UI
+        });
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Delete
+    ───────────────────────────────────────────────────────────────────── */
+    function deleteAutomation(id) {
+      var doDelete = function () {
+        authFetch("/comment-automations/" + id, { method: "DELETE" })
+          .then(function () {
+            if (window.BrokerAI && BrokerAI.showToast) BrokerAI.showToast("Automation deleted.", "success");
+            loadAutomations();
+          })
+          .catch(function (err) {
+            if (window.BrokerAI && BrokerAI.showToast) BrokerAI.showToast("Delete failed: " + err.message, "error");
+          });
+      };
+
+      if (window.BrokerAI && BrokerAI.confirmDialog) {
+        BrokerAI.confirmDialog({
+          title: "Delete automation?",
+          message: "This will permanently remove the automation and all its trigger history. This cannot be undone.",
+          confirmLabel: "Delete",
+          cancelLabel: "Keep",
+          danger: true,
+        }).then(function (ok) { if (ok) doDelete(); });
+      } else if (confirm("Delete this automation? This cannot be undone.")) {
+        doDelete();
+      }
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Simulate
+    ───────────────────────────────────────────────────────────────────── */
+    function simulateAutomation(id) {
+      var input  = document.getElementById("sim-comment-" + id);
+      var result = document.getElementById("sim-result-" + id);
+      var btn    = document.querySelector('.btn-run-simulate[data-id="' + id + '"]');
+      if (!input || !result) return;
+
+      var comment = input.value.trim();
+      if (!comment) {
+        if (window.BrokerAI && BrokerAI.showToast) BrokerAI.showToast("Enter a test comment first.", "error");
+        input.focus();
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+      result.classList.add("hidden");
+
+      authFetch("/comment-automations/" + id + "/simulate", {
+        method: "POST",
+        body: JSON.stringify({ comment_text: comment, commenter_handle: "test_user", execute: false }),
+      })
+        .then(function (data) {
+          result.classList.remove("hidden");
+          if (data && data.matched) {
+            result.className = "rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm space-y-1.5";
+            result.innerHTML =
+              '<p class="font-semibold text-emerald-700">' +
+                '<svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>' +
+                'Would trigger — matched keyword: <strong>' + escHtml(data.matched_keyword || "") + '</strong>' +
+              '</p>' +
+              (data.rendered_reply ? '<p class="text-slate-600"><span class="font-semibold">Reply:</span> ' + escHtml(data.rendered_reply) + '</p>' : '') +
+              (data.rendered_dm   ? '<p class="text-slate-600"><span class="font-semibold">DM:</span> ' + escHtml(data.rendered_dm) + '</p>' : '');
+          } else {
+            result.className = "rounded-lg border border-red-200 bg-red-50 p-3 text-sm";
+            result.innerHTML =
+              '<p class="font-semibold text-red-600">' +
+                '<svg class="inline h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+                'Would not trigger — no keyword matched' +
+              '</p>';
+          }
+        })
+        .catch(function (err) {
+          result.classList.remove("hidden");
+          result.className = "rounded-lg border border-red-200 bg-red-50 p-3 text-sm";
+          result.innerHTML = '<p class="text-red-600">Simulation error: ' + escHtml(err.message) + '</p>';
+        })
+        .finally(function () { if (btn) btn.disabled = false; });
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Wire modal buttons
+    ───────────────────────────────────────────────────────────────────── */
+    document.getElementById("btn-new").addEventListener("click", function () { openModal(null); });
+    document.getElementById("btn-new-empty").addEventListener("click", function () { openModal(null); });
+    document.getElementById("modal-close").addEventListener("click", closeModal);
+    document.getElementById("modal-cancel").addEventListener("click", closeModal);
+    document.getElementById("modal-save").addEventListener("click", saveAutomation);
+
+    // Close modal on backdrop click
+    document.getElementById("automation-modal").addEventListener("click", function (e) {
+      if (e.target === this) closeModal();
+    });
+
+    // Close modal on Escape
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeModal();
+    });
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Bootstrap
+    ───────────────────────────────────────────────────────────────────── */
+    loadAutomations();
+    </script>
+  </body>
 </html>

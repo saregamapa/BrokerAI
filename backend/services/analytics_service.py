@@ -258,6 +258,118 @@ def build_analytics_summary(session: Session, user_id: int) -> Dict[str, Any]:
     }
 
 
+def platform_breakdown(session: Session, user_id: int) -> List[Dict[str, Any]]:
+    """Per-platform aggregated metrics across all posts for a user."""
+    rows = list(session.exec(select(Post).where(Post.user_id == user_id)).all())
+    buckets: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        plat = (
+            (getattr(r, "platform", None) or "").strip()
+            or (
+                r.publish_platforms[0]
+                if isinstance(r.publish_platforms, list) and r.publish_platforms
+                else "other"
+            )
+        ).lower() or "other"
+        if plat not in buckets:
+            buckets[plat] = {
+                "platform": plat,
+                "post_count": 0,
+                "total_likes": 0,
+                "total_comments": 0,
+                "total_impressions": 0,
+                "total_engagement_rate": 0.0,
+                "published_count": 0,
+            }
+        b = buckets[plat]
+        b["post_count"] += 1
+        b["total_likes"] += int(r.likes or 0)
+        b["total_comments"] += int(r.comments or 0)
+        b["total_impressions"] += int(r.impressions or 0)
+        if r.status == "published":
+            b["total_engagement_rate"] += float(r.engagement_rate or 0)
+            b["published_count"] += 1
+
+    result = []
+    for plat, b in sorted(buckets.items()):
+        pc = b["published_count"]
+        avg_er = round(b["total_engagement_rate"] / pc, 2) if pc else 0.0
+        result.append(
+            {
+                "platform": b["platform"],
+                "post_count": b["post_count"],
+                "published_count": pc,
+                "total_likes": b["total_likes"],
+                "total_comments": b["total_comments"],
+                "total_impressions": b["total_impressions"],
+                "avg_engagement_rate": avg_er,
+            }
+        )
+    # Sort by total engagement descending
+    result.sort(key=lambda x: x["total_impressions"], reverse=True)
+    return result
+
+
+def time_series(session: Session, user_id: int, days: int = 30) -> List[Dict[str, Any]]:
+    """Daily post-performance series for the past `days` days.
+
+    Groups posts by their published_at date (or scheduled_at fallback).
+    Returns one dict per calendar day with aggregate metrics.
+    """
+    from datetime import date, timedelta
+
+    today = date.today()
+    cutoff_dt = today - timedelta(days=days - 1)
+
+    # Build a slot per day
+    day_index: Dict[str, Dict[str, Any]] = {}
+    for i in range(days):
+        d = (cutoff_dt + timedelta(days=i)).isoformat()
+        day_index[d] = {
+            "date": d,
+            "post_count": 0,
+            "likes": 0,
+            "comments": 0,
+            "impressions": 0,
+            "avg_engagement_rate": 0.0,
+            "_er_sum": 0.0,
+            "_er_count": 0,
+        }
+
+    rows = list(session.exec(select(Post).where(Post.user_id == user_id)).all())
+    for r in rows:
+        # Use published_at first, then scheduled_at
+        ts = r.published_at or r.scheduled_at
+        if ts is None:
+            continue
+        try:
+            d = ts.date() if hasattr(ts, "date") else None
+            if d is None:
+                continue
+            key = d.isoformat()
+        except (AttributeError, ValueError):
+            continue
+        if key not in day_index:
+            continue
+        slot = day_index[key]
+        slot["post_count"] += 1
+        slot["likes"] += int(r.likes or 0)
+        slot["comments"] += int(r.comments or 0)
+        slot["impressions"] += int(r.impressions or 0)
+        slot["_er_sum"] += float(r.engagement_rate or 0)
+        slot["_er_count"] += 1
+
+    out = []
+    for key in sorted(day_index.keys()):
+        slot = day_index[key]
+        cnt = slot["_er_count"]
+        slot["avg_engagement_rate"] = round(slot["_er_sum"] / cnt, 2) if cnt else 0.0
+        del slot["_er_sum"]
+        del slot["_er_count"]
+        out.append(slot)
+    return out
+
+
 def posts_as_ai_payload(rows: List[Post]) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for r in rows:

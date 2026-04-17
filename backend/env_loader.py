@@ -29,6 +29,13 @@ _PLACEHOLDER_VALUES = {
     "xxx",
     "xxxx",
     "placeholder",
+    # Hardcoded fallback from old auth.py — must never reach production
+    "brokerai-dev-change-me-in-production",
+    "brokerai-dev",
+    "dev",
+    "development",
+    "test",
+    "testing",
 }
 
 
@@ -48,9 +55,12 @@ def _strict_mode() -> bool:
 
 
 # JWT secret is always required — auth is broken without it.
+# DATABASE_URL is required in all modes; defaults to SQLite but must be explicit in prod.
 _REQUIRED_ALWAYS = ["JWT_SECRET_KEY"]
 # Strict-only: needed for AI features; local dev can run without them.
 _REQUIRED_STRICT = ["OPENAI_API_KEY"]
+# Always warn if these are missing (non-fatal in dev, fatal in prod)
+_RECOMMENDED = ["DATABASE_URL"]
 
 
 def validate_required_env(*, raise_on_error: bool | None = None) -> list[str]:

@@ -85,6 +85,15 @@ def _sqlite_migrate() -> None:
         statements.append("ALTER TABLE posts ADD COLUMN slides TEXT DEFAULT '[]'")
     if "is_carousel" not in cols:
         statements.append("ALTER TABLE posts ADD COLUMN is_carousel INTEGER DEFAULT 0")
+    # S5-09 soft-delete + S5-02 A/B captions (older DBs pre-date these columns)
+    if "deleted_at" not in cols:
+        statements.append("ALTER TABLE posts ADD COLUMN deleted_at DATETIME")
+    if "ab_variant_b" not in cols:
+        statements.append("ALTER TABLE posts ADD COLUMN ab_variant_b TEXT")
+    if "ab_winner" not in cols:
+        statements.append("ALTER TABLE posts ADD COLUMN ab_winner TEXT")
+    if "ab_status" not in cols:
+        statements.append("ALTER TABLE posts ADD COLUMN ab_status TEXT")
 
     with engine.begin() as conn:
         for sql in statements:
@@ -231,6 +240,8 @@ def _sqlite_migrate() -> None:
                 conn.execute(
                     text("ALTER TABLE campaigns ADD COLUMN target_audience TEXT DEFAULT ''")
                 )
+            if "deleted_at" not in ccols:
+                conn.execute(text("ALTER TABLE campaigns ADD COLUMN deleted_at DATETIME"))
             conn.execute(
                 text(
                     "UPDATE campaigns SET facebook_url = '' WHERE facebook_url IS NULL"
@@ -400,6 +411,106 @@ def _sqlite_migrate() -> None:
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_team_invites_team_id ON team_invites(team_id)"
                 )
+            )
+
+    # S1-02: Stripe billing columns on users
+    if insp2.has_table("users"):
+        ucols_stripe = {c["name"] for c in insp2.get_columns("users")}
+        with engine.begin() as conn:
+            if "stripe_customer_id" not in ucols_stripe:
+                conn.execute(text("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT"))
+            if "stripe_subscription_id" not in ucols_stripe:
+                conn.execute(text("ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT"))
+            if "plan_expires_at" not in ucols_stripe:
+                conn.execute(text("ALTER TABLE users ADD COLUMN plan_expires_at DATETIME"))
+
+    # S0-07: Account lockout + S0-06: email_verified columns on users
+    if insp2.has_table("users"):
+        ucols2 = {c["name"] for c in insp2.get_columns("users")}
+        with engine.begin() as conn:
+            if "email_verified" not in ucols2:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0")
+                )
+                conn.execute(text("UPDATE users SET email_verified = 0 WHERE email_verified IS NULL"))
+            if "failed_login_attempts" not in ucols2:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0")
+                )
+                conn.execute(text("UPDATE users SET failed_login_attempts = 0 WHERE failed_login_attempts IS NULL"))
+            if "locked_until" not in ucols2:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN locked_until DATETIME")
+                )
+            # S4-05: Google OAuth profile fields
+            if "google_id" not in ucols2:
+                conn.execute(text("ALTER TABLE users ADD COLUMN google_id TEXT"))
+            if "display_name" not in ucols2:
+                conn.execute(text("ALTER TABLE users ADD COLUMN display_name TEXT"))
+            if "avatar_url" not in ucols2:
+                conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url TEXT"))
+
+    # S0-03: Refresh tokens table
+    if not insp2.has_table("refresh_tokens"):
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE refresh_tokens ("
+                    "id INTEGER PRIMARY KEY, "
+                    "user_id INTEGER NOT NULL, "
+                    "token_hash TEXT NOT NULL UNIQUE, "
+                    "revoked INTEGER DEFAULT 0, "
+                    "expires_at DATETIME NOT NULL, "
+                    "created_at DATETIME)"
+                )
+            )
+            conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_refresh_tokens_user_id ON refresh_tokens(user_id)")
+            )
+            conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_refresh_tokens_token_hash ON refresh_tokens(token_hash)")
+            )
+
+    # S0-04: Password reset tokens table
+    if not insp2.has_table("password_reset_tokens"):
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE password_reset_tokens ("
+                    "id INTEGER PRIMARY KEY, "
+                    "user_id INTEGER NOT NULL, "
+                    "token_hash TEXT NOT NULL UNIQUE, "
+                    "used INTEGER DEFAULT 0, "
+                    "expires_at DATETIME NOT NULL, "
+                    "created_at DATETIME)"
+                )
+            )
+            conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_prt_user_id ON password_reset_tokens(user_id)")
+            )
+            conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_prt_token_hash ON password_reset_tokens(token_hash)")
+            )
+
+    # S0-06: Email verification tokens table
+    if not insp2.has_table("email_verification_tokens"):
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE email_verification_tokens ("
+                    "id INTEGER PRIMARY KEY, "
+                    "user_id INTEGER NOT NULL, "
+                    "token_hash TEXT NOT NULL UNIQUE, "
+                    "used INTEGER DEFAULT 0, "
+                    "expires_at DATETIME NOT NULL, "
+                    "created_at DATETIME)"
+                )
+            )
+            conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_evt_user_id ON email_verification_tokens(user_id)")
+            )
+            conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_evt_token_hash ON email_verification_tokens(token_hash)")
             )
 
     # Social accounts table (source-of-truth for connection status)

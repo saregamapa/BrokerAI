@@ -20,6 +20,9 @@ async def check_caption_compliance(caption: str) -> CheckComplianceResponse:
         "false claims, or missing basic disclaimers when needed (e.g. 'not financial advice'). "
         "Return ONLY JSON: "
         '{"passed": boolean, "issues": string[], "suggested_fix": string}. '
+        "CRITICAL: suggested_fix must be ONLY the extra disclaimer or disclosure text to APPEND to the "
+        "existing caption (one or two short sentences, no hashtags unless essential). "
+        "Never rewrite or replace the full caption in suggested_fix. "
         "If minor issues only, passed can still be true with issues listing suggestions."
     )
     try:
@@ -61,8 +64,7 @@ def _heuristic_check(caption: str) -> CheckComplianceResponse:
             red_flags.append(msg)
     passed = len(red_flags) == 0
     fix = (
-        "Use inclusive language and avoid making absolute claims. "
-        "Add appropriate disclaimers where necessary (e.g., 'Results may vary')."
+        "Results may vary. This post is not financial, legal, or medical advice."
         if not passed
         else ""
     )

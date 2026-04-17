@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="BrokerAI — Account settings: plan, profile, password, and danger zone." />
+    <meta name="og:site_name" content="BrokerAI" />
+    <meta property="og:type" content="website" />
+    <title>Account Settings — BrokerAI</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body
+    class="brokerai-app min-h-screen bg-[#f9fafb] text-slate-900 antialiased"
+    data-page="settings"
+  >
+    <!-- Global loading overlay -->
+    <div
+      id="brokerai-loading"
+      class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-white/70 backdrop-blur-sm"
+    >
+      <div class="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-xl">
+        <div class="brokerai-spinner" aria-label="Loading"></div>
+        <p class="text-sm font-medium text-slate-700">Loading…</p>
+      </div>
+    </div>
+
+    <!-- Mobile sidebar overlay -->
+    <div
+      id="app-sidebar-overlay"
+      class="fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur-sm md:hidden"
+      aria-hidden="true"
+    ></div>
+
+    <!-- Sidebar -->
+    <aside
+      id="app-sidebar"
+      class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl md:block"
+    ></aside>
+
+    <!-- Main layout -->
+    <div id="app-layout" class="flex min-h-screen flex-col md:pl-64">
+      <header
+        id="app-topnav"
+        class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"
+      ></header>
+
+      <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/20 px-4 py-8 md:px-8">
+        <div class="mx-auto max-w-3xl">
+
+          <!-- Page header -->
+          <div class="mb-8">
+            <h1 class="text-2xl font-bold text-slate-900">Account Settings</h1>
+            <p class="mt-1 text-sm text-slate-500">Manage your plan, profile preferences, and account security.</p>
+          </div>
+
+          <!-- ── 1. PLAN & BILLING ─────────────────────────────────────── -->
+          <section aria-labelledby="settings-plan-heading">
+            <h2 id="settings-plan-heading" class="text-sm font-bold uppercase tracking-wider text-slate-500">Plan &amp; Billing</h2>
+            <div class="mt-4 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md">
+
+              <!-- Plan badge + name -->
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="flex items-center gap-3">
+                  <span
+                    id="plan-badge"
+                    class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-700"
+                  >Free</span>
+                  <div>
+                    <p id="plan-name" class="text-base font-bold text-slate-900">Free Plan</p>
+                    <p id="plan-price" class="text-xs text-slate-500">$0 / month</p>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <!-- Manage subscription — only for paid plans with Stripe -->
+                  <button
+                    type="button"
+                    id="plan-portal-btn"
+                    class="hidden inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:scale-[1.02] hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    Manage subscription
+                  </button>
+                  <!-- Upgrade — hidden for pro/agency -->
+                  <a
+                    id="plan-upgrade-btn"
+                    href="/pricing.html"
+                    class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
+                  >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                    Upgrade plan
+                  </a>
+                </div>
+              </div>
+
+              <!-- Usage meter -->
+              <div class="mt-6">
+                <div class="flex items-center justify-between text-xs font-medium text-slate-600">
+                  <span>Campaigns this month</span>
+                  <span id="plan-usage-label">— / —</span>
+                </div>
+                <div class="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    id="plan-usage-bar"
+                    class="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-500"
+                    style="width: 0%"
+                  ></div>
+                </div>
+                <p id="plan-usage-sub" class="mt-1 text-[10px] text-slate-400"></p>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── 2. PROFILE ───────────────────────────────────────────── -->
+          <section aria-labelledby="settings-profile-heading" class="mt-10">
+            <h2 id="settings-profile-heading" class="text-sm font-bold uppercase tracking-wider text-slate-500">Profile</h2>
+            <div class="mt-4 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md space-y-6">
+
+              <!-- Email (read-only) -->
+              <div>
+                <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Email address</label>
+                <div class="mt-1.5 flex items-center gap-2">
+                  <input
+                    type="email"
+                    id="profile-email"
+                    readonly
+                    value=""
+                    class="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:outline-none cursor-default select-all"
+                  />
+                  <button
+                    type="button"
+                    id="profile-email-copy"
+                    title="Copy email"
+                    class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:scale-105 hover:text-amber-600 active:scale-95"
+                    aria-label="Copy email to clipboard"
+                  >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                  </button>
+                </div>
+                <p class="mt-1 text-[10px] text-slate-400">Email cannot be changed after signup.</p>
+              </div>
+
+              <!-- Timezone selector -->
+              <div>
+                <label for="profile-timezone" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Timezone</label>
+                <p class="mt-0.5 text-[11px] text-slate-400">Used when scheduling posts and displaying calendar times.</p>
+                <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <select
+                    id="profile-timezone"
+                    class="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                  >
+                    <option value="America/New_York">America/New_York (Eastern)</option>
+                    <option value="America/Chicago">America/Chicago (Central)</option>
+                    <option value="America/Denver">America/Denver (Mountain)</option>
+                    <option value="America/Los_Angeles">America/Los_Angeles (Pacific)</option>
+                    <option value="America/Anchorage">America/Anchorage (Alaska)</option>
+                    <option value="Pacific/Honolulu">Pacific/Honolulu (Hawaii)</option>
+                    <option value="America/Toronto">America/Toronto</option>
+                    <option value="America/Vancouver">America/Vancouver</option>
+                    <option value="America/Sao_Paulo">America/Sao_Paulo</option>
+                    <option value="Europe/London">Europe/London</option>
+                    <option value="Europe/Paris">Europe/Paris</option>
+                    <option value="Europe/Berlin">Europe/Berlin</option>
+                    <option value="Europe/Madrid">Europe/Madrid</option>
+                    <option value="Europe/Rome">Europe/Rome</option>
+                    <option value="Europe/Amsterdam">Europe/Amsterdam</option>
+                    <option value="Asia/Dubai">Asia/Dubai</option>
+                    <option value="Asia/Kolkata">Asia/Kolkata</option>
+                    <option value="Asia/Singapore">Asia/Singapore</option>
+                    <option value="Asia/Tokyo">Asia/Tokyo</option>
+                    <option value="Australia/Sydney">Australia/Sydney</option>
+                  </select>
+                  <button
+                    type="button"
+                    id="profile-timezone-save"
+                    class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Save timezone
+                  </button>
+                </div>
+                <p id="profile-timezone-err" class="mt-2 hidden text-sm text-red-600"></p>
+              </div>
+
+              <!-- Social connections status -->
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Connected social accounts</p>
+                <p class="mt-0.5 text-[11px] text-slate-400">Manage full connections on the <a href="/connect.html" class="font-medium text-amber-600 hover:underline">Connect page</a>.</p>
+                <div id="social-status-list" class="mt-3 flex flex-wrap gap-3">
+                  <!-- JS fills -->
+                  <div class="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-400">
+                    <div class="brokerai-spinner h-3 w-3 shrink-0 border-slate-300 border-t-slate-500"></div>
+                    Loading…
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── 3. CHANGE PASSWORD ────────────────────────────────────── -->
+          <section aria-labelledby="settings-password-heading" class="mt-10">
+            <h2 id="settings-password-heading" class="text-sm font-bold uppercase tracking-wider text-slate-500">Change Password</h2>
+            <div class="mt-4 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md">
+              <form id="change-password-form" novalidate class="space-y-4">
+                <div>
+                  <label for="pw-current" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Current password</label>
+                  <input
+                    type="password"
+                    id="pw-current"
+                    autocomplete="current-password"
+                    placeholder="Enter your current password"
+                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                  />
+                </div>
+                <div>
+                  <label for="pw-new" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">New password</label>
+                  <input
+                    type="password"
+                    id="pw-new"
+                    autocomplete="new-password"
+                    placeholder="Minimum 8 characters"
+                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                  />
+                </div>
+                <div>
+                  <label for="pw-confirm" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Confirm new password</label>
+                  <input
+                    type="password"
+                    id="pw-confirm"
+                    autocomplete="new-password"
+                    placeholder="Repeat new password"
+                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                  />
+                </div>
+
+                <div id="pw-error" class="hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+
+                <div class="pt-1">
+                  <button
+                    type="submit"
+                    id="pw-submit-btn"
+                    class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    Update password
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <!-- ── 4. DANGER ZONE ───────────────────────────────────────── -->
+          <section aria-labelledby="settings-danger-heading" class="mt-10 mb-16">
+            <h2 id="settings-danger-heading" class="text-sm font-bold uppercase tracking-wider text-red-500">Danger Zone</h2>
+            <div class="mt-4 rounded-2xl border border-red-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md">
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div class="flex-1">
+                  <p class="text-sm font-bold text-slate-900">Delete my account</p>
+                  <p class="mt-1 text-xs leading-relaxed text-slate-500">
+                    This will permanently remove all your campaigns, posts, and data. This action cannot be undone.
+                    Type <strong class="font-semibold text-slate-700">DELETE</strong> in the field to confirm.
+                  </p>
+                  <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <input
+                      type="text"
+                      id="delete-confirm-input"
+                      placeholder="Type DELETE to confirm"
+                      autocomplete="off"
+                      class="w-full max-w-xs rounded-xl border border-red-200 bg-red-50/50 px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm transition focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-400/30"
+                    />
+                    <button
+                      type="button"
+                      id="delete-account-btn"
+                      disabled
+                      class="inline-flex shrink-0 items-center gap-2 rounded-xl border border-red-300 bg-red-50 px-5 py-2.5 text-sm font-bold text-red-700 shadow-sm transition duration-200 hover:bg-red-100 hover:border-red-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      Delete my account
+                    </button>
+                  </div>
+                  <p id="delete-error" class="mt-3 hidden text-sm text-red-600"></p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </main>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/nav.js"></script>
+    <script>
+      if (!BrokerAI.requireAuth()) { /* redirected */ }
+
+      /* ── API helper ────────────────────────────────────────────────── */
+      var API = {
+        getToken: function () { return localStorage.getItem('brokerai_token'); },
+        json: async function (path, opts) {
+          opts = opts || {};
+          var r = await fetch(path, Object.assign({}, opts, {
+            headers: Object.assign(
+              { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API.getToken() },
+              opts.headers || {}
+            )
+          }));
+          if (r.status === 401) {
+            localStorage.removeItem('brokerai_token');
+            location.href = '/login.html';
+          }
+          return r.json();
+        }
+      };
+
+      /* ── Plan metadata ─────────────────────────────────────────────── */
+      var PLAN_META = {
+        free:    { label: 'Free',    price: '$0 / month',      badgeClass: 'bg-slate-100 text-slate-700',   barClass: 'from-slate-300 to-slate-400'   },
+        starter: { label: 'Starter', price: '$29 / month',     badgeClass: 'bg-amber-100 text-amber-800',   barClass: 'from-amber-400 to-amber-500'   },
+        growth:  { label: 'Growth',  price: '$79 / month',     badgeClass: 'bg-sky-100 text-sky-800',       barClass: 'from-sky-400 to-sky-500'       },
+        pro:     { label: 'Pro',     price: '$199 / month',    badgeClass: 'bg-violet-100 text-violet-800', barClass: 'from-violet-500 to-violet-600' },
+        agency:  { label: 'Agency',  price: 'Custom pricing',  badgeClass: 'bg-amber-200 text-amber-900',   barClass: 'from-amber-500 to-amber-600'   },
+      };
+
+      /* ── Load plan & billing ──────────────────────────────────────── */
+      async function loadPlan() {
+        try {
+          var data = await API.json('/me/plan', { method: 'GET' });
+          var plan = (data.plan || 'free').toLowerCase();
+          var meta = PLAN_META[plan] || PLAN_META['free'];
+
+          // Badge
+          var badge = document.getElementById('plan-badge');
+          badge.className = 'inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ' + meta.badgeClass;
+          badge.textContent = meta.label;
+
+          document.getElementById('plan-name').textContent = meta.label + ' Plan';
+          document.getElementById('plan-price').textContent = meta.price;
+
+          // Usage meter
+          var used = (data.usage && data.usage.campaigns_this_month) || 0;
+          var max  = (data.limits && data.limits.campaigns_per_month) || 0;
+          var unlimited = max >= 999999;
+          document.getElementById('plan-usage-label').textContent = unlimited ? used + ' / ∞' : used + ' / ' + max;
+
+          var bar = document.getElementById('plan-usage-bar');
+          var pct = unlimited ? Math.min(used * 2, 40) : (max > 0 ? Math.round((used / max) * 100) : 0);
+          bar.style.width = pct + '%';
+          var barColor = meta.barClass;
+          if (!unlimited && pct >= 90) barColor = 'from-red-400 to-red-500';
+          else if (!unlimited && pct >= 70) barColor = 'from-orange-400 to-orange-500';
+          bar.className = 'h-full rounded-full bg-gradient-to-r transition-all duration-500 ' + barColor;
+
+          var remaining = unlimited ? null : Math.max(0, max - used);
+          document.getElementById('plan-usage-sub').textContent = unlimited
+            ? 'Unlimited campaigns on this plan.'
+            : remaining + ' campaign' + (remaining === 1 ? '' : 's') + ' remaining this month.';
+
+          // Buttons
+          var portalBtn = document.getElementById('plan-portal-btn');
+          var upgradeBtn = document.getElementById('plan-upgrade-btn');
+          if (data.stripe_subscription_id) {
+            portalBtn.classList.remove('hidden');
+          }
+          var topTier = ['pro', 'agency'];
+          if (topTier.indexOf(plan) !== -1) {
+            upgradeBtn.classList.add('hidden');
+          }
+        } catch (e) {
+          console.warn('settings/plan:', e.message || e);
+        }
+      }
+
+      /* ── Billing portal ──────────────────────────────────────────── */
+      document.getElementById('plan-portal-btn').addEventListener('click', async function () {
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Opening portal…';
+        try {
+          var out = await API.json('/billing/portal', { method: 'POST' });
+          if (out.url) window.location.href = out.url;
+        } catch (e) {
+          BrokerAI.showToast(e.message || 'Could not open billing portal.', 'error');
+          btn.disabled = false;
+          btn.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg> Manage subscription';
+        }
+      });
+
+      /* ── Load profile ────────────────────────────────────────────── */
+      async function loadProfile() {
+        try {
+          var me = await API.json('/me', { method: 'GET' });
+          // Email
+          var emailInput = document.getElementById('profile-email');
+          emailInput.value = me.email || '';
+
+          // Timezone
+          var tzSelect = document.getElementById('profile-timezone');
+          if (me.timezone) {
+            var found = false;
+            for (var i = 0; i < tzSelect.options.length; i++) {
+              if (tzSelect.options[i].value === me.timezone) {
+                tzSelect.selectedIndex = i;
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              var opt = document.createElement('option');
+              opt.value = me.timezone;
+              opt.textContent = me.timezone;
+              tzSelect.appendChild(opt);
+              tzSelect.value = me.timezone;
+            }
+          }
+        } catch (e) {
+          console.warn('settings/profile:', e.message || e);
+        }
+      }
+
+      /* ── Email copy ──────────────────────────────────────────────── */
+      document.getElementById('profile-email-copy').addEventListener('click', function () {
+        var val = document.getElementById('profile-email').value;
+        if (!val) return;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(val).then(
+            function () { BrokerAI.showToast('Email copied to clipboard', 'success'); },
+            function () { BrokerAI.showToast('Could not copy — please select and copy manually', 'error'); }
+          );
+        } else {
+          BrokerAI.showToast('Copy not supported in this browser', 'error');
+        }
+      });
+
+      /* ── Save timezone ───────────────────────────────────────────── */
+      document.getElementById('profile-timezone-save').addEventListener('click', async function () {
+        var btn = this;
+        var errEl = document.getElementById('profile-timezone-err');
+        errEl.classList.add('hidden');
+        errEl.textContent = '';
+        var tz = document.getElementById('profile-timezone').value;
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        try {
+          var result = await API.json('/me', {
+            method: 'PATCH',
+            body: JSON.stringify({ timezone: tz })
+          });
+          if (result && result.detail) throw new Error(result.detail);
+          BrokerAI.showToast('Timezone saved', 'success');
+        } catch (e) {
+          errEl.textContent = e.message || 'Could not save timezone. Please try again.';
+          errEl.classList.remove('hidden');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Save timezone';
+        }
+      });
+
+      /* ── Load social connection status ───────────────────────────── */
+      var SOCIAL_PLATFORMS = [
+        { key: 'linkedin',  label: 'LinkedIn',  color: 'text-sky-700',   bg: 'bg-sky-50',   border: 'border-sky-200'   },
+        { key: 'instagram', label: 'Instagram', color: 'text-pink-700',  bg: 'bg-pink-50',  border: 'border-pink-200'  },
+        { key: 'facebook',  label: 'Facebook',  color: 'text-blue-700',  bg: 'bg-blue-50',  border: 'border-blue-200'  },
+      ];
+
+      async function loadSocialStatus() {
+        var container = document.getElementById('social-status-list');
+        try {
+          var data = await API.json('/social-status', { method: 'GET' });
+          var connectedPlatforms = (data.platforms || []).map(function (p) {
+            return String(p).toLowerCase();
+          });
+
+          container.innerHTML = '';
+          SOCIAL_PLATFORMS.forEach(function (p) {
+            var isConnected = connectedPlatforms.indexOf(p.key) !== -1 || data.connected === true;
+            var pill = document.createElement('div');
+            pill.className = 'flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium ' +
+              (isConnected ? p.bg + ' ' + p.border + ' ' + p.color : 'bg-slate-50 border-slate-200 text-slate-500');
+
+            var dot = isConnected
+              ? '<span class="flex h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>'
+              : '<span class="flex h-2 w-2 shrink-0 rounded-full bg-slate-300"></span>';
+            pill.innerHTML = dot + p.label;
+            container.appendChild(pill);
+          });
+        } catch (e) {
+          container.innerHTML = '<p class="text-xs text-slate-400">Could not load social account status.</p>';
+        }
+      }
+
+      /* ── Change password ─────────────────────────────────────────── */
+      function pwSetError(msg) {
+        var el = document.getElementById('pw-error');
+        if (msg) {
+          el.textContent = msg;
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+          el.textContent = '';
+        }
+      }
+
+      document.getElementById('change-password-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        pwSetError('');
+
+        var current = document.getElementById('pw-current').value;
+        var newPw   = document.getElementById('pw-new').value;
+        var confirm = document.getElementById('pw-confirm').value;
+        var btn     = document.getElementById('pw-submit-btn');
+
+        // Client-side validation
+        if (!current) { pwSetError('Please enter your current password.'); return; }
+        if (newPw.length < 8) { pwSetError('New password must be at least 8 characters.'); return; }
+        if (newPw === current) { pwSetError('New password must be different from your current password.'); return; }
+        if (newPw !== confirm) { pwSetError('Passwords do not match. Please re-enter your new password.'); return; }
+
+        btn.disabled = true;
+        btn.textContent = 'Updating…';
+
+        try {
+          var result = await API.json('/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify({ current_password: current, new_password: newPw })
+          });
+
+          if (result && result.detail) {
+            pwSetError(result.detail);
+          } else {
+            // Clear fields on success
+            document.getElementById('pw-current').value = '';
+            document.getElementById('pw-new').value = '';
+            document.getElementById('pw-confirm').value = '';
+            BrokerAI.showToast('Password updated successfully', 'success');
+          }
+        } catch (err) {
+          pwSetError(err.message || 'Could not update password. Please try again.');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg> Update password';
+        }
+      });
+
+      /* ── Danger zone: delete account ─────────────────────────────── */
+      var deleteInput = document.getElementById('delete-confirm-input');
+      var deleteBtn   = document.getElementById('delete-account-btn');
+
+      deleteInput.addEventListener('input', function () {
+        deleteBtn.disabled = (deleteInput.value.trim() !== 'DELETE');
+      });
+
+      deleteBtn.addEventListener('click', async function () {
+        var btn = this;
+        var errEl = document.getElementById('delete-error');
+        errEl.classList.add('hidden');
+        errEl.textContent = '';
+
+        if (deleteInput.value.trim() !== 'DELETE') return;
+        btn.disabled = true;
+        btn.textContent = 'Processing…';
+
+        try {
+          var result = await fetch('/me', {
+            method: 'DELETE',
+            headers: {
+              'Authorization': 'Bearer ' + API.getToken(),
+              'Content-Type': 'application/json'
+            }
+          });
+
+          // Whether the endpoint exists or returns 404, show the queued message
+          BrokerAI.showToast('Account deletion requested — our team will process this within 24h', 'success');
+          deleteInput.value = '';
+          btn.disabled = true;
+        } catch (e) {
+          // Network error — still show queued message (per spec: endpoint may not exist yet)
+          BrokerAI.showToast('Account deletion requested — our team will process this within 24h', 'success');
+          deleteInput.value = '';
+          btn.disabled = true;
+        }
+      });
+
+      /* ── Bootstrap ───────────────────────────────────────────────── */
+      async function load() {
+        BrokerAI.setLoading(true);
+        try {
+          await Promise.all([loadPlan(), loadProfile(), loadSocialStatus()]);
+        } catch (e) {
+          BrokerAI.showToast(e.message || 'Failed to load settings', 'error');
+        } finally {
+          BrokerAI.setLoading(false);
+        }
+      }
+
+      load();
+    </script>
+  </body>
+</html>

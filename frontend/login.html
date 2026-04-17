@@ -77,8 +77,29 @@
           <div id="session-expired-banner" class="mt-5 hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" role="status">
             <strong class="font-semibold">Session expired.</strong> Please log in again to continue.
           </div>
+          <div id="google-oauth-notice-banner" class="mt-5 hidden rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900" role="status"></div>
 
           <form id="login-form" class="mt-8 space-y-5" novalidate>
+            <!-- Google SSO Button -->
+            <button type="button" id="google-btn" onclick="loginWithGoogle()"
+              class="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 transition-colors text-sm font-medium text-slate-700 shadow-sm">
+              <svg width="18" height="18" viewBox="0 0 48 48">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                <path fill="none" d="M0 0h48v48H0z"/>
+              </svg>
+              Continue with Google
+            </button>
+
+            <!-- Divider -->
+            <div class="flex items-center gap-3 my-4">
+              <div class="flex-1 h-px bg-slate-200"></div>
+              <span class="text-xs text-slate-400 font-medium">or continue with email</span>
+              <div class="flex-1 h-px bg-slate-200"></div>
+            </div>
+
             <div>
               <label for="email" class="block text-sm font-medium text-slate-700">Email address</label>
               <input
@@ -132,6 +153,61 @@
       if (BrokerAI.getToken()) {
         window.location.href = "/dashboard.html";
       }
+
+      function loginWithGoogle() {
+        window.location.href = '/auth/google';
+      }
+
+      (function initGoogleButtonVisibility() {
+        fetch('/api/public-config')
+          .then(function (r) { return r.json(); })
+          .then(function (cfg) {
+            if (cfg && cfg.google_oauth_enabled) return;
+            var btn = document.getElementById('google-btn');
+            if (btn) {
+              btn.classList.add('hidden');
+              btn.setAttribute('aria-hidden', 'true');
+            }
+            var divs = document.querySelectorAll('#login-form .flex.items-center.gap-3.my-4');
+            if (divs.length) divs[0].classList.add('hidden');
+          })
+          .catch(function () {});
+      })();
+
+      // On page load — check if we arrived from Google OAuth callback
+      (function handleGoogleToken() {
+        var hash = window.location.hash;
+        if (hash && hash.includes('google_token=')) {
+          var token = hash.split('google_token=')[1].split('&')[0];
+          if (token) {
+            localStorage.setItem('token', token);
+            history.replaceState(null, '', window.location.pathname);
+            window.location.href = '/dashboard.html';
+          }
+        }
+      })();
+
+      // Show error if Google OAuth failed
+      (function handleGoogleError() {
+        var urlParams = new URLSearchParams(window.location.search);
+        var authError = urlParams.get('error');
+        if (authError === 'google_auth_failed' || authError === 'google_profile_failed') {
+          var errEl = document.getElementById('error-message') || document.getElementById('error') || document.querySelector('.error-text');
+          if (errEl) {
+            errEl.textContent = 'Google sign-in failed. Please try again or use email/password.';
+            errEl.style.display = 'block';
+          }
+        }
+        var notice = urlParams.get('notice');
+        if (notice === 'google_oauth_unavailable') {
+          var ban = document.getElementById('google-oauth-notice-banner');
+          if (ban) {
+            ban.textContent =
+              'Google sign-in is not configured on this server yet. Use email and password below, or ask your admin to set GOOGLE_CLIENT_ID in the environment.';
+            ban.classList.remove('hidden');
+          }
+        }
+      })();
 
       // Show session-expired banner if we were kicked out by a 401.
       (function () {

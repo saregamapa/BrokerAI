@@ -10,6 +10,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23f59e0b'/><text x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-size='20' font-weight='900' fill='white' font-family='system-ui'>B</text></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
   </head>
   <body
     class="brokerai-app min-h-screen bg-[#f9fafb] text-slate-900 antialiased"
@@ -60,6 +61,15 @@
                 Refresh
               </button>
               <a
+                id="btn-export-csv"
+                href="/analytics/export-csv"
+                download
+                class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-emerald-200 hover:text-emerald-700 hover:shadow-md"
+              >
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Export CSV
+              </a>
+              <a
                 href="/wizard.html"
                 class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-violet-200 hover:shadow-md"
               >
@@ -69,7 +79,14 @@
             </div>
           </div>
 
-          <div id="kpi-row" class="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div id="analytics-skeleton" class="mt-10 grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="brokerai-skeleton h-24 rounded-xl"></div>
+            <div class="brokerai-skeleton h-24 rounded-xl"></div>
+            <div class="brokerai-skeleton h-24 rounded-xl"></div>
+            <div class="brokerai-skeleton h-24 rounded-xl"></div>
+          </div>
+
+          <div id="kpi-row" class="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4" style="display:none">
             <!-- Engagement Rate -->
             <div class="group rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-lg backdrop-blur-md transition duration-200 hover:-translate-y-0.5 hover:shadow-xl">
               <div class="flex items-center justify-between">
@@ -117,6 +134,68 @@
           </div>
 
           <p id="summary-best" class="mt-4 text-xs text-slate-500"></p>
+
+          <!-- ── Charts row ──────────────────────────────────────────────── -->
+          <div class="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <!-- Engagement trend line chart (spans 2 cols) -->
+            <div class="lg:col-span-2 rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-lg backdrop-blur-md">
+              <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Engagement trend</h2>
+                  <p class="mt-0.5 text-[11px] text-slate-400">Daily likes + comments over the last 30 days</p>
+                </div>
+                <div class="flex gap-1.5">
+                  <button type="button" data-days="7"  class="chart-range-btn rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50">7d</button>
+                  <button type="button" data-days="30" class="chart-range-btn rounded-lg border border-amber-400 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 transition">30d</button>
+                  <button type="button" data-days="90" class="chart-range-btn rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50">90d</button>
+                </div>
+              </div>
+              <div class="relative h-52">
+                <canvas id="chart-trend" class="w-full h-full"></canvas>
+                <div id="chart-trend-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-white/80 backdrop-blur-sm">
+                  <svg class="h-8 w-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                  <p class="text-xs font-semibold text-slate-500">No trend data yet</p>
+                  <p class="text-[11px] text-slate-400 text-center leading-relaxed px-4">Publish your first campaign and sync analytics to see engagement trends over time.</p>
+                  <a href="/wizard-v2.html" class="mt-1 inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm transition hover:bg-amber-600">✨ Create campaign</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Platform breakdown donut -->
+            <div class="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-lg backdrop-blur-md">
+              <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Platform mix</h2>
+              <p class="text-[11px] text-slate-400 mb-4">Post volume by platform</p>
+              <div class="relative h-40 flex items-center justify-center">
+                <canvas id="chart-donut" class="max-h-40"></canvas>
+                <div id="chart-donut-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl bg-white/80 backdrop-blur-sm">
+                  <svg class="h-7 w-7 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+                  <p class="text-xs font-semibold text-slate-500">No platforms yet</p>
+                  <p class="text-[11px] text-slate-400 text-center leading-relaxed px-3">Connect accounts &amp; publish to see your platform mix.</p>
+                </div>
+              </div>
+              <ul id="chart-donut-legend" class="mt-4 space-y-1.5 text-xs text-slate-700"></ul>
+            </div>
+          </div>
+          <!-- ── /Charts row ──────────────────────────────────────────────── -->
+
+          <!-- ── Posting Time Heatmap ──────────────────────────────────────── -->
+          <div class="mt-8" id="heatmap-section">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h2 class="text-base font-semibold text-slate-800">Best Posting Times</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Engagement rate by day &amp; hour</p>
+              </div>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div id="heatmap-container">
+                <!-- JS renders here -->
+              </div>
+              <div id="heatmap-empty" class="hidden text-center py-8 text-sm text-slate-400">
+                Publish some posts to see your best times
+              </div>
+            </div>
+          </div>
+          <!-- ── /Posting Time Heatmap ──────────────────────────────────────── -->
 
           <div class="mt-10 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/90 shadow-lg backdrop-blur-md">
             <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
@@ -188,6 +267,9 @@
       if (!BrokerAI.requireAuth()) {
         /* redirected */
       }
+
+      function showSkeleton(id) { var el = document.getElementById(id); if(el) el.style.display = ''; }
+      function hideSkeleton(id) { var el = document.getElementById(id); if(el) el.style.display = 'none'; }
 
       var PLATFORM_COLORS = {
         instagram: "bg-pink-100 text-pink-800",
@@ -287,6 +369,7 @@
       async function loadPosts() {
         var rows = await BrokerAI.apiJson("/analytics/posts", { method: "GET" });
         renderPosts(rows);
+        buildHeatmap(rows || []);
       }
 
       async function loadAI() {
@@ -309,11 +392,17 @@
       }
 
       async function loadAll() {
+        showSkeleton('analytics-skeleton');
+        hideSkeleton('kpi-row');
         BrokerAI.setLoading(true);
         try {
           await loadSummary();
           await loadPosts();
+          hideSkeleton('analytics-skeleton');
+          showSkeleton('kpi-row');
         } catch (err) {
+          hideSkeleton('analytics-skeleton');
+          showSkeleton('kpi-row');
           BrokerAI.showToast(err.message || "Load failed", "error");
         } finally {
           BrokerAI.setLoading(false);
@@ -346,8 +435,317 @@
         }
       });
 
+      // ── Posting Time Heatmap ─────────────────────────────────────────
+
+      function buildHeatmap(posts) {
+        var grid = {}; // grid[day][hour] = {count, engSum}
+        var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        // init
+        for (var d = 0; d < 7; d++) {
+          grid[d] = {};
+          for (var h = 6; h < 24; h++) grid[d][h] = {count:0, engSum:0};
+        }
+        posts.forEach(function(p) {
+          if (!p.published_at) return;
+          var dt = new Date(p.published_at);
+          var day = dt.getDay();
+          var hour = dt.getHours();
+          if (hour < 6) return;
+          if (!grid[day][hour]) grid[day][hour] = {count:0, engSum:0};
+          grid[day][hour].count++;
+          grid[day][hour].engSum += parseFloat(p.engagement_rate || 0);
+        });
+
+        // Find max avg engagement for color scaling
+        var maxAvg = 0;
+        for (var d = 0; d < 7; d++) {
+          for (var h = 6; h < 24; h++) {
+            var cell = grid[d][h];
+            if (cell.count > 0) maxAvg = Math.max(maxAvg, cell.engSum / cell.count);
+          }
+        }
+
+        // Render
+        var container = document.getElementById('heatmap-container');
+        var empty = document.getElementById('heatmap-empty');
+        var totalPosts = posts.filter(function(p) { return p.published_at; }).length;
+        if (totalPosts === 0) {
+          if (container) container.style.display = 'none';
+          if (empty) empty.classList.remove('hidden');
+          return;
+        }
+        if (!container) return;
+        // Ensure container is visible and empty state is hidden
+        container.style.display = '';
+        if (empty) empty.classList.add('hidden');
+
+        var hours = [];
+        for (var h = 6; h < 24; h++) hours.push(h);
+
+        var html = '<div style="overflow-x:auto"><table style="border-collapse:separate;border-spacing:3px">';
+        // Header row
+        html += '<tr><th style="width:36px"></th>';
+        hours.forEach(function(h) {
+          var label = h < 12 ? h+'am' : (h===12?'12pm':(h-12)+'pm');
+          html += '<th style="font-size:10px;color:#94a3b8;font-weight:500;width:24px;text-align:center;padding-bottom:4px">' + (h%3===0?label:'') + '</th>';
+        });
+        html += '</tr>';
+
+        var dayOrder = [1,2,3,4,5,6,0]; // Mon→Sun
+        dayOrder.forEach(function(d) {
+          html += '<tr><td style="font-size:10px;color:#64748b;font-weight:600;padding-right:8px;white-space:nowrap">' + days[d] + '</td>';
+          hours.forEach(function(h) {
+            var cell = grid[d][h];
+            var avg = cell.count > 0 ? cell.engSum / cell.count : 0;
+            var intensity = maxAvg > 0 ? avg / maxAvg : 0;
+            var bg = '#f1f5f9';
+            if (cell.count > 0) {
+              if (intensity < 0.25) bg = '#fef3c7';
+              else if (intensity < 0.6) bg = '#fcd34d';
+              else if (intensity < 0.85) bg = '#f59e0b';
+              else bg = '#d97706';
+            }
+            var title = cell.count > 0
+              ? days[d]+' '+(h%12||12)+(h<12?'am':'pm')+' — '+cell.count+' post'+(cell.count>1?'s':'')+', avg '+avg.toFixed(1)+'% engagement'
+              : 'No data';
+            html += '<td title="'+title+'" style="width:24px;height:20px;border-radius:3px;background:'+bg+';cursor:'+(cell.count>0?'pointer':'default')+'"></td>';
+          });
+          html += '</tr>';
+        });
+        html += '</table>';
+
+        // Legend
+        html += '<div style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:10px;color:#94a3b8">';
+        html += '<span>Less</span>';
+        ['#f1f5f9','#fef3c7','#fcd34d','#f59e0b','#d97706'].forEach(function(c) {
+          html += '<div style="width:14px;height:14px;border-radius:3px;background:'+c+'"></div>';
+        });
+        html += '<span>More</span></div></div>';
+
+        container.innerHTML = html;
+      }
+
+      // Show empty state until data loads
+      buildHeatmap([]);
+
+      // ── /Posting Time Heatmap ─────────────────────────────────────────
+
+      // ── Chart.js helpers ─────────────────────────────────────────────
+
+      var PLATFORM_CHART_COLORS = [
+        "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899",
+        "#10b981", "#f97316", "#6366f1", "#14b8a6",
+      ];
+
+      var trendChartInstance = null;
+      var donutChartInstance = null;
+      var activeDays = 30;
+
+      function destroyChart(inst) {
+        try { if (inst) inst.destroy(); } catch (_) {}
+      }
+
+      async function loadTrendChart(days) {
+        var canvas = document.getElementById("chart-trend");
+        var emptyEl = document.getElementById("chart-trend-empty");
+        if (!canvas) return;
+        try {
+          var points = await BrokerAI.apiJson("/analytics/time-series?days=" + days, { method: "GET" });
+          var hasData = points.some(function (p) { return p.likes > 0 || p.comments > 0 || p.impressions > 0; });
+          if (!hasData) {
+            destroyChart(trendChartInstance); trendChartInstance = null;
+            if (emptyEl) emptyEl.classList.remove("hidden");
+            return;
+          }
+          if (emptyEl) emptyEl.classList.add("hidden");
+
+          var labels = points.map(function (p) {
+            var d = new Date(p.date + "T00:00:00");
+            return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+          });
+          var likesData = points.map(function (p) { return p.likes; });
+          var commentsData = points.map(function (p) { return p.comments; });
+          var impressionsData = points.map(function (p) { return p.impressions; });
+
+          destroyChart(trendChartInstance);
+          trendChartInstance = new Chart(canvas, {
+            type: "line",
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  label: "Impressions",
+                  data: impressionsData,
+                  borderColor: "#c4b5fd",
+                  backgroundColor: "rgba(196,181,253,0.08)",
+                  borderWidth: 2,
+                  pointRadius: 2,
+                  tension: 0.35,
+                  fill: true,
+                  yAxisID: "y2",
+                },
+                {
+                  label: "Likes",
+                  data: likesData,
+                  borderColor: "#f59e0b",
+                  backgroundColor: "rgba(245,158,11,0.10)",
+                  borderWidth: 2.5,
+                  pointRadius: 3,
+                  tension: 0.35,
+                  fill: false,
+                  yAxisID: "y",
+                },
+                {
+                  label: "Comments",
+                  data: commentsData,
+                  borderColor: "#06b6d4",
+                  backgroundColor: "rgba(6,182,212,0.08)",
+                  borderWidth: 2,
+                  pointRadius: 2,
+                  tension: 0.35,
+                  fill: false,
+                  yAxisID: "y",
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: "index", intersect: false },
+              plugins: {
+                legend: { position: "bottom", labels: { font: { size: 11 }, boxWidth: 12, padding: 14 } },
+                tooltip: { titleFont: { size: 11 }, bodyFont: { size: 11 } },
+              },
+              scales: {
+                x: { ticks: { font: { size: 10 }, maxTicksLimit: 10 }, grid: { display: false } },
+                y: {
+                  type: "linear", position: "left",
+                  ticks: { font: { size: 10 } },
+                  grid: { color: "rgba(0,0,0,0.05)" },
+                  title: { display: false },
+                },
+                y2: {
+                  type: "linear", position: "right",
+                  ticks: { font: { size: 10 } },
+                  grid: { drawOnChartArea: false },
+                },
+              },
+            },
+          });
+        } catch (e) {
+          if (emptyEl) { emptyEl.textContent = e.message || "Chart failed to load."; emptyEl.classList.remove("hidden"); }
+        }
+      }
+
+      async function loadDonutChart() {
+        var canvas = document.getElementById("chart-donut");
+        var emptyEl = document.getElementById("chart-donut-empty");
+        var legend = document.getElementById("chart-donut-legend");
+        if (!canvas) return;
+        try {
+          var breakdown = await BrokerAI.apiJson("/analytics/platform-breakdown", { method: "GET" });
+          if (!breakdown || !breakdown.length) {
+            destroyChart(donutChartInstance); donutChartInstance = null;
+            if (emptyEl) emptyEl.classList.remove("hidden");
+            return;
+          }
+          if (emptyEl) emptyEl.classList.add("hidden");
+
+          var labels = breakdown.map(function (b) { return b.platform || "other"; });
+          var values = breakdown.map(function (b) { return b.post_count; });
+          var colors = labels.map(function (_, i) { return PLATFORM_CHART_COLORS[i % PLATFORM_CHART_COLORS.length]; });
+
+          destroyChart(donutChartInstance);
+          donutChartInstance = new Chart(canvas, {
+            type: "doughnut",
+            data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: "#fff", hoverOffset: 6 }] },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              cutout: "68%",
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    label: function (ctx) {
+                      var total = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                      var pct = total > 0 ? Math.round((ctx.parsed / total) * 100) : 0;
+                      return " " + ctx.label + ": " + ctx.parsed + " posts (" + pct + "%)";
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          // Custom legend
+          if (legend) {
+            legend.innerHTML = "";
+            var total = values.reduce(function (a, b) { return a + b; }, 0);
+            breakdown.forEach(function (b, i) {
+              var pct = total > 0 ? Math.round((b.post_count / total) * 100) : 0;
+              var li = document.createElement("li");
+              li.className = "flex items-center justify-between gap-2";
+              li.innerHTML =
+                '<span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-full" style="background:' + colors[i] + '"></span>' +
+                '<span class="capitalize">' + (b.platform || "other") + '</span></span>' +
+                '<span class="font-semibold tabular-nums text-slate-800">' + b.post_count + ' <span class="text-slate-400 font-normal">(' + pct + '%)</span></span>';
+              legend.appendChild(li);
+            });
+          }
+        } catch (e) {
+          if (emptyEl) { emptyEl.textContent = e.message || "Chart failed to load."; emptyEl.classList.remove("hidden"); }
+        }
+      }
+
+      // Range button wiring
+      document.querySelectorAll(".chart-range-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          document.querySelectorAll(".chart-range-btn").forEach(function (b) {
+            b.className = "chart-range-btn rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50";
+          });
+          btn.className = "chart-range-btn rounded-lg border border-amber-400 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 transition";
+          var days = parseInt(btn.dataset.days, 10) || 30;
+          activeDays = days;
+          loadTrendChart(days);
+        });
+      });
+
+      // Fix the export link to include auth token (backend uses JWT auth)
+      var exportLink = document.getElementById("btn-export-csv");
+      if (exportLink) {
+        exportLink.addEventListener("click", async function (e) {
+          e.preventDefault();
+          var token = BrokerAI.getToken ? BrokerAI.getToken() : (localStorage.getItem("brokerai_token") || "");
+          if (!token) { BrokerAI.showToast("Not authenticated", "error"); return; }
+          try {
+            var res = await fetch("/analytics/export-csv", { headers: { "Authorization": "Bearer " + token } });
+            if (!res.ok) throw new Error("Export failed: " + res.status);
+            var blob = await res.blob();
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = "brokerai_analytics.csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            BrokerAI.showToast("CSV exported", "success");
+          } catch (err) {
+            BrokerAI.showToast(err.message || "Export failed", "error");
+          }
+        });
+      }
+
+      // ── /Chart.js helpers ─────────────────────────────────────────────
+
       loadAll();
       loadAI();
+      // Charts load after Chart.js CDN script is ready
+      window.addEventListener("load", function () {
+        loadTrendChart(activeDays);
+        loadDonutChart();
+      });
     </script>
   </body>
 </html>

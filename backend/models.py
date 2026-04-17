@@ -37,7 +37,11 @@ class User(SQLModel, table=True):
     email: str = Field(index=True, unique=True)
     password_hash: str
     timezone: str = "UTC"  # IANA timezone; stored for display + scheduling context
-    plan: str = "free"  # free | pro | agency (SaaS readiness placeholder)
+    plan: str = "free"  # free | starter | growth | pro | agency
+    # S1-02: Stripe billing
+    stripe_customer_id: Optional[str] = Field(default=None, index=True)
+    stripe_subscription_id: Optional[str] = Field(default=None)
+    plan_expires_at: Optional[datetime] = Field(default=None)   # null = never / managed by Stripe
     # Ayrshare Business: per-user profile for SSO linking + publishing (Profile-Key header)
     ayrshare_profile_key: Optional[str] = Field(default=None)
     social_connected: bool = Field(default=False)
@@ -60,6 +64,15 @@ class User(SQLModel, table=True):
     role: str = Field(default="owner")
     # FK to teams.id — null for individual accounts
     team_id: Optional[int] = Field(default=None, foreign_key="teams.id", index=True)
+    # S0-06: Email verification
+    email_verified: bool = Field(default=False)
+    # S0-07: Account lockout after repeated failed logins
+    failed_login_attempts: int = Field(default=0)
+    locked_until: Optional[datetime] = Field(default=None)
+    # S4-05: Google OAuth2 — sub is Google's unique user identifier
+    google_id: Optional[str] = Field(default=None, index=True)
+    display_name: Optional[str] = Field(default=None)
+    avatar_url: Optional[str] = Field(default=None)
 
 
 class SocialAccount(SQLModel, table=True):
@@ -98,6 +111,8 @@ class Campaign(SQLModel, table=True):
     linkedin_url: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    # S5-09: soft-delete — null means active; set to UTC timestamp when deleted
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
 
 
 class Post(SQLModel, table=True):
@@ -146,7 +161,12 @@ class Post(SQLModel, table=True):
     shares: int = 0
     impressions: int = 0
     engagement_rate: float = 0.0  # 0–100, (likes+comments+shares)/max(impressions,1)
-
+    # S5-09: soft-delete — null means active; set to UTC timestamp when deleted
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
+    # S5-02: A/B caption testing
+    ab_variant_b: Optional[str] = Field(default=None, sa_column=Column(Text))  # alternative caption
+    ab_winner: Optional[str] = Field(default=None)  # "a" or "b" or None
+    ab_status: Optional[str] = Field(default=None)  # "testing" | "selected" | None
 
 
 class CampaignTemplate(SQLModel, table=True):
@@ -247,3 +267,176 @@ class BrandAsset(SQLModel, table=True):
     content_type: str = Field(default="application/octet-stream")
     size_bytes: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# S0-03: Refresh tokens (opaque, DB-backed, one row per active session)
+# ---------------------------------------------------------------------------
+
+class RefreshToken(SQLModel, table=True):
+    """Stores SHA-256 hash of opaque refresh tokens. Raw token is never persisted."""
+
+    __tablename__ = "refresh_tokens"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    token_hash: str = Field(unique=True, index=True)   # SHA-256 of raw token
+    revoked: bool = Field(default=False)
+    expires_at: datetime = Field()                     # UTC naive
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# S0-04: Password reset tokens (one-time, 15-min TTL)
+# ---------------------------------------------------------------------------
+
+class PasswordResetToken(SQLModel, table=True):
+    """Short-lived token issued on forgot-password flow. Used once then deleted."""
+
+    __tablename__ = "password_reset_tokens"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    token_hash: str = Field(unique=True, index=True)   # SHA-256 of raw token
+    used: bool = Field(default=False)
+    expires_at: datetime = Field()                     # UTC naive
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# S0-06: Email verification tokens (24-hr TTL)
+# ---------------------------------------------------------------------------
+
+class EmailVerificationToken(SQLModel, table=True):
+    """Token emailed to new users to verify their address before first use."""
+
+    __tablename__ = "email_verification_tokens"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    token_hash: str = Field(unique=True, index=True)   # SHA-256 of raw token
+    used: bool = Field(default=False)
+    expires_at: datetime = Field()                     # UTC naive
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# S3-01: In-app notifications
+# ---------------------------------------------------------------------------
+
+class Notification(SQLModel, table=True):
+    """In-app notifications for key user events."""
+    __tablename__ = "notifications"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    # Types: "post_published" | "post_failed" | "campaign_approved" | "invite_accepted" | "approval_needed" | "system"
+    type: str = Field(default="system", index=True)
+    title: str = Field(default="", sa_column=Column(Text))
+    message: str = Field(default="", sa_column=Column(Text))
+    # Optional link to the relevant resource
+    action_url: str = Field(default="")
+    is_read: bool = Field(default=False, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    # Optional extra JSON payload (e.g. post_id, campaign_id)
+    extra: str = Field(default="{}", sa_column=Column(Text))
+
+
+# ---------------------------------------------------------------------------
+# S3-07: Content Library
+# ---------------------------------------------------------------------------
+
+class ContentItem(SQLModel, table=True):
+    """
+    S3-07 — Content Library item.
+
+    Users can save captions, hashtag sets, and image URLs
+    from the review page into their personal library, then re-use them
+    in the wizard (Step 4 media panel).
+    """
+    __tablename__ = "content_items"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    team_id: Optional[int] = Field(default=None, foreign_key="teams.id", index=True)
+    # "caption" | "hashtag_set" | "image_url" | "template"
+    kind: str = Field(default="caption", index=True)
+    # Primary content: caption text, hashtag string, or image URL
+    content: str = Field(default="", sa_column=Column(Text))
+    # Human-readable label chosen by the user
+    label: str = Field(default="", sa_column=Column(Text))
+    # Platform the content was originally created for (optional)
+    platform: str = Field(default="")
+    # JSON array of user-defined tag strings for filtering
+    tags: str = Field(default="[]", sa_column=Column(Text))
+    # Optional thumbnail URL (for image_url kind)
+    thumbnail_url: str = Field(default="")
+    # Usage tracking
+    use_count: int = Field(default=0)
+    last_used_at: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# S5-08: Audit Log
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# S5-06: Comment Automation Rules (keyword-triggered auto-reply)
+# ---------------------------------------------------------------------------
+
+class AutomationRule(SQLModel, table=True):
+    """
+    S5-06 — keyword-triggered comment auto-reply rule.
+
+    When a social comment contains one of the trigger_keywords, the system
+    can post a public reply (reply_template) and/or send a DM (dm_template).
+    Supports {{name}} placeholder replacement at runtime.
+    """
+    __tablename__ = "automations"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    post_id: Optional[int] = Field(default=None, foreign_key="posts.id", index=True)
+    campaign_id: Optional[int] = Field(default=None, foreign_key="campaigns.id", index=True)
+
+    # Human-readable label
+    name: str = Field(default="", sa_column=Column(Text))
+    # Comma-separated trigger words, e.g. "hello,hi,interested"
+    trigger_keywords: str = Field(default="", sa_column=Column(Text))
+    # Public reply body — supports {{name}} placeholder
+    reply_template: str = Field(default="", sa_column=Column(Text))
+    # Optional DM body — supports {{name}} placeholder
+    dm_template: Optional[str] = Field(default=None, sa_column=Column(Text))
+
+    is_active: bool = Field(default=True)
+    # Incremented each time a comment triggers this rule
+    match_count: int = Field(default=0)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class AuditEvent(SQLModel, table=True):
+    """Immutable audit trail for all significant user and system actions."""
+    __tablename__ = "audit_events"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    # Who performed the action (None for system-triggered events)
+    actor_user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
+    # What happened
+    event_type: str = Field(index=True)  # e.g. "campaign.created", "post.approved", "post.published", "campaign.deleted"
+    # What entity was affected
+    entity_type: str = Field(default="")  # "campaign" | "post" | "user" | "team"
+    entity_id: Optional[int] = Field(default=None, index=True)
+    # Human-readable summary
+    summary: str = Field(default="", sa_column=Column(Text))
+    # JSON snapshot of changed fields (before -> after)
+    diff: str = Field(default="{}", sa_column=Column(Text))
+    # Request context
+    ip_address: str = Field(default="")
+    user_agent: str = Field(default="")
+    request_id: str = Field(default="")
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)

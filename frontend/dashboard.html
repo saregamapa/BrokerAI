@@ -10,6 +10,24 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/styles.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shepherd.js/11.2.0/css/shepherd.css" />
+    <style>
+      /* BrokerAI Shepherd tour theme — amber/slate palette */
+      .shepherd-button-primary { background: #f59e0b !important; color: #0f172a !important; font-weight: 700; border-radius: 8px; }
+      .shepherd-button-primary:hover { background: #d97706 !important; }
+      .shepherd-button-secondary { background: transparent !important; color: #64748b !important; border: 1px solid #e2e8f0 !important; border-radius: 8px; }
+      .shepherd-button-secondary:hover { background: #f8fafc !important; color: #475569 !important; }
+      .shepherd-header { background: #0f172a !important; color: #fff !important; border-radius: 12px 12px 0 0 !important; padding: 16px 20px 14px !important; }
+      .shepherd-title { color: #fff !important; font-weight: 700 !important; font-size: 0.9375rem !important; }
+      .shepherd-cancel-icon { color: #94a3b8 !important; }
+      .shepherd-cancel-icon:hover { color: #f59e0b !important; background: transparent !important; }
+      .shepherd-element { border-radius: 12px !important; box-shadow: 0 20px 40px rgba(15,23,42,0.18) !important; border: 1px solid rgba(226,232,240,0.8) !important; }
+      .shepherd-text { padding: 16px 20px !important; font-size: 0.875rem !important; color: #334155 !important; line-height: 1.6 !important; }
+      .shepherd-footer { padding: 12px 20px 16px !important; border-top: 1px solid #f1f5f9 !important; gap: 8px !important; }
+      .shepherd-has-cancel-icon .shepherd-cancel-icon { color: #94a3b8 !important; }
+      .shepherd-modal-overlay-container { z-index: 9998 !important; }
+      .shepherd-element { z-index: 9999 !important; }
+    </style>
   </head>
   <body
     class="brokerai-app min-h-screen bg-[#f9fafb] text-slate-900 antialiased"
@@ -32,17 +50,20 @@
     ></div>
     <aside
       id="app-sidebar"
-      class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl md:block"
+      class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl hidden lg:block"
     ></aside>
 
-    <div id="app-layout" class="flex min-h-screen flex-col md:pl-64">
+    <div id="app-layout" class="flex min-h-screen flex-col lg:pl-64">
       <header
         id="app-topnav"
         class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"
       ></header>
 
-      <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/20 px-4 py-8 md:px-8">
+      <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/20 px-4 py-8 md:px-8 pb-24 lg:pb-8">
         <div class="mx-auto max-w-6xl">
+          <!-- Onboarding checklist (injected by initOnboardingChecklist()) -->
+          <div id="onboarding-checklist-container"></div>
+
           <!-- Welcome banner (shown when no posts yet) -->
           <div id="welcome-banner" class="hidden mb-6 rounded-2xl border border-amber-200/80 bg-gradient-to-r from-amber-50 to-white p-5 shadow-sm">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -67,6 +88,13 @@
 
           <div class="mt-6">
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Overview</h2>
+            <div id="stats-skeleton" class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <div class="brokerai-skeleton h-24 rounded-xl"></div>
+              <div class="brokerai-skeleton h-24 rounded-xl"></div>
+              <div class="brokerai-skeleton h-24 rounded-xl"></div>
+              <div class="brokerai-skeleton h-24 rounded-xl"></div>
+            </div>
+            <div id="stats-content" style="display:none">
             <div id="analytics-bar" class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
               <div
                 class="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-amber-50/40 p-4 shadow-lg backdrop-blur-md transition duration-300 hover:shadow-xl"
@@ -93,6 +121,7 @@
                 <div class="text-xs font-medium text-slate-500">Last published activity</div>
               </div>
             </div>
+            </div><!-- /stats-content -->
           </div>
 
           <!-- Stats are combined into analytics-bar above; hidden elements kept for JS compat -->
@@ -163,8 +192,132 @@
             </div>
           </div>
 
-          <div class="mt-10">
+          <!-- ── Plan & Billing ─────────────────────────────────────────── -->
+          <div id="billing-section" class="mt-10">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Plan &amp; Billing</h2>
+
+            <!-- Expiry / payment-overdue warning (shown only when plan_expires_at is set) -->
+            <div id="billing-expiry-banner" class="hidden mt-3 flex items-start gap-3 rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm">
+              <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              <p id="billing-expiry-text"></p>
+            </div>
+
+            <div class="mt-4 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md">
+              <!-- Top row: plan badge + action buttons -->
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="flex items-center gap-3">
+                  <span id="billing-plan-badge" class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide">
+                    <!-- JS fills -->
+                  </span>
+                  <div>
+                    <p id="billing-plan-name" class="text-base font-bold text-slate-900">—</p>
+                    <p id="billing-plan-price" class="text-xs text-slate-500"></p>
+                  </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <!-- Upgrade button — hidden for pro/agency -->
+                  <button
+                    type="button"
+                    id="billing-upgrade-btn"
+                    class="hidden inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                    Upgrade Plan
+                  </button>
+                  <!-- Manage Billing — only shown when stripe subscription exists -->
+                  <button
+                    type="button"
+                    id="billing-portal-btn"
+                    class="hidden inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:scale-[1.02] hover:shadow-md active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Manage Billing
+                  </button>
+                  <!-- Agency: contact sales -->
+                  <a
+                    id="billing-agency-btn"
+                    href="/contact.html"
+                    class="hidden inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:scale-[1.02] hover:shadow-md"
+                  >
+                    Contact Sales
+                  </a>
+                </div>
+              </div>
+
+              <!-- Usage meter -->
+              <div class="mt-5">
+                <div class="flex items-center justify-between text-xs font-medium text-slate-600">
+                  <span>Campaigns this month</span>
+                  <span id="billing-usage-label">— / —</span>
+                </div>
+                <div class="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    id="billing-usage-bar"
+                    class="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-500"
+                    style="width: 0%"
+                  ></div>
+                </div>
+                <p id="billing-usage-sub" class="mt-1 text-[10px] text-slate-400"></p>
+              </div>
+
+              <!-- Feature grid -->
+              <div id="billing-features" class="mt-5 flex flex-wrap gap-2">
+                <!-- JS fills pill elements -->
+              </div>
+
+              <!-- Upgrade plan picker (shown when upgrade btn clicked) -->
+              <div id="billing-upgrade-picker" class="hidden mt-5 border-t border-slate-100 pt-5">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Select a plan to upgrade to</p>
+                <div id="billing-plan-cards" class="grid gap-3 sm:grid-cols-3">
+                  <!-- JS renders plan cards -->
+                </div>
+                <p id="billing-upgrade-err" class="hidden mt-3 text-sm text-red-600"></p>
+              </div>
+            </div>
+          </div>
+          <!-- ── /Plan & Billing ──────────────────────────────────────────── -->
+
+          <!-- ── Publishing Today ───────────────────────────────────────── -->
+          <div id="publishing-today-section" class="mt-10">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">
+                📅 Publishing Today &mdash; <span id="publishing-today-date"></span>
+              </h2>
+            </div>
+
+            <!-- Loading skeleton -->
+            <div id="publishing-today-skeleton" class="mt-4 flex gap-3 overflow-x-auto pb-1">
+              <div class="brokerai-skeleton h-28 w-52 shrink-0 rounded-xl"></div>
+              <div class="brokerai-skeleton h-28 w-52 shrink-0 rounded-xl"></div>
+              <div class="brokerai-skeleton h-28 w-52 shrink-0 rounded-xl"></div>
+            </div>
+
+            <!-- Cards row (hidden until loaded) -->
+            <div id="publishing-today-cards" class="hidden mt-4 flex flex-wrap gap-3"></div>
+
+            <!-- Empty state (hidden until loaded) -->
+            <div id="publishing-today-empty" class="hidden mt-4 flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-8 text-center">
+              <svg class="h-9 w-9 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <p class="text-sm font-semibold text-slate-500">No posts scheduled for today</p>
+              <p class="text-xs text-slate-400">Use the AI wizard to generate and schedule a campaign.</p>
+            </div>
+          </div>
+          <!-- ── /Publishing Today ────────────────────────────────────────── -->
+
+          <div class="mt-10 flex items-center justify-between gap-4">
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Content calendar</h2>
+            <div class="flex items-center gap-2">
+              <button id="export-csv-btn" onclick="exportCalendarCSV()"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200">
+                &#x1F4E5; CSV
+              </button>
+              <button id="export-pdf-btn" onclick="exportCalendarPDF()"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors">
+                &#x1F4C4; PDF
+              </button>
+            </div>
           </div>
           <div class="mt-4 flex flex-wrap items-center justify-between gap-4">
             <button
@@ -208,7 +361,8 @@
           </div>
 
           <div
-            class="mt-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-lg backdrop-blur-md"
+            id="cal-grid-view"
+            class="mt-6 hidden lg:block overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-lg backdrop-blur-md"
           >
             <div
               class="grid grid-cols-7 gap-px bg-slate-200 text-center text-[11px] font-bold uppercase tracking-wide text-slate-500"
@@ -223,6 +377,9 @@
             </div>
             <div id="cal-grid" class="grid grid-cols-7 gap-px bg-slate-200 p-px"></div>
           </div>
+
+          <!-- Mobile calendar list view (hidden on desktop) -->
+          <div id="cal-list-view" class="lg:hidden space-y-2 mt-6"></div>
 
           <div class="mt-10">
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">AI insights</h2>
@@ -280,10 +437,26 @@
 
     <script src="/static/js/app.js"></script>
     <script src="/static/js/nav.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shepherd.js/11.2.0/js/shepherd.min.js"></script>
     <script>
+      // Handle Google OAuth redirect token
+      (function() {
+        var hash = window.location.hash;
+        if (hash && hash.includes('google_token=')) {
+          var token = hash.split('google_token=')[1].split('&')[0];
+          if (token) {
+            localStorage.setItem('token', token);
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }
+      })();
+
       if (!BrokerAI.requireAuth()) {
         /* redirected */
       }
+
+      function showSkeleton(id) { var el = document.getElementById(id); if(el) el.style.display = ''; }
+      function hideSkeleton(id) { var el = document.getElementById(id); if(el) el.style.display = 'none'; }
 
       var allPosts = [];
       var viewYear, viewMonth;
@@ -547,7 +720,12 @@
         container.innerHTML = "";
         if (!list.length) {
           container.innerHTML =
-            '<div class="px-4 py-8 text-center text-sm text-slate-500">No posts on this day.</div>';
+            '<div class="flex flex-col items-center gap-2 px-4 py-10 text-center">' +
+            '<svg class="h-9 w-9 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>' +
+            '<p class="text-sm font-semibold text-slate-500">No posts scheduled</p>' +
+            '<p class="text-xs text-slate-400">Nothing on this day yet. Run the AI wizard to generate and schedule a campaign.</p>' +
+            '<a href="/wizard-v2.html" class="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-500/20 transition hover:scale-105">✨ Create campaign</a>' +
+            '</div>';
         } else {
           list.forEach(function (p) {
             var row = document.createElement("div");
@@ -599,7 +777,13 @@
                 .join(" ") +
               "</div>" +
               '<p class="mt-3 text-center text-[10px] font-medium text-amber-800/90">Tap for performance insights</p>' +
-              '<div class="post-analytics-slot mt-2 hidden"></div>';
+              '<div class="post-analytics-slot mt-2 hidden"></div>' +
+              (p.campaign_id
+                ? '<div class="mt-3 flex justify-end">' +
+                  '<button type="button" onclick="event.stopPropagation();generateCampaignReport(' + p.campaign_id + ',\'Campaign ' + p.campaign_id + '\')" ' +
+                  'class="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-800 transition hover:bg-amber-100 hover:scale-105 active:scale-95">' +
+                  '&#x1F4C4; Report</button></div>'
+                : '');
             row.addEventListener("click", function (e) {
               e.stopPropagation();
               loadPostAnalytics(p.id, row);
@@ -638,6 +822,7 @@
       });
 
       function renderCal() {
+        window.__calPosts = allPosts;
         var label = document.getElementById("month-label");
         var grid = document.getElementById("cal-grid");
         var d0 = new Date(viewYear, viewMonth, 1);
@@ -663,7 +848,8 @@
           var dk = viewYear + "-" + pad(viewMonth + 1) + "-" + pad(day);
           var list = postsForDay(viewYear, viewMonth, day);
           cell.className +=
-            " cursor-pointer rounded-xl border border-transparent hover:border-amber-200/80 hover:ring-1 hover:ring-amber-200/60";
+            " calendar-day cursor-pointer rounded-xl border border-transparent hover:border-amber-200/80 hover:ring-1 hover:ring-amber-200/60";
+          cell.dataset.date = dk;
           if (dk === todayK) {
             cell.className += " ring-2 ring-amber-400/40 bg-amber-50/30";
           }
@@ -677,17 +863,23 @@
           if (list.length) {
             inner += '<div class="mt-1.5 space-y-1">';
             list.slice(0, 3).forEach(function (p) {
+              // Extract HH:MM:SS from scheduled_time for round-tripping the time on drop
+              var postTime = "09:00:00";
+              if (p.scheduled_time) {
+                var tPart = String(p.scheduled_time).split("T")[1];
+                if (tPart) postTime = tPart.replace("Z", "").split(".")[0] || "09:00:00";
+              }
               inner +=
-                '<div class="flex items-center gap-1.5" title="' +
-                dotTitle(p.status) +
-                ' — ' +
-                ((p.caption || "").slice(0, 40).replace(/"/g, "") || "Post") +
-                '">' +
+                '<div class="calendar-event flex items-center gap-1.5 cursor-grab active:cursor-grabbing" ' +
+                'title="' + dotTitle(p.status) + ' \u2014 ' + ((p.caption || "").slice(0, 40).replace(/"/g, "").replace(/'/g, "") || "Post") + '" ' +
+                'data-post-id="' + (p.id || "") + '" ' +
+                'data-time="' + postTime + '" ' +
+                'style="position:relative;touch-action:none;">' +
                 '<span class="h-1.5 w-1.5 shrink-0 rounded-full ' +
                 dotColor(p.status) +
                 '"></span>' +
                 '<span class="truncate text-[10px] text-slate-600">' +
-                ((p.caption || "").slice(0, 18) || "·") +
+                ((p.caption || "").slice(0, 18) || "\u00b7") +
                 "</span></div>";
             });
             if (list.length > 3) {
@@ -704,6 +896,81 @@
           })(viewYear, viewMonth, day);
           grid.appendChild(cell);
         }
+
+        // Initialize interact.js drag-and-drop after the calendar DOM is built
+        initCalendarDragDrop();
+
+        // Build the mobile list view for the current month
+        buildCalListView(allPosts);
+      }
+
+      function buildCalListView(posts) {
+        var container = document.getElementById('cal-list-view');
+        if (!container) return;
+
+        if (!posts || posts.length === 0) {
+          container.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No scheduled posts</p>';
+          return;
+        }
+
+        // Filter to posts that have a scheduled_at date in the currently viewed month
+        var monthPosts = posts.filter(function (p) {
+          var dateStr = p.scheduled_at || p.scheduled_time || '';
+          if (!dateStr) return false;
+          var d = new Date(dateStr + (/[Zz]$|[+\-]\d{2}:\d{2}$/.test(dateStr) ? '' : 'Z'));
+          return !isNaN(d) && d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+        });
+
+        if (!monthPosts.length) {
+          container.innerHTML = '<p class="text-sm text-slate-400 text-center py-6">No posts scheduled this month</p>';
+          return;
+        }
+
+        // Sort ascending
+        var sorted = monthPosts.slice().sort(function (a, b) {
+          var da = new Date((a.scheduled_at || a.scheduled_time || '') + (/[Zz]$|[+\-]\d{2}:\d{2}$/.test(a.scheduled_at || a.scheduled_time || '') ? '' : 'Z'));
+          var db = new Date((b.scheduled_at || b.scheduled_time || '') + (/[Zz]$|[+\-]\d{2}:\d{2}$/.test(b.scheduled_at || b.scheduled_time || '') ? '' : 'Z'));
+          return da - db;
+        });
+
+        // Group by date label
+        var groups = {};
+        var groupOrder = [];
+        sorted.forEach(function (p) {
+          var raw = p.scheduled_at || p.scheduled_time || '';
+          var normalized = raw + (/[Zz]$|[+\-]\d{2}:\d{2}$/.test(raw) ? '' : 'Z');
+          var d = new Date(normalized);
+          var key = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          if (!groups[key]) { groups[key] = []; groupOrder.push(key); }
+          groups[key].push(p);
+        });
+
+        var EMOJIS = { instagram: '📷', linkedin: '💼', twitter: '🐦', facebook: '📘', tiktok: '🎵' };
+
+        container.innerHTML = groupOrder.map(function (date) {
+          var dayPosts = groups[date];
+          return '<div>' +
+            '<div class="text-xs font-semibold text-slate-400 uppercase tracking-wide px-1 mb-1">' + date + '</div>' +
+            dayPosts.map(function (p) {
+              var raw = p.scheduled_at || p.scheduled_time || '';
+              var normalized = raw + (/[Zz]$|[+\-]\d{2}:\d{2}$/.test(raw) ? '' : 'Z');
+              var d = new Date(normalized);
+              var timeStr = isNaN(d) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              var emoji = EMOJIS[(p.platform || '').toLowerCase()] || '📱';
+              var preview = (p.caption || p.content || '').substring(0, 60);
+              var statusClass = p.status === 'published' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-700';
+              var campId = p.campaign_id || '';
+              return '<a href="/review.html?campaign=' + campId + '" class="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-100 shadow-sm mb-1 hover:border-amber-300 transition-colors">' +
+                '<span class="text-lg">' + emoji + '</span>' +
+                '<div class="flex-1 min-w-0">' +
+                  '<div class="text-sm font-medium text-slate-700 truncate">' + preview.replace(/</g, '&lt;') + (preview.length >= 60 ? '…' : '') + '</div>' +
+                  '<div class="text-xs text-slate-400">' + timeStr + '</div>' +
+                '</div>' +
+                '<span class="text-xs px-2 py-0.5 rounded-full font-medium ' + statusClass + '">' + (p.status || 'pending') + '</span>' +
+              '</a>';
+            }).join('') +
+          '</div>';
+        }).join('');
       }
 
       function fmtAnalyticsDate(iso) {
@@ -722,7 +989,17 @@
       }
 
       async function load() {
+        // Kick off onboarding checklist — non-blocking, runs its own async checks
+        initOnboardingChecklist();
+
+        showSkeleton('stats-skeleton');
+        hideSkeleton('stats-content');
         BrokerAI.setLoading(true);
+
+        // Kick off Publishing Today and approval badge in parallel — non-blocking
+        var publishingTodayP = loadPublishingToday();
+        var approvalBadgeP   = loadApprovalBadge();
+
         try {
           var meP = BrokerAI.apiJson("/me", { method: "GET" });
           var postsP = BrokerAI.apiJson("/posts", { method: "GET" });
@@ -799,6 +1076,8 @@
           document.getElementById("an-rate").textContent =
             (an.success_rate != null ? an.success_rate : 0) + "%";
           document.getElementById("an-last").textContent = fmtAnalyticsDate(an.last_published_at);
+          hideSkeleton('stats-skeleton');
+          showSkeleton('stats-content');
           var n = new Date();
           viewYear = n.getFullYear();
           viewMonth = n.getMonth();
@@ -812,7 +1091,12 @@
 
           var insightCamp = pickInsightsCampaignId(allPosts);
           await loadAiInsights(insightCamp);
+          await loadBillingSection();
+          // Launch product tour on first login (after all DOM elements are ready)
+          initProductTour();
         } catch (err) {
+          hideSkeleton('stats-skeleton');
+          showSkeleton('stats-content');
           BrokerAI.showToast(err.message, "error");
         } finally {
           BrokerAI.setLoading(false);
@@ -886,7 +1170,1335 @@
         }
       });
 
+      // ── Publishing Today ─────────────────────────────────────────────
+
+      var PLATFORM_EMOJIS = {
+        instagram: "📷",
+        linkedin:  "💼",
+        twitter:   "🐦",
+        facebook:  "📘",
+        tiktok:    "🎵",
+        youtube:   "▶️",
+      };
+
+      function platformEmoji(platform) {
+        return PLATFORM_EMOJIS[(platform || "").toLowerCase()] || "📣";
+      }
+
+      function isTodayUtc(isoString) {
+        if (!isoString) return false;
+        // Append Z only if no timezone indicator present
+        var normalized = /[Zz]$|[+\-]\d{2}:\d{2}$/.test(isoString)
+          ? isoString
+          : isoString + "Z";
+        var d = new Date(normalized);
+        if (isNaN(d)) return false;
+        var now = new Date();
+        return (
+          d.getUTCFullYear() === now.getUTCFullYear() &&
+          d.getUTCMonth()    === now.getUTCMonth()    &&
+          d.getUTCDate()     === now.getUTCDate()
+        );
+      }
+
+      function fmtPostTime(isoString) {
+        if (!isoString) return "";
+        var normalized = /[Zz]$|[+\-]\d{2}:\d{2}$/.test(isoString)
+          ? isoString
+          : isoString + "Z";
+        var d = new Date(normalized);
+        if (isNaN(d)) return "";
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+
+      async function loadPublishingToday() {
+        var skeleton  = document.getElementById("publishing-today-skeleton");
+        var cardsEl   = document.getElementById("publishing-today-cards");
+        var emptyEl   = document.getElementById("publishing-today-empty");
+        var dateLabel = document.getElementById("publishing-today-date");
+
+        // Set today label e.g. "Thu Apr 17"
+        if (dateLabel) {
+          dateLabel.textContent = new Date().toLocaleDateString(undefined, {
+            weekday: "short", month: "short", day: "numeric",
+          });
+        }
+
+        if (skeleton)  skeleton.style.display = "";
+        if (cardsEl)   cardsEl.classList.add("hidden");
+        if (emptyEl)   emptyEl.classList.add("hidden");
+
+        try {
+          var campaigns = await BrokerAI.apiJson("/campaigns", { method: "GET" });
+          if (!campaigns || !campaigns.length) {
+            if (skeleton)  skeleton.style.display = "none";
+            if (emptyEl)   emptyEl.classList.remove("hidden");
+            return;
+          }
+
+          // Fetch posts for all campaigns in parallel
+          var postFetches = campaigns.map(function (c) {
+            return BrokerAI.apiJson("/campaigns/" + c.id + "/posts", { method: "GET" })
+              .then(function (posts) { return { campaign: c, posts: posts || [] }; })
+              .catch(function ()     { return { campaign: c, posts: [] }; });
+          });
+
+          var results = await Promise.allSettled(postFetches);
+          var todayPosts = [];
+
+          results.forEach(function (r) {
+            if (r.status !== "fulfilled") return;
+            var val = r.value;
+            val.posts.forEach(function (post) {
+              var st = (post.status || "").toLowerCase();
+              if (st !== "scheduled" && st !== "queued") return;
+              if (!isTodayUtc(post.scheduled_time)) return;
+              todayPosts.push({ post: post, campaign: val.campaign });
+            });
+          });
+
+          // Sort ascending by scheduled_time
+          todayPosts.sort(function (a, b) {
+            return new Date(a.post.scheduled_time) - new Date(b.post.scheduled_time);
+          });
+
+          if (skeleton) skeleton.style.display = "none";
+
+          if (!todayPosts.length) {
+            if (emptyEl) emptyEl.classList.remove("hidden");
+            return;
+          }
+
+          // Build cards
+          var manyCards = todayPosts.length > 4;
+          if (cardsEl) {
+            cardsEl.className = manyCards
+              ? "mt-4 flex gap-3 overflow-x-auto pb-2 flex-nowrap"
+              : "mt-4 flex flex-wrap gap-3";
+
+            cardsEl.innerHTML = "";
+            todayPosts.forEach(function (item) {
+              var p  = item.post;
+              var c  = item.campaign;
+              var emoji    = platformEmoji(p.platform);
+              var timeStr  = fmtPostTime(p.scheduled_time);
+              var content  = (p.content || "").replace(/</g, "&lt;");
+              var campName = (c.name || "Campaign #" + c.id).replace(/</g, "&lt;");
+
+              var card = document.createElement("a");
+              card.href = "/review.html?campaign=" + c.id;
+              card.className =
+                "group flex shrink-0 w-52 min-w-[200px] lg:min-w-0 flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-sm transition duration-200 hover:border-amber-300/80 hover:shadow-md cursor-pointer";
+              card.setAttribute("aria-label", "Review " + campName + " — " + (p.platform || "") + " post at " + timeStr);
+
+              card.innerHTML =
+                '<div>' +
+                  '<div class="flex items-center justify-between gap-1">' +
+                    '<span class="text-xl leading-none" aria-hidden="true">' + emoji + '</span>' +
+                    '<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">' + timeStr + '</span>' +
+                  '</div>' +
+                  '<p class="mt-2 line-clamp-2 text-xs leading-snug text-slate-700">' + (content || '<em class="text-slate-400">No content preview</em>') + '</p>' +
+                '</div>' +
+                '<div class="mt-2 flex items-center justify-between gap-1">' +
+                  '<span class="inline-block max-w-full truncate rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">' + campName + '</span>' +
+                  '<button type="button" ' +
+                    'onclick="event.preventDefault();event.stopPropagation();generateCampaignReport(' + c.id + ',\'' + campName.replace(/'/g, "\\'") + '\')" ' +
+                    'class="shrink-0 inline-flex items-center gap-0.5 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-semibold text-amber-800 hover:bg-amber-100 transition" ' +
+                    'title="Download PDF Report">' +
+                    '&#x1F4C4; Report' +
+                  '</button>' +
+                '</div>';
+
+              cardsEl.appendChild(card);
+            });
+
+            cardsEl.classList.remove("hidden");
+          }
+        } catch (e) {
+          if (skeleton) skeleton.style.display = "none";
+          if (emptyEl)  {
+            emptyEl.classList.remove("hidden");
+            var errP = emptyEl.querySelector("p");
+            if (errP) errP.textContent = "Could not load today\u2019s posts.";
+          }
+          console.warn("publishingToday:", e.message || e);
+        }
+      }
+
+      // ── /Publishing Today ─────────────────────────────────────────────
+
+      // ── Approval-needed notification badge ───────────────────────────
+
+      async function loadApprovalBadge() {
+        try {
+          var data = await BrokerAI.apiJson("/notifications", { method: "GET" });
+          var notifications = Array.isArray(data) ? data : (data.notifications || data.items || []);
+          var hasUnread = notifications.some(function (n) {
+            return (n.type === "approval_needed") && !n.read && !n.is_read;
+          });
+          setApprovalBadge(hasUnread);
+        } catch (e) {
+          // Non-fatal — badge simply won't show if the endpoint is unavailable
+          console.warn("approvalBadge:", e.message || e);
+        }
+      }
+
+      function setApprovalBadge(show) {
+        // Target: the "Campaigns" link in the left nav rendered by nav.js
+        // nav.js renders <a href="/campaigns.html"> or similar; we look for any
+        // nav sidebar link whose text or href contains "campaign".
+        var sidebar = document.getElementById("app-sidebar");
+        if (!sidebar) return;
+        var existing = sidebar.querySelectorAll(".approval-dot");
+        existing.forEach(function (el) { el.remove(); });
+        if (!show) return;
+        var links = sidebar.querySelectorAll("a");
+        links.forEach(function (a) {
+          var href = (a.getAttribute("href") || "").toLowerCase();
+          var txt  = (a.textContent || "").toLowerCase();
+          if (href.indexOf("campaign") !== -1 || txt.indexOf("campaign") !== -1) {
+            // Make the link position:relative so we can place the dot
+            var pos = window.getComputedStyle(a).position;
+            if (pos === "static") a.style.position = "relative";
+            var dot = document.createElement("span");
+            dot.className = "approval-dot absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-yellow-400 shadow-sm ring-1 ring-white";
+            dot.setAttribute("title", "Approval needed");
+            dot.setAttribute("aria-label", "Approval needed");
+            a.appendChild(dot);
+          }
+        });
+      }
+
+      // Clear badge when visiting review page
+      (function () {
+        if (window.location.pathname === "/review.html") {
+          setApprovalBadge(false);
+        }
+      })();
+
+      // ── /Approval-needed notification badge ──────────────────────────
+
+      // ── Billing helpers ───────────────────────────────────────────────
+
+      var PLAN_META = {
+        free:    { label: "Free",    price: "$0 / month",    color: "bg-slate-100 text-slate-700",     bar: "from-slate-300 to-slate-400"   },
+        starter: { label: "Starter", price: "$29 / month",   color: "bg-amber-100 text-amber-800",     bar: "from-amber-400 to-amber-500"   },
+        growth:  { label: "Growth",  price: "$79 / month",   color: "bg-sky-100 text-sky-800",         bar: "from-sky-400 to-sky-500"       },
+        pro:     { label: "Pro",     price: "$199 / month",  color: "bg-violet-100 text-violet-800",   bar: "from-violet-500 to-violet-600" },
+        agency:  { label: "Agency",  price: "Custom pricing", color: "bg-amber-200 text-amber-900",   bar: "from-amber-500 to-amber-600"   },
+      };
+
+      function billingFeaturePill(icon, text, enabled) {
+        var baseClass = "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ";
+        if (enabled) {
+          baseClass += "border-emerald-200 bg-emerald-50 text-emerald-800";
+        } else {
+          baseClass += "border-slate-200 bg-slate-50 text-slate-400";
+        }
+        return '<span class="' + baseClass + '">' + icon + " " + text + "</span>";
+      }
+
+      function renderBillingFeatures(limits) {
+        var container = document.getElementById("billing-features");
+        if (!container) return;
+        var pills = "";
+        var pText = limits.platforms_allowed >= 999999 ? "All platforms" : limits.platforms_allowed + " platform" + (limits.platforms_allowed > 1 ? "s" : "");
+        pills += billingFeaturePill("🌐", pText, true);
+        var sText = limits.team_seats >= 999999 ? "Unlimited seats" : limits.team_seats + " seat" + (limits.team_seats > 1 ? "s" : "");
+        pills += billingFeaturePill("👥", sText, true);
+        pills += billingFeaturePill("📊", "AI insights", !!limits.analytics_ai);
+        pills += billingFeaturePill("💬", "Comment automations", !!limits.comment_automations);
+        pills += billingFeaturePill("🎨", "Brand kit", !!limits.custom_brand_kit);
+        container.innerHTML = pills;
+      }
+
+      async function loadBillingSection() {
+        try {
+          var data = await BrokerAI.apiJson("/me/plan", { method: "GET" });
+          var plan = (data.plan || "free").toLowerCase();
+          var meta = PLAN_META[plan] || PLAN_META["free"];
+
+          // Badge + name + price
+          var badge = document.getElementById("billing-plan-badge");
+          var nameEl = document.getElementById("billing-plan-name");
+          var priceEl = document.getElementById("billing-plan-price");
+          if (badge) { badge.className = "inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide " + meta.color; badge.textContent = meta.label; }
+          if (nameEl) nameEl.textContent = meta.label + " Plan";
+          if (priceEl) priceEl.textContent = meta.price;
+
+          // Expiry warning
+          var expiryBanner = document.getElementById("billing-expiry-banner");
+          var expiryText = document.getElementById("billing-expiry-text");
+          if (data.plan_expires_at && expiryBanner && expiryText) {
+            var exp = new Date(data.plan_expires_at + (data.plan_expires_at.includes("Z") ? "" : "Z"));
+            var daysLeft = Math.ceil((exp - Date.now()) / 86400000);
+            if (daysLeft > 0) {
+              expiryText.textContent = "⚠️ Payment overdue — your " + meta.label + " plan will downgrade to Free in " + daysLeft + " day" + (daysLeft === 1 ? "" : "s") + ". Update your payment method to keep access.";
+            } else {
+              expiryText.textContent = "⚠️ Your " + meta.label + " plan has expired. Update your payment method or upgrade to restore full access.";
+            }
+            expiryBanner.classList.remove("hidden");
+          }
+
+          // Usage bar
+          var used = (data.usage && data.usage.campaigns_this_month) || 0;
+          var max = (data.limits && data.limits.campaigns_per_month) || 0;
+          var isUnlimited = max >= 999999;
+          var label = document.getElementById("billing-usage-label");
+          var bar = document.getElementById("billing-usage-bar");
+          var sub = document.getElementById("billing-usage-sub");
+          if (label) label.textContent = isUnlimited ? used + " / ∞" : used + " / " + max;
+          if (bar) {
+            var pct = isUnlimited ? Math.min(used * 2, 40) : (max > 0 ? Math.round((used / max) * 100) : 0);
+            bar.style.width = pct + "%";
+            // Colour shifts red when near limit
+            if (!isUnlimited && pct >= 90) {
+              bar.className = bar.className.replace(/from-\S+ to-\S+/, "from-red-400 to-red-500");
+            } else if (!isUnlimited && pct >= 70) {
+              bar.className = bar.className.replace(/from-\S+ to-\S+/, "from-orange-400 to-orange-500");
+            } else {
+              bar.className = bar.className.replace(/from-\S+ to-\S+/, meta.bar);
+            }
+          }
+          if (sub) {
+            if (isUnlimited) {
+              sub.textContent = "Unlimited campaigns on this plan.";
+            } else {
+              var remaining = Math.max(0, max - used);
+              sub.textContent = remaining + " campaign" + (remaining === 1 ? "" : "s") + " remaining this month.";
+            }
+          }
+
+          // Features
+          if (data.limits) renderBillingFeatures(data.limits);
+
+          // Buttons
+          var upgradeBtn = document.getElementById("billing-upgrade-btn");
+          var portalBtn = document.getElementById("billing-portal-btn");
+          var agencyBtn = document.getElementById("billing-agency-btn");
+          var topTierPlans = ["pro", "agency"];
+          if (upgradeBtn) upgradeBtn.classList.toggle("hidden", topTierPlans.indexOf(plan) !== -1);
+          if (portalBtn) portalBtn.classList.toggle("hidden", !data.stripe_subscription_id);
+          if (agencyBtn) agencyBtn.classList.toggle("hidden", plan !== "agency");
+
+          // Pre-load available plans for upgrade picker
+          if (topTierPlans.indexOf(plan) === -1) {
+            loadUpgradePlanCards(plan);
+          }
+        } catch (e) {
+          // Non-fatal — silently log; dashboard still loads
+          console.warn("billing section:", e.message || e);
+        }
+      }
+
+      async function loadUpgradePlanCards(currentPlan) {
+        var container = document.getElementById("billing-plan-cards");
+        if (!container) return;
+        try {
+          var plans = await BrokerAI.apiJson("/billing/plans", { method: "GET" });
+          var planOrder = ["free", "starter", "growth", "pro"];
+          var currentIdx = planOrder.indexOf(currentPlan);
+          container.innerHTML = "";
+          plans.forEach(function (p) {
+            var idx = planOrder.indexOf(p.plan);
+            if (idx <= currentIdx) return; // only show upgrades
+            var isHighlighted = p.highlighted;
+            var card = document.createElement("div");
+            card.className = "relative flex flex-col rounded-xl border p-4 " + (isHighlighted ? "border-amber-400/80 bg-gradient-to-br from-amber-50 to-white shadow-md" : "border-slate-200 bg-white shadow-sm");
+            card.innerHTML =
+              (isHighlighted ? '<span class="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-bold text-white uppercase tracking-wide">Most popular</span>' : "") +
+              '<p class="text-sm font-bold text-slate-900">' + p.name + "</p>" +
+              '<p class="mt-0.5 text-xl font-black text-slate-900">$' + p.price_usd + '<span class="text-xs font-normal text-slate-500">/mo</span></p>' +
+              '<p class="mt-1 text-xs text-slate-500">' + p.tagline + "</p>" +
+              '<ul class="mt-3 space-y-1 text-xs text-slate-600">' +
+              '<li>📅 ' + (p.campaigns_per_month === "999999" || Number(p.campaigns_per_month) >= 999999 ? "Unlimited" : p.campaigns_per_month) + " campaigns/mo</li>" +
+              '<li>🌐 ' + p.platforms + " platform" + (p.platforms > 1 ? "s" : "") + "</li>" +
+              '<li>👥 ' + p.team_seats + " seat" + (p.team_seats !== "1" && p.team_seats !== 1 ? "s" : "") + "</li>" +
+              (p.analytics_ai ? '<li>📊 AI insights</li>' : "") +
+              (p.comment_automations ? '<li>💬 Comment automations</li>' : "") +
+              "</ul>" +
+              '<button type="button" data-plan="' + p.plan + '" class="billing-select-plan-btn mt-4 w-full rounded-xl ' + (isHighlighted ? "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/20" : "border border-slate-200 bg-white text-slate-800") + ' py-2 text-xs font-bold transition hover:scale-[1.02] active:scale-[0.98]">Upgrade to ' + p.name + "</button>";
+            container.appendChild(card);
+          });
+
+          // Wire up plan select buttons
+          container.querySelectorAll(".billing-select-plan-btn").forEach(function (btn) {
+            btn.addEventListener("click", async function () {
+              var plan = btn.dataset.plan;
+              if (!plan) return;
+              btn.disabled = true;
+              btn.textContent = "Redirecting…";
+              var errEl = document.getElementById("billing-upgrade-err");
+              if (errEl) errEl.classList.add("hidden");
+              try {
+                var out = await BrokerAI.apiJson("/billing/checkout", {
+                  method: "POST",
+                  body: JSON.stringify({ plan: plan }),
+                });
+                if (out.url) window.location.href = out.url;
+              } catch (e) {
+                btn.disabled = false;
+                btn.textContent = "Upgrade to " + plan.charAt(0).toUpperCase() + plan.slice(1);
+                if (errEl) {
+                  errEl.textContent = e.message || "Could not start checkout. Please try again.";
+                  errEl.classList.remove("hidden");
+                }
+              }
+            });
+          });
+        } catch (e) {
+          console.warn("billing plan cards:", e.message || e);
+        }
+      }
+
+      // Upgrade button toggle
+      document.getElementById("billing-upgrade-btn").addEventListener("click", function () {
+        var picker = document.getElementById("billing-upgrade-picker");
+        if (!picker) return;
+        picker.classList.toggle("hidden");
+        this.textContent = picker.classList.contains("hidden") ? "↑ Upgrade Plan" : "✕ Cancel";
+      });
+
+      // Manage Billing → Stripe Customer Portal
+      document.getElementById("billing-portal-btn").addEventListener("click", async function () {
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = "Opening portal…";
+        try {
+          var out = await BrokerAI.apiJson("/billing/portal", { method: "POST" });
+          if (out.url) window.location.href = out.url;
+        } catch (e) {
+          BrokerAI.showToast(e.message || "Could not open billing portal.", "error");
+          btn.disabled = false;
+          btn.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> Manage Billing';
+        }
+      });
+
+      // ── /Billing helpers ──────────────────────────────────────────────
+
+      // ── Onboarding Checklist ──────────────────────────────────────────
+
+      function initOnboardingChecklist() {
+        // If already dismissed, do nothing
+        if (localStorage.getItem("brokerai_onboarding_dismissed") === "1") return;
+
+        var container = document.getElementById("onboarding-checklist-container");
+        if (!container) return;
+
+        // Determine initial collapsed state from persisted checklist state
+        var savedState = {};
+        try { savedState = JSON.parse(localStorage.getItem("brokerai_onboarding_v1") || "{}"); } catch (e) { savedState = {}; }
+        var isCollapsed = !!savedState.collapsed;
+
+        // Inject card HTML immediately (steps will update once checks resolve)
+        container.innerHTML =
+          '<div id="onboarding-card" class="mb-6 rounded-xl border border-amber-200 bg-white shadow-sm transition-all duration-300" style="opacity:1">' +
+            // Header row
+            '<div class="flex items-center justify-between gap-3 px-5 py-4">' +
+              '<div class="flex min-w-0 flex-1 items-center gap-3">' +
+                '<span class="text-base font-semibold text-slate-800">&#x1F680; Get started with BrokerAI</span>' +
+                '<span id="onboarding-progress-label" class="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">0 of 3</span>' +
+              '</div>' +
+              '<div class="flex shrink-0 items-center gap-1">' +
+                '<button type="button" id="onboarding-collapse-btn" aria-label="Toggle checklist" class="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">' +
+                  '<svg id="onboarding-chevron" class="h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
+                '</button>' +
+                '<button type="button" id="onboarding-dismiss-btn" aria-label="Dismiss onboarding" class="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-red-500">' +
+                  '<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>' +
+                '</button>' +
+              '</div>' +
+            '</div>' +
+            // Progress bar
+            '<div id="onboarding-progress-bar-wrap" class="px-5 pb-2">' +
+              '<div class="h-1.5 w-full overflow-hidden rounded-full bg-amber-100">' +
+                '<div id="onboarding-progress-bar" class="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-500" style="width:0%"></div>' +
+              '</div>' +
+            '</div>' +
+            // Steps body
+            '<div id="onboarding-steps-body" class="px-5 pb-5 pt-2 space-y-3">' +
+              // Step 1
+              '<div id="onboarding-step-1" class="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">' +
+                '<span id="onboarding-step-1-icon" class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-xs font-bold text-slate-400"></span>' +
+                '<div class="min-w-0 flex-1">' +
+                  '<p id="onboarding-step-1-label" class="text-sm font-medium text-slate-700">&#x1F517; Connect your social account</p>' +
+                '</div>' +
+                '<a href="/connect.html" id="onboarding-step-1-link" class="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-amber-300 hover:text-amber-700">Go &#x2192;</a>' +
+              '</div>' +
+              // Step 2
+              '<div id="onboarding-step-2" class="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">' +
+                '<span id="onboarding-step-2-icon" class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-xs font-bold text-slate-400"></span>' +
+                '<div class="min-w-0 flex-1">' +
+                  '<p id="onboarding-step-2-label" class="text-sm font-medium text-slate-700">&#x1F4DD; Create your first campaign</p>' +
+                '</div>' +
+                '<a href="/wizard-v2.html" id="onboarding-step-2-link" class="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-amber-300 hover:text-amber-700">Go &#x2192;</a>' +
+              '</div>' +
+              // Step 3
+              '<div id="onboarding-step-3" class="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">' +
+                '<span id="onboarding-step-3-icon" class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-xs font-bold text-slate-400"></span>' +
+                '<div class="min-w-0 flex-1">' +
+                  '<p id="onboarding-step-3-label" class="text-sm font-medium text-slate-700">&#x1F465; Invite your team</p>' +
+                '</div>' +
+                '<a href="/settings.html#team" id="onboarding-step-3-link" class="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-amber-300 hover:text-amber-700">Go &#x2192;</a>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+
+        // Apply initial collapsed state
+        var card = document.getElementById("onboarding-card");
+        var stepsBody = document.getElementById("onboarding-steps-body");
+        var progressBarWrap = document.getElementById("onboarding-progress-bar-wrap");
+        var chevron = document.getElementById("onboarding-chevron");
+        if (isCollapsed) {
+          if (stepsBody) stepsBody.classList.add("hidden");
+          if (progressBarWrap) progressBarWrap.classList.add("hidden");
+          if (chevron) chevron.style.transform = "rotate(-90deg)";
+        }
+
+        // Collapse / expand toggle
+        var collapseBtn = document.getElementById("onboarding-collapse-btn");
+        if (collapseBtn) {
+          collapseBtn.addEventListener("click", function () {
+            var sb = document.getElementById("onboarding-steps-body");
+            var pbw = document.getElementById("onboarding-progress-bar-wrap");
+            var ch = document.getElementById("onboarding-chevron");
+            var collapsed = sb && !sb.classList.contains("hidden") ? false : true;
+            if (!collapsed) {
+              // Currently expanded — collapse it
+              if (sb) sb.classList.add("hidden");
+              if (pbw) pbw.classList.add("hidden");
+              if (ch) ch.style.transform = "rotate(-90deg)";
+              saveOnboardingState({ collapsed: true });
+            } else {
+              // Currently collapsed — expand it
+              if (sb) sb.classList.remove("hidden");
+              if (pbw) pbw.classList.remove("hidden");
+              if (ch) ch.style.transform = "";
+              saveOnboardingState({ collapsed: false });
+            }
+          });
+        }
+
+        // Dismiss button
+        var dismissBtn = document.getElementById("onboarding-dismiss-btn");
+        if (dismissBtn) {
+          dismissBtn.addEventListener("click", function () {
+            dismissOnboardingChecklist();
+          });
+        }
+
+        // Run all 3 status checks in parallel
+        var token = localStorage.getItem("token");
+        var headers = token ? { "Authorization": "Bearer " + token } : {};
+
+        var socialCheck = fetch("/social-status", { headers: headers })
+          .then(function (r) {
+            if (!r.ok) return { connected: false };
+            return r.json();
+          })
+          .then(function (d) { return !!(d && d.connected); })
+          .catch(function () { return false; });
+
+        var campaignCheck = fetch("/campaigns", { headers: headers })
+          .then(function (r) {
+            if (!r.ok) return [];
+            return r.json();
+          })
+          .then(function (d) { return Array.isArray(d) ? d.length > 0 : false; })
+          .catch(function () { return false; });
+
+        var teamCheck = (function () {
+          // First check localStorage flag
+          if (localStorage.getItem("brokerai_team_invited") === "1") return Promise.resolve(true);
+          // Then check API
+          return fetch("/team", { headers: headers })
+            .then(function (r) {
+              if (!r.ok) return false;
+              return r.json();
+            })
+            .then(function (d) {
+              if (!d) return false;
+              // members array length > 1, or members_count > 1
+              if (Array.isArray(d.members)) return d.members.length > 1;
+              if (typeof d.members_count === "number") return d.members_count > 1;
+              if (typeof d.member_count === "number") return d.member_count > 1;
+              return false;
+            })
+            .catch(function () { return false; });
+        })();
+
+        Promise.allSettled([socialCheck, campaignCheck, teamCheck]).then(function (results) {
+          var step1Done = results[0].status === "fulfilled" ? !!results[0].value : false;
+          var step2Done = results[1].status === "fulfilled" ? !!results[1].value : false;
+          var step3Done = results[2].status === "fulfilled" ? !!results[2].value : false;
+
+          var completed = [step1Done, step2Done, step3Done].filter(Boolean).length;
+
+          // Persist state
+          saveOnboardingState({
+            collapsed: isCollapsed,
+            step1: step1Done,
+            step2: step2Done,
+            step3: step3Done,
+          });
+
+          // Update progress label + bar
+          var label = document.getElementById("onboarding-progress-label");
+          if (label) label.textContent = completed + " of 3";
+          var bar = document.getElementById("onboarding-progress-bar");
+          if (bar) bar.style.width = Math.round((completed / 3) * 100) + "%";
+
+          // Update each step row
+          updateOnboardingStep(1, step1Done);
+          updateOnboardingStep(2, step2Done);
+          updateOnboardingStep(3, step3Done);
+
+          // All complete → show success banner then auto-dismiss
+          if (completed === 3) {
+            showOnboardingSuccess();
+          }
+        });
+      }
+
+      function updateOnboardingStep(stepNum, isDone) {
+        var icon = document.getElementById("onboarding-step-" + stepNum + "-icon");
+        var label = document.getElementById("onboarding-step-" + stepNum + "-label");
+        var link = document.getElementById("onboarding-step-" + stepNum + "-link");
+        if (!icon) return;
+        if (isDone) {
+          icon.innerHTML = '<svg class="h-4 w-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>';
+          icon.className = "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-emerald-400 bg-emerald-50 text-xs font-bold";
+          if (label) {
+            label.className = "text-sm font-medium text-slate-400 line-through";
+          }
+          if (link) link.classList.add("hidden");
+        } else {
+          icon.innerHTML = "";
+          icon.className = "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-xs font-bold text-slate-400";
+          if (label) {
+            label.className = "text-sm font-medium text-slate-700";
+          }
+          if (link) link.classList.remove("hidden");
+        }
+      }
+
+      function saveOnboardingState(patch) {
+        var existing = {};
+        try { existing = JSON.parse(localStorage.getItem("brokerai_onboarding_v1") || "{}"); } catch (e) { existing = {}; }
+        var merged = Object.assign({}, existing, patch);
+        try { localStorage.setItem("brokerai_onboarding_v1", JSON.stringify(merged)); } catch (e) { /* ignore */ }
+      }
+
+      function dismissOnboardingChecklist() {
+        localStorage.setItem("brokerai_onboarding_dismissed", "1");
+        var card = document.getElementById("onboarding-card");
+        if (!card) return;
+        // Fade out animation
+        card.style.transition = "opacity 0.35s ease, transform 0.35s ease";
+        card.style.opacity = "0";
+        card.style.transform = "translateY(-6px)";
+        setTimeout(function () {
+          var c2 = document.getElementById("onboarding-checklist-container");
+          if (c2) c2.innerHTML = "";
+        }, 360);
+      }
+
+      function showOnboardingSuccess() {
+        var stepsBody = document.getElementById("onboarding-steps-body");
+        var progressBarWrap = document.getElementById("onboarding-progress-bar-wrap");
+        var label = document.getElementById("onboarding-progress-label");
+        // Replace body content with success banner
+        if (stepsBody) {
+          stepsBody.innerHTML =
+            '<div class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">' +
+              '<svg class="h-5 w-5 shrink-0 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
+              '<p class="text-sm font-semibold text-emerald-800">You\'re all set! &#x1F389;</p>' +
+            '</div>';
+          stepsBody.classList.remove("hidden");
+        }
+        if (label) {
+          label.textContent = "3 of 3";
+          label.className = "shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700";
+        }
+        // Auto-dismiss after 3 seconds
+        setTimeout(function () {
+          dismissOnboardingChecklist();
+        }, 3000);
+      }
+
+      // ── /Onboarding Checklist ─────────────────────────────────────────
+
+      // ── Product Tour (Shepherd.js) ────────────────────────────────────
+
+      function initProductTour() {
+        // Only run on first visit — skip if already completed or cancelled
+        if (localStorage.getItem("brokerai_tour_done") === "1") return;
+
+        // Shepherd may not have loaded yet — guard against race condition
+        if (typeof Shepherd === "undefined") return;
+
+        var tour = new Shepherd.Tour({
+          useModalOverlay: true,
+          defaultStepOptions: {
+            classes: "shadow-lg rounded-xl",
+            scrollTo: { behavior: "smooth", block: "center" },
+            cancelIcon: { enabled: true },
+          },
+        });
+
+        function markDone() {
+          localStorage.setItem("brokerai_tour_done", "1");
+        }
+
+        tour.on("complete", markDone);
+        tour.on("cancel", markDone);
+
+        // Step 1 — Welcome (center modal, no target)
+        tour.addStep({
+          id: "welcome",
+          title: "Welcome to BrokerAI",
+          text: "👋 Welcome to BrokerAI! Let's take a 60-second tour so you can hit the ground running.",
+          buttons: [
+            {
+              text: "Skip tour",
+              action: tour.cancel,
+              secondary: true,
+            },
+            {
+              text: "Next →",
+              action: tour.next,
+            },
+          ],
+        });
+
+        // Step 2 — Navigation sidebar
+        tour.addStep({
+          id: "sidebar",
+          title: "Sidebar Navigation",
+          text: "📌 The sidebar is your home base — campaigns, analytics, and account settings are all here.",
+          attachTo: {
+            element: "#app-sidebar",
+            on: "right",
+          },
+          buttons: [
+            {
+              text: "← Back",
+              action: tour.back,
+              secondary: true,
+            },
+            {
+              text: "Next →",
+              action: tour.next,
+            },
+          ],
+        });
+
+        // Step 3 — New Campaign button
+        tour.addStep({
+          id: "new-campaign",
+          title: "Create a Campaign",
+          text: "⚡ Ready to create content? Click here to launch the AI campaign wizard — it takes about 2 minutes.",
+          attachTo: {
+            element: 'a[href="/wizard-v2.html"]',
+            on: "bottom",
+          },
+          buttons: [
+            {
+              text: "← Back",
+              action: tour.back,
+              secondary: true,
+            },
+            {
+              text: "Next →",
+              action: tour.next,
+            },
+          ],
+        });
+
+        // Step 4 — Publishing Today section
+        tour.addStep({
+          id: "publishing-today",
+          title: "Publishing Today",
+          text: "📅 This is your daily publishing queue — all posts going out today, ordered by time.",
+          attachTo: {
+            element: "#publishing-today-section",
+            on: "top",
+          },
+          buttons: [
+            {
+              text: "← Back",
+              action: tour.back,
+              secondary: true,
+            },
+            {
+              text: "Next →",
+              action: tour.next,
+            },
+          ],
+        });
+
+        // Step 5 — Analytics bar
+        tour.addStep({
+          id: "analytics",
+          title: "Key Metrics",
+          text: "📊 Your key metrics live here — posts published, success rate, and engagement at a glance.",
+          attachTo: {
+            element: "#analytics-bar",
+            on: "bottom",
+          },
+          buttons: [
+            {
+              text: "← Back",
+              action: tour.back,
+              secondary: true,
+            },
+            {
+              text: "Next →",
+              action: tour.next,
+            },
+          ],
+        });
+
+        // Step 6 — Onboarding checklist
+        tour.addStep({
+          id: "onboarding-checklist",
+          title: "Getting Started Checklist",
+          text: "✅ Follow these 3 steps to set up your account and connect your social profiles.",
+          attachTo: {
+            element: "#onboarding-checklist-container",
+            on: "bottom",
+          },
+          buttons: [
+            {
+              text: "← Back",
+              action: tour.back,
+              secondary: true,
+            },
+            {
+              text: "Next →",
+              action: tour.next,
+            },
+          ],
+        });
+
+        // Step 7 — Done (center modal, no target)
+        tour.addStep({
+          id: "done",
+          title: "You're all set!",
+          text: "🎉 You're ready! Create your first campaign and start publishing AI-powered content.",
+          buttons: [
+            {
+              text: "← Back",
+              action: tour.back,
+              secondary: true,
+            },
+            {
+              text: "Let's go!",
+              action: tour.complete,
+            },
+          ],
+        });
+
+        tour.start();
+      }
+
+      // ── /Product Tour ─────────────────────────────────────────────────
+
       load();
     </script>
+
+    <!-- Mobile Bottom Navigation (hidden on desktop) -->
+    <nav id="bottom-nav" class="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 flex" style="padding-bottom: max(0px, env(safe-area-inset-bottom));">
+      <a href="/dashboard.html" data-nav="dashboard" class="bottom-nav-item flex-1 flex flex-col items-center justify-center py-2 gap-1 text-amber-600" aria-label="Home">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span class="text-[10px] font-medium">Home</span>
+      </a>
+      <a href="/dashboard.html#calendar" data-nav="calendar" class="bottom-nav-item flex-1 flex flex-col items-center justify-center py-2 gap-1 text-slate-500" aria-label="Calendar">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <span class="text-[10px] font-medium">Calendar</span>
+      </a>
+      <a href="/wizard-v2.html" data-nav="campaigns" class="bottom-nav-item flex-1 flex flex-col items-center justify-center py-2 gap-1 text-slate-500" aria-label="New Campaign">
+        <div class="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center -mt-4 shadow-md">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        </div>
+        <span class="text-[10px] font-medium mt-1">New</span>
+      </a>
+      <a href="/analytics.html" data-nav="analytics" class="bottom-nav-item flex-1 flex flex-col items-center justify-center py-2 gap-1 text-slate-500" aria-label="Analytics">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span class="text-[10px] font-medium">Analytics</span>
+      </a>
+      <a href="/settings.html" data-nav="settings" class="bottom-nav-item flex-1 flex flex-col items-center justify-center py-2 gap-1 text-slate-500" aria-label="Settings">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span class="text-[10px] font-medium">Settings</span>
+      </a>
+    </nav>
+    <script>
+      (function initBottomNav() {
+        var path = window.location.pathname;
+        document.querySelectorAll('.bottom-nav-item').forEach(function (item) {
+          var href = item.getAttribute('href') || '';
+          var isActive = href.startsWith(path) && path !== '/';
+          // Dashboard home special case
+          if (!isActive && path === '/dashboard.html' && href.includes('dashboard')) isActive = true;
+          item.classList.toggle('text-amber-600', isActive);
+          item.classList.toggle('text-slate-500', !isActive);
+        });
+      })();
+
+      // ── Calendar export helpers ───────────────────────────────────────────
+
+      function exportCalendarCSV() {
+        var posts = window.__calPosts || allPosts || [];
+        if (!posts.length) { alert('No posts to export.'); return; }
+
+        var headers = ['Date', 'Time', 'Platform', 'Status', 'Campaign', 'Content'];
+        var rows = posts
+          .filter(function (p) { return p.scheduled_time; })
+          .sort(function (a, b) { return new Date(a.scheduled_time) - new Date(b.scheduled_time); })
+          .map(function (p) {
+            var raw = p.scheduled_time;
+            var d = new Date(raw + (raw.endsWith('Z') ? '' : 'Z'));
+            return [
+              d.toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric'}),
+              d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}),
+              (p.platform || '').charAt(0).toUpperCase() + (p.platform || '').slice(1),
+              p.status || '',
+              'Campaign ' + (p.campaign_id || ''),
+              '"' + (p.content || p.caption || '').replace(/"/g, '""').replace(/\n/g, ' ').substring(0, 200) + '"',
+            ];
+          });
+
+        var csvContent = [headers].concat(rows).map(function (r) { return r.join(','); }).join('\n');
+        var blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'BrokerAI_Calendar_' + new Date().toISOString().slice(0, 10) + '.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      function exportCalendarPDF() {
+        if (typeof window.jspdf === 'undefined' && typeof jspdf === 'undefined') {
+          alert('PDF library not loaded. Please refresh and try again.');
+          return;
+        }
+
+        var posts = window.__calPosts || allPosts || [];
+        if (!posts.length) { alert('No posts to export.'); return; }
+
+        var _jspdf = window.jspdf || window;
+        var jsPDF = (_jspdf.jspdf || _jspdf).jsPDF;
+        var doc = new jsPDF({orientation: 'landscape', unit: 'mm', format: 'a4'});
+
+        // Header
+        doc.setFillColor(15, 23, 42); // slate-900
+        doc.rect(0, 0, 297, 22, 'F');
+        doc.setTextColor(245, 158, 11); // amber-500
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('BrokerAI', 14, 14);
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Content Calendar Export', 50, 14);
+        doc.setFontSize(9);
+        doc.text(
+          'Generated: ' + new Date().toLocaleDateString('en-US', {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'}),
+          200, 14
+        );
+
+        // Table
+        var PLATFORMS = {instagram: 'Instagram', linkedin: 'LinkedIn', twitter: 'Twitter / X', facebook: 'Facebook', tiktok: 'TikTok'};
+        var sorted = posts
+          .filter(function (p) { return p.scheduled_time; })
+          .sort(function (a, b) { return new Date(a.scheduled_time) - new Date(b.scheduled_time); });
+
+        var tableRows = sorted.map(function (p) {
+          var raw = p.scheduled_time;
+          var d = new Date(raw + (raw.endsWith('Z') ? '' : 'Z'));
+          var caption = (p.content || p.caption || '');
+          return [
+            d.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}),
+            d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}),
+            PLATFORMS[p.platform] || (p.platform || 'Social'),
+            (p.status || '').charAt(0).toUpperCase() + (p.status || '').slice(1),
+            caption.substring(0, 120) + (caption.length > 120 ? '...' : ''),
+          ];
+        });
+
+        doc.autoTable({
+          head: [['Date', 'Time', 'Platform', 'Status', 'Content Preview']],
+          body: tableRows,
+          startY: 28,
+          headStyles: {fillColor: [245, 158, 11], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 9},
+          bodyStyles: {fontSize: 8, cellPadding: 3},
+          alternateRowStyles: {fillColor: [248, 250, 252]},
+          columnStyles: {0: {cellWidth: 28}, 1: {cellWidth: 18}, 2: {cellWidth: 26}, 3: {cellWidth: 22}, 4: {cellWidth: 'auto'}},
+          margin: {left: 14, right: 14},
+          didParseCell: function (data) {
+            if (data.column.index === 3) {
+              var val = data.cell.raw;
+              if (val === 'Published') { data.cell.styles.textColor = [22, 163, 74]; data.cell.styles.fontStyle = 'bold'; }
+              if (val === 'Failed') { data.cell.styles.textColor = [220, 38, 38]; }
+              if (val === 'Scheduled') { data.cell.styles.textColor = [217, 119, 6]; }
+            }
+          }
+        });
+
+        // Footer on each page
+        var pageCount = doc.internal.getNumberOfPages();
+        for (var i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setFontSize(7);
+          doc.setTextColor(156, 163, 175);
+          doc.text('Page ' + i + ' of ' + pageCount + ' \u2014 BrokerAI Content Calendar', 14, doc.internal.pageSize.height - 6);
+        }
+
+        doc.save('BrokerAI_Calendar_' + new Date().toISOString().slice(0, 10) + '.pdf');
+      }
+
+    </script>
+
+    <!-- S5-10: Campaign PDF Report Generator -->
+    <script>
+      // ── Campaign Performance Report (jsPDF) ─────────────────────────────
+      async function generateCampaignReport(campaignId, campaignName) {
+        if (typeof window.jspdf === 'undefined' && typeof jspdf === 'undefined') {
+          alert('PDF library not loaded. Please refresh and try again.');
+          return;
+        }
+
+        var token = localStorage.getItem('brokerai_token') || localStorage.getItem('token') || '';
+        if (!token) { alert('Please log in first.'); return; }
+
+        // Show progress toast
+        var toast = document.createElement('div');
+        toast.id = 'report-toast';
+        toast.textContent = 'Generating report\u2026';
+        toast.style.cssText =
+          'position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);' +
+          'background:#f59e0b;color:#fff;font-size:0.85rem;font-weight:600;' +
+          'padding:0.55rem 1.25rem;border-radius:999px;' +
+          'box-shadow:0 4px 16px rgba(0,0,0,0.18);z-index:9999;pointer-events:none;';
+        document.body.appendChild(toast);
+
+        try {
+          var res = await fetch('/campaigns/' + encodeURIComponent(campaignId) + '/report/pdf', {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + token },
+          });
+          if (!res.ok) {
+            var err = await res.json().catch(function () { return {}; });
+            throw new Error((err && err.detail) || 'Failed to load report data');
+          }
+          var data = await res.json();
+
+          var _jspdf = window.jspdf || window;
+          var jsPDF = (_jspdf.jspdf || _jspdf).jsPDF;
+          var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+          var pageW = doc.internal.pageSize.width;
+          var pageH = doc.internal.pageSize.height;
+          var AMBER = [245, 158, 11];
+          var SLATE  = [30, 41, 59];
+          var WHITE  = [255, 255, 255];
+          var LIGHT  = [248, 250, 252];
+          var margin = 14;
+
+          // ── Helper: footer on every page ─────────────────────────────
+          function addFooter() {
+            var pages = doc.internal.getNumberOfPages();
+            for (var i = 1; i <= pages; i++) {
+              doc.setPage(i);
+              doc.setDrawColor(226, 232, 240);
+              doc.line(margin, pageH - 10, pageW - margin, pageH - 10);
+              doc.setFontSize(7);
+              doc.setTextColor(148, 163, 184);
+              doc.setFont('helvetica', 'normal');
+              doc.text(
+                'Generated by BrokerAI \u2022 Confidential \u2022 Page ' + i + ' of ' + pages,
+                pageW / 2,
+                pageH - 5,
+                { align: 'center' }
+              );
+            }
+          }
+
+          // ── Cover section ─────────────────────────────────────────────
+          // Amber header band
+          doc.setFillColor(AMBER[0], AMBER[1], AMBER[2]);
+          doc.rect(0, 0, pageW, 30, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(22);
+          doc.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
+          doc.text('BrokerAI', margin, 18);
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'normal');
+          doc.text('AI-Powered Social Media Campaigns', margin, 25);
+
+          var curY = 44;
+
+          // Campaign name
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(18);
+          doc.setTextColor(SLATE[0], SLATE[1], SLATE[2]);
+          var nameLines = doc.splitTextToSize(data.campaign.name || 'Campaign Report', pageW - margin * 2);
+          doc.text(nameLines, margin, curY);
+          curY += nameLines.length * 7 + 2;
+
+          // Sub: report label + date
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          doc.setTextColor(100, 116, 139);
+          var genDate = data.generated_at
+            ? new Date(data.generated_at + 'Z').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+            : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+          doc.text('Campaign Performance Report  \u2022  Generated: ' + genDate, margin, curY);
+          curY += 6;
+
+          // Divider
+          doc.setDrawColor(AMBER[0], AMBER[1], AMBER[2]);
+          doc.setLineWidth(0.6);
+          doc.line(margin, curY, pageW - margin, curY);
+          curY += 8;
+
+          // ── Campaign details table ────────────────────────────────────
+          doc.autoTable({
+            startY: curY,
+            head: [['Campaign Details', '']],
+            body: [
+              ['Name',            data.campaign.name          || '\u2014'],
+              ['Objective',       data.campaign.objective     || '\u2014'],
+              ['Target Audience', data.campaign.target_audience || '\u2014'],
+              ['Status',          (data.campaign.status || '').replace(/_/g, ' ')],
+              ['Created',         data.campaign.created_at
+                ? new Date(data.campaign.created_at + 'Z').toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                : '\u2014'],
+            ],
+            headStyles: { fillColor: AMBER, textColor: SLATE, fontStyle: 'bold', fontSize: 9 },
+            bodyStyles: { fontSize: 9, cellPadding: 3 },
+            alternateRowStyles: { fillColor: LIGHT },
+            columnStyles: { 0: { cellWidth: 42, fontStyle: 'bold' }, 1: { cellWidth: 'auto' } },
+            margin: { left: margin, right: margin },
+          });
+          curY = doc.lastAutoTable.finalY + 8;
+
+          // ── Performance summary stat row ──────────────────────────────
+          var statW = (pageW - margin * 2) / 3;
+          var stats = [
+            { label: 'Total Posts', value: String(data.stats.total_posts || 0) },
+            { label: 'Published',   value: String(data.stats.published   || 0) },
+            { label: 'Scheduled',   value: String(data.stats.scheduled   || 0) },
+          ];
+          stats.forEach(function (s, i) {
+            var x = margin + i * statW;
+            doc.setFillColor(AMBER[0], AMBER[1], AMBER[2]);
+            doc.roundedRect(x, curY, statW - 2, 20, 3, 3, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
+            doc.text(s.value, x + (statW - 2) / 2, curY + 10, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.text(s.label, x + (statW - 2) / 2, curY + 16, { align: 'center' });
+          });
+          curY += 26;
+
+          // ── Platform breakdown table ──────────────────────────────────
+          var breakdown = data.stats.platform_breakdown || {};
+          var totalForPct = data.stats.total_posts || 1;
+          var breakdownRows = Object.keys(breakdown).map(function (plat) {
+            var cnt = breakdown[plat];
+            var pct = ((cnt / totalForPct) * 100).toFixed(1) + '%';
+            var label = plat.charAt(0).toUpperCase() + plat.slice(1);
+            return [label, String(cnt), pct];
+          });
+
+          if (breakdownRows.length) {
+            doc.autoTable({
+              startY: curY,
+              head: [['Platform', 'Posts', '% of Total']],
+              body: breakdownRows,
+              headStyles: { fillColor: SLATE, textColor: WHITE, fontStyle: 'bold', fontSize: 9 },
+              bodyStyles: { fontSize: 9, cellPadding: 3 },
+              alternateRowStyles: { fillColor: LIGHT },
+              columnStyles: { 0: { cellWidth: 50 }, 1: { cellWidth: 25, halign: 'center' }, 2: { cellWidth: 30, halign: 'center' } },
+              margin: { left: margin, right: margin },
+            });
+            curY = doc.lastAutoTable.finalY + 8;
+          }
+
+          // ── Post preview table ────────────────────────────────────────
+          var previewRows = (data.posts || []).map(function (p) {
+            var content = (p.content || '').replace(/\n/g, ' ');
+            var preview = content.length > 80 ? content.substring(0, 80) + '\u2026' : content;
+            var sched = p.scheduled_time
+              ? new Date(p.scheduled_time + (p.scheduled_time.endsWith('Z') ? '' : 'Z'))
+                  .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : '\u2014';
+            var plat = (p.platform || '');
+            plat = plat.charAt(0).toUpperCase() + plat.slice(1);
+            var status = (p.status || '').replace(/_/g, ' ');
+            return [plat, preview, status, sched];
+          });
+
+          if (previewRows.length) {
+            doc.autoTable({
+              startY: curY,
+              head: [['Platform', 'Content Preview', 'Status', 'Scheduled']],
+              body: previewRows,
+              headStyles: { fillColor: AMBER, textColor: SLATE, fontStyle: 'bold', fontSize: 8 },
+              bodyStyles: { fontSize: 7.5, cellPadding: 2.5 },
+              alternateRowStyles: { fillColor: LIGHT },
+              columnStyles: {
+                0: { cellWidth: 22 },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 22 },
+                3: { cellWidth: 26 },
+              },
+              margin: { left: margin, right: margin },
+              didParseCell: function (d) {
+                if (d.column.index === 2) {
+                  var v = (d.cell.raw || '').toLowerCase();
+                  if (v === 'published') d.cell.styles.textColor = [22, 163, 74];
+                  else if (v === 'failed')    d.cell.styles.textColor = [220, 38, 38];
+                  else if (v.indexOf('sched') !== -1 || v === 'approved')
+                    d.cell.styles.textColor = [217, 119, 6];
+                }
+              },
+            });
+          }
+
+          // ── Footers on all pages ──────────────────────────────────────
+          addFooter();
+
+          // ── Save ──────────────────────────────────────────────────────
+          var safeName = (campaignName || 'Campaign').replace(/[^a-zA-Z0-9_\- ]/g, '').trim().replace(/\s+/g, '_');
+          var dateStr  = new Date().toISOString().slice(0, 10);
+          doc.save('BrokerAI_Report_' + safeName + '_' + dateStr + '.pdf');
+
+        } catch (e) {
+          alert('Could not generate report: ' + (e.message || e));
+        } finally {
+          var t = document.getElementById('report-toast');
+          if (t) t.remove();
+        }
+      }
+      // ── /Campaign Performance Report ─────────────────────────────────────
+    </script>
+
+    <!-- interact.js — calendar drag-and-drop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/interact.js/1.10.27/interact.min.js"></script>
+    <script>
+      // ── Calendar drag-and-drop (interact.js) ────────────────────────────
+      function initCalendarDragDrop() {
+        if (typeof interact === "undefined") return;
+
+        // Make event chips draggable
+        interact(".calendar-event").draggable({
+          inertia: false,
+          listeners: {
+            start: function (event) {
+              event.target.style.opacity = "0.5";
+              event.target.style.zIndex = "1000";
+            },
+            move: function (event) {
+              var x = (parseFloat(event.target.dataset.x) || 0) + event.dx;
+              var y = (parseFloat(event.target.dataset.y) || 0) + event.dy;
+              event.target.style.transform = "translate(" + x + "px, " + y + "px)";
+              event.target.dataset.x = x;
+              event.target.dataset.y = y;
+            },
+            end: function (event) {
+              event.target.style.opacity = "1";
+              event.target.style.zIndex = "";
+            },
+          },
+        });
+
+        // Make calendar day cells drop targets
+        interact(".calendar-day").dropzone({
+          accept: ".calendar-event",
+          overlap: 0.3,
+          ondragenter: function (event) {
+            event.target.classList.add("ring-2", "ring-amber-400");
+          },
+          ondragleave: function (event) {
+            event.target.classList.remove("ring-2", "ring-amber-400");
+          },
+          ondrop: function (event) {
+            event.target.classList.remove("ring-2", "ring-amber-400");
+
+            var chip = event.relatedTarget;
+            var postId = chip.dataset.postId;
+            var targetDate = event.target.dataset.date;
+            var originalTime = chip.dataset.time || "09:00:00";
+
+            if (!postId || !targetDate) {
+              chip.style.transform = "";
+              chip.dataset.x = 0;
+              chip.dataset.y = 0;
+              return;
+            }
+
+            var newIso = targetDate + "T" + originalTime + "Z";
+            var token =
+              localStorage.getItem("brokerai_token") ||
+              localStorage.getItem("token") ||
+              "";
+
+            fetch("/posts/" + postId + "/reschedule", {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + token,
+              },
+              body: JSON.stringify({ scheduled_time: newIso }),
+            })
+              .then(function (res) {
+                if (!res.ok) {
+                  return res.json().then(function (err) {
+                    throw new Error((err && err.detail) || "Reschedule failed");
+                  });
+                }
+                return res.json();
+              })
+              .then(function () {
+                // Brief toast notification
+                var toast = document.createElement("div");
+                toast.textContent = "Post rescheduled!";
+                toast.style.cssText =
+                  "position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);" +
+                  "background:#f59e0b;color:#fff;font-size:0.85rem;font-weight:600;" +
+                  "padding:0.55rem 1.25rem;border-radius:999px;" +
+                  "box-shadow:0 4px 16px rgba(0,0,0,0.18);" +
+                  "z-index:9999;pointer-events:none;transition:opacity 0.4s;";
+                document.body.appendChild(toast);
+                setTimeout(function () {
+                  toast.style.opacity = "0";
+                  setTimeout(function () {
+                    toast.remove();
+                  }, 420);
+                }, 2000);
+                // Re-render the calendar
+                renderCal();
+              })
+              .catch(function (err) {
+                alert("Could not reschedule post: " + err.message);
+                // Reset chip to original position
+                chip.style.transform = "";
+                chip.dataset.x = 0;
+                chip.dataset.y = 0;
+              });
+          },
+        });
+      }
+    </script>
+
+    <!-- jsPDF — calendar PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   </body>
 </html>

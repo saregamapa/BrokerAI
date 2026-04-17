@@ -416,7 +416,7 @@
           <div class="rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-lg backdrop-blur-md md:p-6">
             <h2 class="text-xl font-extrabold text-slate-900 mb-1">Compliance &amp; preview</h2>
             <p class="text-slate-500 text-sm mb-2">Full post mock-up: template or media, your caption, then brand-safety check (same engine as campaign compliance).</p>
-            <p class="text-xs text-slate-500 mb-4">Edit copy in step 3 if you need changes — <strong>Apply suggested fix</strong> updates your draft here.</p>
+            <p class="text-xs text-slate-500 mb-4"><strong>Apply suggested fix</strong> keeps your caption and appends the compliance disclaimer text (edit in step 3 anytime).</p>
             <div class="flex flex-wrap gap-2 mb-5" id="preview-plat-pills"></div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <!-- Post preview -->
@@ -1873,10 +1873,15 @@ const WIZ = {
     const r = state.lastCompliance;
     if(!r || !r.suggested_fix){ BrokerAI.showToast('No suggested fix available.','info'); return; }
     const el = document.getElementById('caption-edit');
-    if(el){ el.value = r.suggested_fix; }
+    if(el){
+      const cur = String(el.value||'').trim();
+      const fix = String(r.suggested_fix||'').trim();
+      el.value = cur ? (cur + '\n\n' + fix) : fix;
+    }
     WIZ._syncCaptionFromEditor();
-    BrokerAI.showToast('Caption updated from compliance suggestion.','success');
+    BrokerAI.showToast('Disclaimer appended to your caption.','success');
     WIZ.renderStep4();
+    WIZ._fetchStep4Compliance(WIZ._currentCaptionText());
   },
 
   renderStep4(){
@@ -1969,6 +1974,10 @@ const WIZ = {
       editEl.value = cur ? cur + '\n\n' + suggestion : suggestion;
       WIZ._syncCaptionFromEditor();
       BrokerAI.showToast('Suggestion added to caption edit!','success');
+      if((state.step|0) === 4){
+        WIZ.renderStep4();
+        WIZ._fetchStep4Compliance(WIZ._currentCaptionText());
+      }
     }
   },
 

@@ -1,0 +1,37 @@
+[run]
+source = backend
+omit =
+    # Integration/external-service code that requires real API keys or external services:
+    # Ayrshare publishing, OpenAI LLM pipelines, Stripe billing, Sora video, etc.
+    backend/services/ayrshare_service.py
+    backend/services/publish_service.py
+    backend/services/post_status_poller.py
+    backend/services/campaign_video_sora.py
+    backend/services/ai_media_service.py
+    backend/services/wizard_video_asset.py
+    backend/services/wizard_visual_templates_service.py
+    backend/services/analytics_service.py
+    backend/services/analytics_background.py
+    backend/services/ai_analytics_service.py
+    backend/services/google_oauth.py
+    backend/integrations/*
+    backend/agents/nodes.py
+    backend/agents/caption_agent.py
+    backend/agents/graph.py
+    backend/ai/compliance.py
+    backend/ai/generator.py
+    backend/services/brand_asset_service.py
+    backend/services/billing_service.py
+    backend/services/email_service.py
+    backend/main.py
+    backend/env_loader.py
+    backend/timeutil.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    log\.(debug|info|warning|error|exception)

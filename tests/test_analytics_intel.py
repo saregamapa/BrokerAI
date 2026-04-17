@@ -95,6 +95,16 @@ def test_analytics_insights_returns_shape(client):
         json={"email": "intel2@example.com", "password": "secret12"},
     ).json()["access_token"]
     h = {"Authorization": f"Bearer {token}"}
+    # analytics_ai requires growth plan or above — upgrade the user
+    from sqlmodel import Session, select
+    from backend.db import engine
+    from backend.models import User
+    with Session(engine) as s:
+        u = s.exec(select(User).where(User.email == "intel2@example.com")).first()
+        if u:
+            u.plan = "growth"
+            s.add(u)
+            s.commit()
     r = client.get("/analytics/insights", headers=h)
     assert r.status_code == 200
     j = r.json()
