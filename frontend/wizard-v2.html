@@ -446,7 +446,6 @@
     <div class="flex lg:hidden items-center justify-between px-4 pt-3 pb-1">
       <a href="/dashboard.html" class="text-sm text-slate-500 hover:text-slate-700">← Cancel</a>
       <div class="flex items-center gap-1.5">
-        <button id="btn-templates-mob" class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Templates">📁</button>
         <button id="btn-save-draft-mob" class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Save as draft">💾</button>
         <button id="btn-schedule-mob" class="rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100" title="Schedule for review">📋</button>
       </div>
@@ -458,8 +457,6 @@
     <div class="hidden lg:flex mx-auto max-w-4xl items-center justify-between px-6 py-3">
       <a href="/dashboard.html" class="text-sm text-slate-500 hover:text-slate-700">← Cancel</a>
       <div class="flex items-center gap-2">
-        <button id="btn-templates" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Templates">📁 Templates</button>
-        <button id="btn-save-template" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Save current settings as a reusable template">💾 Save as Template</button>
         <button id="btn-save-draft" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" title="Save as draft to finish later">💾 Save for Later</button>
         <button id="btn-schedule" class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100" title="Submit for team review and scheduling">📋 Schedule for Review</button>
         <button id="btn-publish" class="rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2 text-sm font-bold text-white shadow-md shadow-amber-500/25 hover:scale-105 transition active:scale-95">✨ Generate Campaign</button>
@@ -948,120 +945,6 @@
     if ($("btn-publish-mob")) $("btn-publish-mob").addEventListener("click", () => submit("publish"));
     if ($("btn-schedule-mob")) $("btn-schedule-mob").addEventListener("click", () => submit("schedule"));
     if ($("btn-save-draft-mob")) $("btn-save-draft-mob").addEventListener("click", () => submit("draft"));
-    if ($("btn-templates-mob")) $("btn-templates-mob").addEventListener("click", () => $("btn-templates").click());
-
-    // ============================================================
-    // Templates — Save-as-template, Load, Delete
-    // ============================================================
-    function buildTemplatePayload() {
-      // Reuse the richer state collector defined below (hoisted by function decl)
-      return collectWizardState();
-    }
-
-    function applyTemplatePayload(payload) {
-      // Same mapping as assistant patch, with full-replace semantics for lists.
-      if (!payload || typeof payload !== "object") return;
-      if (payload.name) $("f-name").value = payload.name;
-      if (payload.prompt) $("f-prompt").value = payload.prompt;
-      if (payload.goal) {
-        const chips = document.querySelectorAll("#goal-chips .chip");
-        chips.forEach(c => {
-          if ((c.dataset.val || "").toLowerCase() === (payload.goal || "").toLowerCase()) {
-            chips.forEach(x => x.classList.remove("active"));
-            c.classList.add("active");
-          }
-        });
-      }
-      if (payload.content_type) {
-        const target = CT_FROM_SERVER[payload.content_type] || payload.content_type;
-        document.querySelectorAll(".ctype-card").forEach(x => x.classList.toggle("active", x.dataset.ctype === target));
-        toggleMedia(target);
-      }
-      if (payload.tone && $("tone-select")) $("tone-select").value = payload.tone;
-      if (Array.isArray(payload.platforms)) {
-        document.querySelectorAll(".plat").forEach(cb => cb.checked = payload.platforms.includes(cb.value));
-      }
-      if (payload.location && $("f-location")) $("f-location").value = payload.location;
-      if (payload.start_date && $("f-start")) $("f-start").value = payload.start_date;
-      if (payload.duration) {
-        const v = DURATION_FROM_SERVER[payload.duration] || payload.duration;
-        const r = document.querySelector(`input[name="mode"][value="${v}"]`);
-        if (r) r.checked = true;
-      }
-    }
-
-    $("btn-save-template").addEventListener("click", async () => {
-      const name = prompt("Template name:", $("f-name").value || "My Template");
-      if (!name) return;
-      const description = prompt("Short description (optional):", "") || "";
-      try {
-        await api("/templates", { method: "POST", body: JSON.stringify({
-          name: name.trim(), description: description.trim(), payload: buildTemplatePayload()
-        })});
-        toast("Template saved ✔︎");
-      } catch (e) { toast(e.message, true); }
-    });
-
-    $("btn-templates").addEventListener("click", async () => {
-      try {
-        const d = await api("/templates");
-        openTemplatesModal(d.items || []);
-      } catch (e) { toast(e.message, true); }
-    });
-
-    function openTemplatesModal(items) {
-      const modal = document.createElement("div");
-      modal.className = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4";
-      modal.innerHTML = `
-        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-          <div class="mb-4 flex items-center justify-between">
-            <h3 class="text-lg font-bold">Your Templates</h3>
-            <button id="tpl-close" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">✕</button>
-          </div>
-          <div id="tpl-list" class="max-h-96 space-y-2 overflow-y-auto">
-            ${items.length === 0 ? '<div class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">No templates yet. Build a campaign and click <b>Save as Template</b>.</div>' : ''}
-          </div>
-        </div>`;
-      document.body.appendChild(modal);
-      modal.querySelector("#tpl-close").addEventListener("click", () => modal.remove());
-      modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
-
-      const list = modal.querySelector("#tpl-list");
-      items.forEach(t => {
-        const row = document.createElement("div");
-        row.className = "flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-3";
-        row.innerHTML = `
-          <div class="min-w-0">
-            <div class="truncate text-sm font-semibold text-slate-900">${t.name}</div>
-            <div class="truncate text-xs text-slate-500">${t.description || "No description"}</div>
-          </div>
-          <div class="flex gap-2">
-            <button class="tpl-load rounded-md bg-amber-500 px-3 py-1 text-xs font-bold text-white hover:bg-amber-600">Load</button>
-            <button class="tpl-del rounded-md border border-rose-300 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50" title="Delete">🗑</button>
-          </div>`;
-        row.querySelector(".tpl-load").addEventListener("click", () => {
-          applyTemplatePayload(t.payload || {});
-          toast(`Loaded "${t.name}" ✔︎`);
-          modal.remove();
-        });
-        row.querySelector(".tpl-del").addEventListener("click", async () => {
-          const ok = await BrokerAI.confirmDialog({
-            title: `Delete template "${t.name}"?`,
-            message: "This template will be permanently removed. This cannot be undone.",
-            confirmLabel: "Delete template",
-            danger: true,
-          });
-          if (!ok) return;
-          try {
-            await api(`/templates/${t.id}`, { method: "DELETE" });
-            row.remove();
-            toast("Template deleted");
-          } catch (e) { toast(e.message, true); }
-        });
-        list.appendChild(row);
-      });
-    }
-
     // ============================================================
     // AI Campaign Assistant — sidebar chat
     // ============================================================

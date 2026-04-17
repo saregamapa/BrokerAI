@@ -84,7 +84,6 @@ from backend.models import (
     AutomationRule,
     BrandAsset,
     Campaign,
-    CampaignTemplate,
     CommentAutomation,
     CommentTrigger,
     EmailVerificationToken,
@@ -154,10 +153,6 @@ from backend.schemas import (
     AssistantChatRequest,
     AssistantChatResponse,
     AssistantPatch,
-    TemplateCreateRequest,
-    TemplateUpdateRequest,
-    TemplateOut,
-    TemplateListResponse,
     DuplicateCampaignRequest,
     CommentAutomationCreateRequest,
     CommentAutomationUpdateRequest,
@@ -838,11 +833,6 @@ async def serve_review():
 @app.get("/dashboard.html")
 async def serve_dashboard():
     return FileResponse(BASE_DIR / "frontend" / "dashboard.html")
-
-
-@app.get("/templates.html")
-async def serve_templates():
-    return FileResponse(BASE_DIR / "frontend" / "templates.html")
 
 
 @app.get("/analytics.html")
@@ -3349,25 +3339,6 @@ async def assistant_chat(
     return AssistantChatResponse(reply=reply, patch=patch_obj, suggestions=suggestions)
 
 
-# ---------- Campaign Templates (save / list / load / delete) ----------
-
-def _template_to_out(t: CampaignTemplate) -> TemplateOut:
-    try:
-        payload = json.loads(t.payload or "{}")
-        if not isinstance(payload, dict):
-            payload = {}
-    except Exception:
-        payload = {}
-    return TemplateOut(
-        id=t.id,
-        name=t.name or "",
-        description=t.description or "",
-        payload=payload,
-        created_at=t.created_at,
-        updated_at=t.updated_at,
-    )
-
-
 def _brand_asset_to_out(row: BrandAsset) -> BrandAssetOut:
     return BrandAssetOut(
         id=int(row.id or 0),
@@ -3522,88 +3493,6 @@ async def wow_manus_visual_templates(
     except Exception as e:
         log.warning("wow_manus_visual_templates_failed: %s", e)
         return WowManusVisualTemplatesResponse(source="fallback", error=str(e)[:400])
-
-
-@app.post("/templates", response_model=TemplateOut)
-def create_template(
-    body: TemplateCreateRequest,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    tpl = CampaignTemplate(
-        user_id=current_user.id,
-        team_id=getattr(current_user, "team_id", None),
-        name=body.name.strip() or "Untitled Template",
-        description=(body.description or "").strip(),
-        payload=json.dumps(body.payload or {}, ensure_ascii=False),
-    )
-    session.add(tpl)
-    session.commit()
-    session.refresh(tpl)
-    return _template_to_out(tpl)
-
-
-@app.get("/templates", response_model=TemplateListResponse)
-def list_templates(
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    stmt = (
-        select(CampaignTemplate)
-        .where(CampaignTemplate.user_id == current_user.id)
-        .order_by(CampaignTemplate.updated_at.desc())
-    )
-    rows = list(session.exec(stmt).all())
-    return TemplateListResponse(items=[_template_to_out(r) for r in rows], total=len(rows))
-
-
-@app.get("/templates/{template_id}", response_model=TemplateOut)
-def get_template(
-    template_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    tpl = session.get(CampaignTemplate, template_id)
-    if not tpl or tpl.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Template not found")
-    return _template_to_out(tpl)
-
-
-@app.put("/templates/{template_id}", response_model=TemplateOut)
-def update_template(
-    template_id: int,
-    body: TemplateUpdateRequest,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    tpl = session.get(CampaignTemplate, template_id)
-    if not tpl or tpl.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Template not found")
-    if body.name is not None:
-        tpl.name = body.name.strip() or tpl.name
-    if body.description is not None:
-        tpl.description = body.description.strip()
-    if body.payload is not None:
-        tpl.payload = json.dumps(body.payload, ensure_ascii=False)
-    tpl.updated_at = datetime.utcnow()
-    session.add(tpl)
-    session.commit()
-    session.refresh(tpl)
-    return _template_to_out(tpl)
-
-
-@app.delete("/templates/{template_id}")
-def delete_template(
-    template_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    tpl = session.get(CampaignTemplate, template_id)
-    if not tpl or tpl.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Template not found")
-    session.delete(tpl)
-    session.commit()
-    return {"ok": True, "deleted": template_id}
 
 
 # ---------- Duplicate Campaign ----------

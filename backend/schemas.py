@@ -675,35 +675,6 @@ class AssistantChatResponse(BaseModel):
     suggestions: List[str] = Field(default_factory=list)
 
 
-# ---------- Campaign Templates (save-as / duplicate) ----------
-
-class TemplateCreateRequest(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    description: str = Field(default="", max_length=400)
-    payload: Dict[str, Any] = Field(default_factory=dict)
-
-
-class TemplateUpdateRequest(BaseModel):
-    name: Optional[str] = Field(default=None, max_length=120)
-    description: Optional[str] = Field(default=None, max_length=400)
-    payload: Optional[Dict[str, Any]] = None
-
-
-class TemplateOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: int
-    name: str = ""
-    description: str = ""
-    payload: Dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime
-    updated_at: datetime
-
-
-class TemplateListResponse(BaseModel):
-    items: List[TemplateOut] = Field(default_factory=list)
-    total: int = 0
-
-
 class DuplicateCampaignRequest(BaseModel):
     name: Optional[str] = Field(default=None, max_length=200)
     include_posts: bool = False  # default: clone only metadata, not posts

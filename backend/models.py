@@ -169,21 +169,6 @@ class Post(SQLModel, table=True):
     ab_status: Optional[str] = Field(default=None)  # "testing" | "selected" | None
 
 
-class CampaignTemplate(SQLModel, table=True):
-    """User-saved reusable campaign blueprint (wizard payload snapshot)."""
-    __tablename__ = "campaign_templates"
-
-    id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id", index=True)
-    team_id: Optional[int] = Field(default=None, foreign_key="teams.id", index=True)
-    name: str = Field(default="Untitled Template", sa_column=Column(Text))
-    description: str = Field(default="", sa_column=Column(Text))
-    # JSON-serialized wizard payload (goal, objective, audience, platforms, tone, content_type, etc.)
-    payload: str = Field(default="{}", sa_column=Column(Text))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-
 class CommentAutomation(SQLModel, table=True):
     """Keyword-triggered comment-to-DM automation attached to a post (or catch-all).
 
