@@ -2,10 +2,13 @@
 
 import pytest
 
+from backend.integrations.ayrshare import ayrshare_connect_env_snapshot, normalize_ayrshare_api_key
 from backend.services import ayrshare_service as ayrshare_service_mod
 from backend.services.ayrshare_service import (
+    _api_key,
     _parse_active_social_accounts_from_user_payload,
     fetch_linked_platforms_via_ref_id,
+    format_ayrshare_operator_hint,
     parse_profile_linked_platforms,
 )
 
@@ -93,3 +96,41 @@ def test_fetch_linked_via_ref_delegates_to_profiles(monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr(ayrshare_service_mod, "fetch_profiles_by_ref_id", fake)
     assert fetch_linked_platforms_via_ref_id("brokerai_user_99") == ["linkedin"]
+
+
+def test_format_ayrshare_operator_hint_invalid_api_key_message() -> None:
+    msg = (
+        "API Key not valid. Please be sure to send a Header Authorization containing "
+        "'Bearer API_KEY'. https://www.ayrshare.com/docs/apis/overview"
+    )
+    hint = format_ayrshare_operator_hint(msg)
+    assert "AYRSHARE_API_KEY" in hint
+    assert "Render" in hint
+
+
+def test_api_key_env_strips_outer_quotes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AYRSHARE_API_KEY", '"secret-key-value"')
+    assert _api_key() == "secret-key-value"
+
+
+def test_api_key_env_strips_single_quotes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AYRSHARE_API_KEY", "'abc'")
+    assert _api_key() == "abc"
+
+
+def test_normalize_ayrshare_api_key_strips_bearer_prefix() -> None:
+    assert normalize_ayrshare_api_key("Bearer abc-123") == "abc-123"
+    assert normalize_ayrshare_api_key("BEARER xyz") == "xyz"
+
+
+def test_ayrshare_connect_env_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AYRSHARE_API_KEY", "Bearer kkk")
+    monkeypatch.setenv("AYRSHARE_SSO_DOMAIN", "id-test")
+    monkeypatch.setenv("AYRSHARE_PRIVATE_KEY", "-----BEGIN")
+    monkeypatch.delenv("AYRSHARE_PRIVATE_KEY_PATH", raising=False)
+    snap = ayrshare_connect_env_snapshot()
+    assert snap["api_key_configured"] is True
+    assert snap["api_key_length"] == 3
+    assert snap["sso_domain_configured"] is True
+    assert snap["private_key_inline_configured"] is True
+    assert snap["private_key_path_configured"] is False

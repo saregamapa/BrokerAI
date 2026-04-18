@@ -26,6 +26,8 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 import httpx  # noqa: E402
 
+from backend.integrations.ayrshare import normalize_ayrshare_api_key  # noqa: E402
+
 
 OK = "\033[92m✓\033[0m"
 BAD = "\033[91m✗\033[0m"
@@ -40,7 +42,7 @@ def _mask(value: str, keep: int = 6) -> str:
 
 
 def check_env() -> dict:
-    api_key = os.getenv("AYRSHARE_API_KEY", "").strip()
+    api_key = normalize_ayrshare_api_key(os.getenv("AYRSHARE_API_KEY", ""))
     domain = os.getenv("AYRSHARE_SSO_DOMAIN", "").strip()
     pk_inline = os.getenv("AYRSHARE_PRIVATE_KEY", "").strip()
     pk_path = os.getenv("AYRSHARE_PRIVATE_KEY_PATH", "").strip()

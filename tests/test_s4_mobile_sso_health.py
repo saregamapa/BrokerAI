@@ -45,6 +45,8 @@ class TestHealthEndpoint:
         # endpoint is fast and returns uptime_seconds instead; accept either.
         assert body["status"] in ("ok", "degraded")
         assert body["db"] in ("ok", "fail")
+        assert "ayrshare" in body
+        assert "api_key_configured" in body["ayrshare"]
 
     def test_health_has_version(self, client: TestClient):
         """GET /health body includes a version field (can be 'dev' or any string)."""

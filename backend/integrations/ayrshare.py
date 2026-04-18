@@ -16,6 +16,40 @@ AYRSHARE_ANALYTICS_POST_URL = "https://api.ayrshare.com/api/analytics/post"
 log = get_logger("brokerai.ayrshare")
 
 
+def normalize_ayrshare_api_key(value: str) -> str:
+    """
+    Normalize AYRSHARE_API_KEY from env (Render/dashboard pastes).
+
+    Handles BOM, outer quotes, and accidental ``Bearer `` prefix (docs show the header form).
+    """
+    s = (value or "").replace("\ufeff", "").strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        s = s[1:-1].strip()
+    if s.lower().startswith("bearer "):
+        s = s[7:].strip()
+    return s
+
+
+def ayrshare_connect_env_snapshot() -> Dict[str, Any]:
+    """Non-secret flags for /health — verify Render injected Ayrshare vars (no key material)."""
+    from pathlib import Path
+
+    raw = os.getenv("AYRSHARE_API_KEY", "") or ""
+    norm = normalize_ayrshare_api_key(raw)
+    pk = (os.getenv("AYRSHARE_PRIVATE_KEY", "") or "").strip()
+    ppath = (os.getenv("AYRSHARE_PRIVATE_KEY_PATH", "") or "").strip()
+    domain = (os.getenv("AYRSHARE_SSO_DOMAIN", "") or "").strip()
+    path_exists = bool(ppath and Path(ppath).expanduser().is_file())
+    return {
+        "api_key_configured": bool(norm),
+        "api_key_length": len(norm),
+        "sso_domain_configured": bool(domain),
+        "private_key_inline_configured": bool(pk),
+        "private_key_path_configured": bool(ppath),
+        "private_key_path_file_exists": path_exists,
+    }
+
+
 def _ayrshare_single_account_publish() -> bool:
     """Primary-account POST /api/post (no Profile-Key). Set AYRSHARE_SINGLE_ACCOUNT_PUBLISH=true for local testing."""
     return os.getenv("AYRSHARE_SINGLE_ACCOUNT_PUBLISH", "").strip().lower() in (
@@ -122,7 +156,7 @@ async def publish_post(
     Business Plan user profiles: send Profile-Key. Primary account only: set
     AYRSHARE_SINGLE_ACCOUNT_PUBLISH=true and omit Profile-Key (matches Ayrshare single-profile POST).
     """
-    api_key = os.getenv("AYRSHARE_API_KEY", "").strip()
+    api_key = normalize_ayrshare_api_key(os.getenv("AYRSHARE_API_KEY", ""))
     if not api_key:
         return {
             "ok": False,
@@ -524,7 +558,7 @@ async def fetch_ayrshare_post_analytics(
     POST https://api.ayrshare.com/api/analytics/post
     Returns { ok, status_code, body }.
     """
-    api_key = os.getenv("AYRSHARE_API_KEY", "").strip()
+    api_key = normalize_ayrshare_api_key(os.getenv("AYRSHARE_API_KEY", ""))
     if not api_key:
         return {
             "ok": False,

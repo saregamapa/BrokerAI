@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 
 from backend.core.logger import get_logger
-from backend.integrations.ayrshare import slug_from_ayrshare_account_label
+from backend.integrations.ayrshare import normalize_ayrshare_api_key, slug_from_ayrshare_account_label
 
 log = get_logger("brokerai.ayrshare_service")
 
@@ -49,7 +49,29 @@ class AyrshareServiceError(Exception):
 
 
 def _api_key() -> str:
-    return os.getenv("AYRSHARE_API_KEY", "").strip()
+    return normalize_ayrshare_api_key(os.getenv("AYRSHARE_API_KEY", ""))
+
+
+def format_ayrshare_operator_hint(message: str) -> str:
+    """
+    Turn Ayrshare's generic auth errors into deploy guidance (shown in API/UI detail).
+    """
+    m = (message or "").strip()
+    low = m.lower()
+    if "api key not valid" in low or ("authorization" in low and "bearer" in low):
+        return (
+            "Ayrshare rejected the server API key. On Render, open your web service (not Postgres/Redis), "
+            "Environment: set AYRSHARE_API_KEY to the Primary API Key from the same Ayrshare Business "
+            "account as your SSO package (Dashboard → Social Media API → API Key). Do not use a "
+            "Profile Key or prefix with 'Bearer '. Redeploy after saving. Call GET /health and check "
+            "ayrshare.api_key_configured and api_key_length."
+        )
+    if m == "AYRSHARE_API_KEY is not configured":
+        return (
+            "AYRSHARE_API_KEY is not set on the server. Add it under Render → Environment for this service, "
+            "then redeploy."
+        )
+    return m
 
 
 def _normalize_private_key_pem(pem: str) -> str:

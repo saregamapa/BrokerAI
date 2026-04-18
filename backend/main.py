@@ -59,6 +59,7 @@ from backend.auth import (
 )
 from backend.db import create_db_and_tables, engine, get_session
 from backend.integrations.ayrshare import (
+    ayrshare_connect_env_snapshot,
     coerce_ayrshare_platforms,
     platform_response_json,
 )
@@ -224,6 +225,7 @@ from backend.services.ayrshare_service import (
     fetch_active_social_accounts,
     fetch_linked_platforms_via_ref_id,
     fetch_profiles_by_ref_id,
+    format_ayrshare_operator_hint,
     generate_social_connect_url,
 )
 from backend.services.ai_analytics_service import analyze_performance
@@ -984,7 +986,10 @@ async def connect_social(
             current_user.id,
             e.message,
         )
-        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+        raise HTTPException(
+            status_code=e.status_code,
+            detail=format_ayrshare_operator_hint(e.message),
+        ) from e
     except HTTPException:
         raise
     except Exception as e:
@@ -4866,6 +4871,7 @@ async def health():
         "unsplash_configured": bool(os.getenv("UNSPLASH_ACCESS_KEY", "").strip()),
         "replicate_configured": bool(os.getenv("REPLICATE_API_TOKEN", "").strip()),
         "video_backend": _video_backend(),
+        "ayrshare": ayrshare_connect_env_snapshot(),
     }
     if db_error:
         payload["db_error"] = db_error
