@@ -930,21 +930,41 @@ async def connect_social(
             ref_id = f"brokerai_user_{int(user.id or 0)}"
             existing_profiles = await asyncio.to_thread(fetch_profiles_by_ref_id, ref_id)
             if existing_profiles:
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        "Ayrshare profile already exists for this user but profile key is unavailable "
-                        "to restore automatically. Reconnect using the same app database/user record "
-                        "or set the existing profile key from Ayrshare dashboard."
-                    ),
+                # Recover the profileKey from the existing Ayrshare profile instead of erroring.
+                recovered_pk: Optional[str] = None
+                for _prof in existing_profiles:
+                    _pk_val = (_prof.get("profileKey") or "").strip()
+                    if _pk_val:
+                        recovered_pk = _pk_val
+                        break
+                if recovered_pk:
+                    user.ayrshare_profile_key = recovered_pk
+                    session.add(user)
+                    session.commit()
+                    session.refresh(user)
+                    log.info(
+                        "connect-social recovered profileKey from existing Ayrshare profile "
+                        "user_id=%s pk_prefix=%s",
+                        user.id,
+                        recovered_pk[:8],
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            "Ayrshare profile already exists for this user but the profile key "
+                            "could not be recovered automatically. Please contact support or "
+                            "reconnect via a fresh account."
+                        ),
+                    )
+            else:
+                pk = await asyncio.to_thread(
+                    create_ayrshare_profile, user.id, user.email
                 )
-            pk = await asyncio.to_thread(
-                create_ayrshare_profile, user.id, user.email
-            )
-            user.ayrshare_profile_key = pk
-            session.add(user)
-            session.commit()
-            session.refresh(user)
+                user.ayrshare_profile_key = pk
+                session.add(user)
+                session.commit()
+                session.refresh(user)
         _upsert_social_account(
             session,
             user_id=int(user.id or 0),
