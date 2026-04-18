@@ -269,3 +269,18 @@ class PlanLimitExceeded(Exception):
             d["upgrade_to"] = self.next_tier.plan
             d["upgrade_price_usd"] = self.next_tier.monthly_price_usd
         return d
+
+
+def warn_placeholder_stripe_prices() -> None:
+    """Log a warning if any paid plan is using a placeholder Stripe price ID."""
+    import logging as _log
+    _logger = _log.getLogger("brokerai.plan_limits")
+    for tier in [PLAN_STARTER, PLAN_GROWTH, PLAN_PRO]:
+        if "placeholder" in (tier.stripe_price_id_monthly or "").lower():
+            _logger.warning(
+                "Plan '%s' has a placeholder Stripe price ID ('%s'). "
+                "Set STRIPE_PRICE_%s env var before enabling billing.",
+                tier.plan,
+                tier.stripe_price_id_monthly,
+                tier.plan.upper(),
+            )

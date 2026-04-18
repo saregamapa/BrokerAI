@@ -256,10 +256,6 @@ init_sentry()
 APP_BOOT_TIME = time.time()
 APP_VERSION = os.getenv("APP_VERSION", os.getenv("RENDER_GIT_COMMIT", "dev"))[:12]
 
-# Per-user daily cap on campaign generation (UTC day). Cleared on process restart.
-_MAX_CAMPAIGNS_PER_USER_PER_DAY = 10
-_daily_generate_count: Dict[Tuple[int, str], int] = {}
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -639,6 +635,8 @@ async def _poller_loop() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db_and_tables()
+    from backend.core.plan_limits import warn_placeholder_stripe_prices
+    warn_placeholder_stripe_prices()
     # Security check: warn if JWT secret is insecure
     jwt_key = os.environ.get("JWT_SECRET_KEY", "")
     if not jwt_key or "change-me" in jwt_key or len(jwt_key) < 20:
@@ -696,6 +694,11 @@ def _build_cors_origins() -> list[str]:
         raise RuntimeError(
             "CORS misconfigured: set ALLOWED_ORIGINS to an explicit comma-separated list "
             "(wildcards are forbidden in prod/strict mode)."
+        )
+    if "*" in origins:
+        log.warning(
+            "CORS is configured with wildcard origins ('*'). "
+            "Set ALLOWED_ORIGINS env var to your production domain(s) before deployment."
         )
     return origins
 
@@ -1368,9 +1371,15 @@ def forgot_password(
         reset_base = os.getenv("APP_URL", "https://brokerai.app")
         reset_link = f"{reset_base}/reset-password?token={raw_token}"
 
-        # TODO Sprint 3: send email via Resend
         log_event("password_reset_token_generated", user_id=user.id, email=email)
-        log.info("password_reset_link user_id=%s link=%s", user.id, reset_link)
+        log.info("password_reset_token_generated user=%s", user.email)
+
+        # Send password reset email (best-effort)
+        try:
+            from backend.services.email_service import send_password_reset_email
+            send_password_reset_email(user.email, reset_link)
+        except Exception:
+            log.warning("Failed to send password reset email to %s", user.email)
     else:
         log.info("password_reset_request unknown_email=%s", email)
 
@@ -1463,9 +1472,15 @@ def send_email_verification(
     verify_base = os.getenv("APP_URL", "https://brokerai.app")
     verify_link = f"{verify_base}/verify-email?token={raw_token}"
 
-    # TODO Sprint 3: send email via Resend
     log_event("email_verification_token_generated", user_id=current_user.id)
-    log.info("email_verify_link user_id=%s link=%s", current_user.id, verify_link)
+    log.info("email_verification_token_generated user=%s", current_user.email)
+
+    # Send verification email (best-effort)
+    try:
+        from backend.services.email_service import send_email_verification_email
+        send_email_verification_email(current_user.email, verify_link)
+    except Exception:
+        log.warning("Failed to send verification email to %s", current_user.email)
     return {"ok": True, "message": "Verification email sent (check your inbox)"}
 
 
@@ -1603,11 +1618,22 @@ async def google_auth_callback(
             session.commit()
         log_event("login", kind="google", user_id=user.id, email=email)
 
-    # Issue short-lived JWT and redirect to dashboard
+    # Issue short-lived JWT — deliver via an intermediate HTML page so the token
+    # never appears in the URL (browser history, Referer headers, analytics tools).
     token = create_access_token(user.id)
-    # Token is passed in the URL fragment — frontend JS reads window.location.hash
-    # on dashboard load and stores it to localStorage.
-    return RedirectResponse(url=f"/dashboard.html#google_token={token}")
+    from fastapi.responses import HTMLResponse
+    html_content = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Signing in\u2026</title></head>
+<body>
+<script>
+try {{
+  localStorage.setItem('brokerai_token', '{token}');
+}} catch(e) {{}}
+window.location.replace('/dashboard.html');
+</script>
+<noscript><meta http-equiv="refresh" content="0;url=/dashboard.html"></noscript>
+</body></html>"""
+    return HTMLResponse(content=html_content)
 
 
 @app.get("/me", response_model=UserOut)
@@ -1694,8 +1720,6 @@ async def generate_campaign(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    _require_social_ready(session, current_user.id)
-
     if not _openai_api_key():
         raise HTTPException(
             status_code=503,
@@ -1744,15 +1768,6 @@ async def generate_campaign(
         db_user.timezone = campaign_tz
         session.add(db_user)
         session.commit()
-
-    utc_day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    gkey = (current_user.id, utc_day)
-    used = _daily_generate_count.get(gkey, 0)
-    if used >= _MAX_CAMPAIGNS_PER_USER_PER_DAY:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Daily campaign generation limit reached ({_MAX_CAMPAIGNS_PER_USER_PER_DAY} per day). Try again tomorrow.",
-        )
 
     # RBAC: check create_campaign permission
     if not check_permission(current_user, "create_campaign"):
@@ -1809,9 +1824,9 @@ async def generate_campaign(
         brand_kit = {
             "voice": _bv or "professional",
             "tone": _bv or "friendly",
-            "key_messages": "",
-            "forbidden_words": "",
-            "cta_style": "",
+            "key_messages": (getattr(current_user, "brand_key_messages", None) or "").strip(),
+            "forbidden_words": (getattr(current_user, "brand_forbidden_words", None) or "").strip(),
+            "cta_style": (getattr(current_user, "brand_cta_style", None) or "").strip(),
             "visual_style": f"Font: {_bf}" if _bf else "",
             "color_palette": color_palette,
             "logo_description": f"Logo at: {_bl}" if _bl else "",
@@ -1855,20 +1870,31 @@ async def generate_campaign(
 
     session.expire_all()
     camp = session.get(Campaign, camp.id)
+
+    # Draft mode: if the user has no Ayrshare profile key, keep the campaign
+    # as "draft" rather than "pending_approval" so they can still review/edit
+    # the generated posts without needing social accounts connected yet.
+    has_social = bool((getattr(db_user, "ayrshare_profile_key", None) or "").strip())
+    if not has_social and camp and camp.status == "pending_approval":
+        camp.status = "draft"
+        camp.updated_at = datetime.utcnow()
+        session.add(camp)
+        session.commit()
+
     stmt = (
         select(Post)
         .where(Post.campaign_id == camp.id)
-        .where(Post.deleted_at == None)  # S5-09: exclude soft-deleted posts
+        .where(Post.deleted_at.is_(None))  # S5-09: exclude soft-deleted posts
         .order_by(Post.id.asc())
     )
     rows = session.exec(stmt).all()
     posts_out = [_post_to_out(r) for r in rows]
-    _daily_generate_count[gkey] = used + 1
     log.info(
-        "Campaign generation finished user_id=%s campaign_id=%s posts=%s",
+        "Campaign generation finished user_id=%s campaign_id=%s posts=%s social_connected=%s",
         current_user.id,
         camp.id,
         len(posts_out),
+        has_social,
     )
     invalidate_user_campaigns(current_user.id)
     # S5-08: Audit — campaign created + AI generation completed
@@ -1891,7 +1917,7 @@ async def generate_campaign(
         )
     except Exception:
         log.exception("audit_log failed in generate_campaign campaign_id=%s", camp.id)
-    return GenerateCampaignResponse(campaign_id=camp.id, posts=posts_out)
+    return GenerateCampaignResponse(campaign_id=camp.id, posts=posts_out, social_connected=has_social)
 
 
 def _post_summary_for_insights(row: Post) -> Dict[str, Any]:
@@ -1937,7 +1963,7 @@ async def list_campaigns(
     stmt = (
         select(Campaign)
         .where(Campaign.user_id == current_user.id)
-        .where(Campaign.deleted_at == None)  # S5-09: exclude soft-deleted
+        .where(Campaign.deleted_at.is_(None))  # S5-09: exclude soft-deleted
         .order_by(Campaign.created_at.desc())
     )
     campaigns = session.exec(stmt).all()
@@ -1946,7 +1972,38 @@ async def list_campaigns(
     return result
 
 
-@app.get("/campaign/{campaign_id}", response_model=CampaignDetailOut)
+# ---------------------------------------------------------------------------
+# S5-09: Soft-delete, recovery, and purge endpoints
+# NOTE: /campaigns/deleted MUST be registered before /campaigns/{campaign_id}
+# so FastAPI does not greedily match "deleted" as an integer campaign_id.
+# ---------------------------------------------------------------------------
+
+@app.get("/campaigns/deleted")
+def list_deleted_campaigns(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    """List soft-deleted campaigns within the 30-day recovery window."""
+    cutoff = datetime.utcnow() - timedelta(days=30)
+    campaigns = list(session.exec(
+        select(Campaign)
+        .where(Campaign.user_id == current_user.id)
+        .where(Campaign.deleted_at.is_not(None))
+        .where(Campaign.deleted_at >= cutoff)
+        .order_by(Campaign.deleted_at.desc())
+    ).all())
+    return {"campaigns": [
+        {
+            "id": c.id,
+            "name": c.name,
+            "deleted_at": c.deleted_at.isoformat() + "Z",
+            "recoverable_until": (c.deleted_at + timedelta(days=30)).isoformat() + "Z",
+        }
+        for c in campaigns
+    ]}
+
+
+@app.get("/campaigns/{campaign_id}", response_model=CampaignDetailOut)
 def get_campaign(
     campaign_id: int,
     session: Session = Depends(get_session),
@@ -1958,7 +2015,7 @@ def get_campaign(
     stmt = (
         select(Post)
         .where(Post.campaign_id == campaign_id)
-        .where(Post.deleted_at == None)  # S5-09: exclude soft-deleted posts
+        .where(Post.deleted_at.is_(None))  # S5-09: exclude soft-deleted posts
         .order_by(Post.id.asc())
     )
     rows = session.exec(stmt).all()
@@ -1968,9 +2025,15 @@ def get_campaign(
     )
 
 
-# ---------------------------------------------------------------------------
-# S5-09: Soft-delete, recovery, and purge endpoints
-# ---------------------------------------------------------------------------
+# Deprecated alias — kept for backwards compatibility
+@app.get("/campaign/{campaign_id}", response_model=CampaignDetailOut, include_in_schema=False)
+def get_campaign_legacy(
+    campaign_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    return get_campaign(campaign_id, session, current_user)
+
 
 @app.delete("/campaigns/{campaign_id}", status_code=204)
 def delete_campaign(
@@ -1985,31 +2048,6 @@ def delete_campaign(
         raise HTTPException(status_code=404, detail="Campaign not found")
     invalidate_user_campaigns(current_user.id)
     return Response(status_code=204)
-
-
-@app.get("/campaigns/deleted")
-def list_deleted_campaigns(
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    """List soft-deleted campaigns within the 30-day recovery window."""
-    cutoff = datetime.utcnow() - timedelta(days=30)
-    campaigns = list(session.exec(
-        select(Campaign)
-        .where(Campaign.user_id == current_user.id)
-        .where(Campaign.deleted_at != None)  # noqa: E711
-        .where(Campaign.deleted_at >= cutoff)
-        .order_by(Campaign.deleted_at.desc())
-    ).all())
-    return {"campaigns": [
-        {
-            "id": c.id,
-            "name": c.name,
-            "deleted_at": c.deleted_at.isoformat() + "Z",
-            "recoverable_until": (c.deleted_at + timedelta(days=30)).isoformat() + "Z",
-        }
-        for c in campaigns
-    ]}
 
 
 @app.post("/campaigns/{campaign_id}/restore")
@@ -2027,7 +2065,7 @@ def restore_deleted_campaign(
     return {"restored": True, "campaign_id": campaign_id}
 
 
-@app.get("/campaign-insights/{campaign_id}", response_model=CampaignInsightsOut)
+@app.get("/campaigns/{campaign_id}/insights", response_model=CampaignInsightsOut)
 async def campaign_insights(
     campaign_id: int,
     session: Session = Depends(get_session),
@@ -2040,7 +2078,7 @@ async def campaign_insights(
     stmt = (
         select(Post)
         .where(Post.campaign_id == campaign_id)
-        .where(Post.deleted_at == None)  # S5-09: exclude soft-deleted posts
+        .where(Post.deleted_at.is_(None))  # S5-09: exclude soft-deleted posts
         .order_by(Post.id.asc())
     )
     rows = list(session.exec(stmt).all())
@@ -2051,6 +2089,16 @@ async def campaign_insights(
         insights=result.insights,
         recommendations=result.recommendations,
     )
+
+
+# Deprecated alias — kept for backwards compatibility
+@app.get("/campaign-insights/{campaign_id}", response_model=CampaignInsightsOut, include_in_schema=False)
+async def campaign_insights_legacy(
+    campaign_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    return await campaign_insights(campaign_id, session, current_user)
 
 
 @app.post("/approve-campaign")
@@ -2146,7 +2194,7 @@ async def list_posts(
     stmt = (
         select(Post)
         .where(Post.user_id == current_user.id)
-        .where(Post.deleted_at == None)  # S5-09: exclude soft-deleted posts
+        .where(Post.deleted_at.is_(None))  # S5-09: exclude soft-deleted posts
         .order_by(Post.created_at.desc())
     )
     rows = session.exec(stmt).all()
@@ -2484,7 +2532,7 @@ async def analytics_ai_insights(
         raise HTTPException(status_code=402, detail=ple.to_response())
 
     rows = list(session.exec(
-        select(Post).where(Post.user_id == current_user.id).where(Post.deleted_at == None)  # S5-09
+        select(Post).where(Post.user_id == current_user.id).where(Post.deleted_at.is_(None))  # S5-09
     ).all())
     payload = posts_as_ai_payload(list(rows))
     result = await asyncio.to_thread(analyze_performance, payload)
@@ -2555,7 +2603,7 @@ async def stats(
 ):
     """Extended stats for dashboards (includes plan + breakdown fields)."""
     payload = get_analytics_payload(session, current_user.id)
-    stmt = select(Post).where(Post.user_id == current_user.id).where(Post.deleted_at == None)  # S5-09
+    stmt = select(Post).where(Post.user_id == current_user.id).where(Post.deleted_at.is_(None))  # S5-09
     rows = session.exec(stmt).all()
     scheduled = sum(
         1
@@ -3529,7 +3577,7 @@ def duplicate_campaign(
 
     if body.include_posts:
         src_posts = list(session.exec(
-            select(Post).where(Post.campaign_id == src.id).where(Post.deleted_at == None)  # S5-09
+            select(Post).where(Post.campaign_id == src.id).where(Post.deleted_at.is_(None))  # S5-09
         ).all())
         for p in src_posts:
             dup = Post(
@@ -4163,9 +4211,9 @@ async def regenerate_post(
     brand_kit: Dict[str, Any] = {
         "voice": current_user.brand_voice or "professional",
         "tone": current_user.brand_voice or "professional",
-        "key_messages": "",
-        "forbidden_words": "",
-        "cta_style": "",
+        "key_messages": (getattr(current_user, "brand_key_messages", None) or "").strip(),
+        "forbidden_words": (getattr(current_user, "brand_forbidden_words", None) or "").strip(),
+        "cta_style": (getattr(current_user, "brand_cta_style", None) or "").strip(),
         "visual_style": "",
         "color_palette": current_user.brand_primary_color or "",
         "logo_description": "",
@@ -4848,7 +4896,7 @@ def get_campaign_report_data(
     stmt = (
         select(Post)
         .where(Post.campaign_id == campaign_id)
-        .where(Post.deleted_at == None)  # noqa: E711 — SQLModel filter
+        .where(Post.deleted_at.is_(None))  # noqa: E711 — SQLModel filter
         .order_by(Post.id.asc())
     )
     posts = list(session.exec(stmt).all())

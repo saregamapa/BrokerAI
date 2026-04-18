@@ -197,7 +197,155 @@
             </div>
           </section>
 
-          <!-- ── 3. CHANGE PASSWORD ────────────────────────────────────── -->
+          <!-- ── 3. BRAND KIT ────────────────────────────────────────── -->
+          <section aria-labelledby="settings-brand-heading" class="mt-10">
+            <h2 id="settings-brand-heading" class="text-sm font-bold uppercase tracking-wider text-slate-500">Brand Kit</h2>
+            <p class="mt-1 text-xs text-slate-400">Define your brand identity. These settings are injected into all AI-generated campaign content.</p>
+            <div class="mt-4 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md">
+              <form id="brand-kit-form" novalidate class="space-y-6">
+
+                <!-- Brand Voice -->
+                <div>
+                  <label for="brand-voice" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Brand Voice</label>
+                  <p class="mt-0.5 text-[11px] text-slate-400">The tone AI uses when writing your content.</p>
+                  <select
+                    id="brand-voice"
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                  >
+                    <option value="">— Select a voice —</option>
+                    <option value="professional">Professional</option>
+                    <option value="friendly">Friendly</option>
+                    <option value="luxury">Luxury</option>
+                    <option value="casual">Casual</option>
+                  </select>
+                </div>
+
+                <!-- Colors -->
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <!-- Primary Color -->
+                  <div>
+                    <label for="brand-primary-color" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Primary Color</label>
+                    <p class="mt-0.5 text-[11px] text-slate-400">Main brand color used in visuals.</p>
+                    <div class="mt-2 flex items-center gap-3">
+                      <input
+                        type="color"
+                        id="brand-primary-color"
+                        value="#f59e0b"
+                        class="h-10 w-10 shrink-0 cursor-pointer rounded-lg border border-slate-200 p-0.5 shadow-sm"
+                      />
+                      <input
+                        type="text"
+                        id="brand-primary-color-hex"
+                        placeholder="#f59e0b"
+                        maxlength="7"
+                        class="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                      />
+                    </div>
+                  </div>
+                  <!-- Secondary Color -->
+                  <div>
+                    <label for="brand-secondary-color" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Secondary Color</label>
+                    <p class="mt-0.5 text-[11px] text-slate-400">Accent color for contrast and highlights.</p>
+                    <div class="mt-2 flex items-center gap-3">
+                      <input
+                        type="color"
+                        id="brand-secondary-color"
+                        value="#111827"
+                        class="h-10 w-10 shrink-0 cursor-pointer rounded-lg border border-slate-200 p-0.5 shadow-sm"
+                      />
+                      <input
+                        type="text"
+                        id="brand-secondary-color-hex"
+                        placeholder="#111827"
+                        maxlength="7"
+                        class="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Logo URL -->
+                <div>
+                  <label for="brand-logo-url" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Logo URL</label>
+                  <p class="mt-0.5 text-[11px] text-slate-400">Direct link to your logo image (PNG or SVG recommended).</p>
+                  <input
+                    type="url"
+                    id="brand-logo-url"
+                    placeholder="https://example.com/logo.png"
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                  />
+                </div>
+
+                <!-- Brand Font -->
+                <div>
+                  <label for="brand-font" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Brand Font</label>
+                  <p class="mt-0.5 text-[11px] text-slate-400">Primary typeface (e.g. Inter, Poppins, Montserrat).</p>
+                  <input
+                    type="text"
+                    id="brand-font"
+                    placeholder="Inter"
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                  />
+                </div>
+
+                <!-- Key Messages -->
+                <div>
+                  <label for="brand-key-messages" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Key Messages</label>
+                  <p class="mt-0.5 text-[11px] text-slate-400">Core talking points AI should weave into content. Separate with commas.</p>
+                  <textarea
+                    id="brand-key-messages"
+                    rows="3"
+                    placeholder="e.g. Trusted local experts, Results-driven, Your home is our priority"
+                    class="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                  ></textarea>
+                </div>
+
+                <!-- Forbidden Words -->
+                <div>
+                  <label for="brand-forbidden-words" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Forbidden Words</label>
+                  <p class="mt-0.5 text-[11px] text-slate-400">Words or phrases AI must never use. Separate with commas.</p>
+                  <textarea
+                    id="brand-forbidden-words"
+                    rows="3"
+                    placeholder="e.g. cheap, guaranteed, best price"
+                    class="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                  ></textarea>
+                </div>
+
+                <!-- CTA Style -->
+                <div>
+                  <label for="brand-cta-style" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">CTA Style</label>
+                  <p class="mt-0.5 text-[11px] text-slate-400">How calls-to-action should be phrased in your content.</p>
+                  <select
+                    id="brand-cta-style"
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+                  >
+                    <option value="">— Select a CTA style —</option>
+                    <option value="direct">Direct ("Book now", "Call today")</option>
+                    <option value="soft">Soft ("Learn more", "Explore options")</option>
+                    <option value="urgency">Urgency ("Don't miss out", "Limited time")</option>
+                    <option value="question">Question ("Ready to find your home?")</option>
+                  </select>
+                </div>
+
+                <!-- Error/success feedback -->
+                <div id="brand-kit-msg" class="hidden rounded-xl border px-4 py-3 text-sm"></div>
+
+                <div class="pt-1">
+                  <button
+                    type="submit"
+                    id="brand-kit-save-btn"
+                    class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Save brand kit
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <!-- ── 4. CHANGE PASSWORD ────────────────────────────────────── -->
           <section aria-labelledby="settings-password-heading" class="mt-10">
             <h2 id="settings-password-heading" class="text-sm font-bold uppercase tracking-wider text-slate-500">Change Password</h2>
             <div class="mt-4 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md">
@@ -249,7 +397,7 @@
             </div>
           </section>
 
-          <!-- ── 4. DANGER ZONE ───────────────────────────────────────── -->
+          <!-- ── 5. DANGER ZONE ───────────────────────────────────────── -->
           <section aria-labelledby="settings-danger-heading" class="mt-10 mb-16">
             <h2 id="settings-danger-heading" class="text-sm font-bold uppercase tracking-wider text-red-500">Danger Zone</h2>
             <div class="mt-4 rounded-2xl border border-red-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md">
@@ -412,6 +560,35 @@
               tzSelect.value = me.timezone;
             }
           }
+
+          // Brand Kit — pre-populate fields from /me response
+          if (me.brand_voice) {
+            var bvSelect = document.getElementById('brand-voice');
+            bvSelect.value = me.brand_voice;
+          }
+          if (me.brand_primary_color) {
+            document.getElementById('brand-primary-color').value = me.brand_primary_color;
+            document.getElementById('brand-primary-color-hex').value = me.brand_primary_color;
+          }
+          if (me.brand_secondary_color) {
+            document.getElementById('brand-secondary-color').value = me.brand_secondary_color;
+            document.getElementById('brand-secondary-color-hex').value = me.brand_secondary_color;
+          }
+          if (me.brand_logo_url) {
+            document.getElementById('brand-logo-url').value = me.brand_logo_url;
+          }
+          if (me.brand_font) {
+            document.getElementById('brand-font').value = me.brand_font;
+          }
+          if (me.brand_key_messages) {
+            document.getElementById('brand-key-messages').value = me.brand_key_messages;
+          }
+          if (me.brand_forbidden_words) {
+            document.getElementById('brand-forbidden-words').value = me.brand_forbidden_words;
+          }
+          if (me.brand_cta_style) {
+            document.getElementById('brand-cta-style').value = me.brand_cta_style;
+          }
         } catch (e) {
           console.warn('settings/profile:', e.message || e);
         }
@@ -488,6 +665,77 @@
           container.innerHTML = '<p class="text-xs text-slate-400">Could not load social account status.</p>';
         }
       }
+
+      /* ── Brand Kit: color picker ↔ hex text sync ────────────────── */
+      (function () {
+        function syncColorPicker(pickerId, hexId) {
+          var picker = document.getElementById(pickerId);
+          var hexInput = document.getElementById(hexId);
+          if (!picker || !hexInput) return;
+
+          picker.addEventListener('input', function () {
+            hexInput.value = picker.value;
+          });
+          hexInput.addEventListener('input', function () {
+            var val = hexInput.value.trim();
+            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+              picker.value = val;
+            }
+          });
+        }
+        syncColorPicker('brand-primary-color', 'brand-primary-color-hex');
+        syncColorPicker('brand-secondary-color', 'brand-secondary-color-hex');
+      })();
+
+      /* ── Brand Kit: save handler ─────────────────────────────────── */
+      document.getElementById('brand-kit-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var btn = document.getElementById('brand-kit-save-btn');
+        var msgEl = document.getElementById('brand-kit-msg');
+
+        // Clear previous message
+        msgEl.className = 'hidden rounded-xl border px-4 py-3 text-sm';
+        msgEl.textContent = '';
+
+        var primaryHex = document.getElementById('brand-primary-color-hex').value.trim()
+          || document.getElementById('brand-primary-color').value;
+        var secondaryHex = document.getElementById('brand-secondary-color-hex').value.trim()
+          || document.getElementById('brand-secondary-color').value;
+
+        var payload = {
+          brand_voice:             document.getElementById('brand-voice').value || null,
+          brand_primary_color:     primaryHex || null,
+          brand_secondary_color:   secondaryHex || null,
+          brand_logo_url:          document.getElementById('brand-logo-url').value.trim() || null,
+          brand_font:              document.getElementById('brand-font').value.trim() || null,
+          brand_key_messages:      document.getElementById('brand-key-messages').value.trim() || null,
+          brand_forbidden_words:   document.getElementById('brand-forbidden-words').value.trim() || null,
+          brand_cta_style:         document.getElementById('brand-cta-style').value || null,
+          brand_source:            'upload'
+        };
+
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+
+        try {
+          var result = await API.json('/me/brand-kit', {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+          });
+          if (result && result.detail) throw new Error(result.detail);
+          BrokerAI.showToast('Brand kit saved!', 'success');
+          msgEl.className = 'rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700';
+          msgEl.textContent = 'Brand kit saved successfully.';
+        } catch (err) {
+          var errMsg = err.message || 'Could not save brand kit. Please try again.';
+          BrokerAI.showToast(errMsg, 'error');
+          msgEl.className = 'rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700';
+          msgEl.textContent = errMsg;
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save brand kit';
+        }
+      });
 
       /* ── Change password ─────────────────────────────────────────── */
       function pwSetError(msg) {

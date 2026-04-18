@@ -56,7 +56,7 @@
   </main>
 
 <script>
-const TOKEN = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
+const TOKEN = BrokerAI.getToken() || "";
 if (!TOKEN) { window.location.href = "/login.html"; }
 const H = { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" };
 const $ = (id) => document.getElementById(id);

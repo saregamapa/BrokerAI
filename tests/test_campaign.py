@@ -36,7 +36,8 @@ def test_generate_campaign_and_fetch(client: TestClient) -> None:
     assert len(r2.json()["posts"]) >= 1
 
 
-def test_generate_campaign_requires_social_connection(client: TestClient) -> None:
+def test_generate_campaign_without_social_creates_draft(client: TestClient) -> None:
+    """Users with no Ayrshare account can still generate — campaign lands in draft status."""
     client.post("/signup", json={"email": "nosoc@example.com", "password": "secret12"})
     token = client.post("/login", json={"email": "nosoc@example.com", "password": "secret12"}).json()[
         "access_token"
@@ -45,8 +46,14 @@ def test_generate_campaign_requires_social_connection(client: TestClient) -> Non
     body = {"goal": "Leads", "location": "NYC", "platforms": ["Facebook"]}
     with patch("backend.main.run_campaign_phase1", side_effect=stub_run_campaign_phase1):
         r = client.post("/generate-campaign", json=body, headers=h)
-    assert r.status_code == 403
-    assert "connect" in r.json()["detail"].lower()
+    assert r.status_code == 200
+    data = r.json()
+    assert data["social_connected"] is False
+    # Campaign should be in draft (not pending_approval) because no social key
+    cid = data["campaign_id"]
+    r2 = client.get(f"/campaign/{cid}", headers=h)
+    assert r2.status_code == 200
+    assert r2.json()["campaign"]["status"] == "draft"
 
 
 def test_list_posts_after_generate(client: TestClient) -> None:

@@ -233,7 +233,7 @@
         if (hash && hash.includes('google_token=')) {
           var token = hash.split('google_token=')[1].split('&')[0];
           if (token) {
-            localStorage.setItem('token', token);
+            BrokerAI.setToken(token);
             history.replaceState(null, '', window.location.pathname);
             window.location.href = '/dashboard.html';
           }

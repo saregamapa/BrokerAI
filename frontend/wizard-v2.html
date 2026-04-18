@@ -496,7 +496,7 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
-    const token = localStorage.getItem("token") || localStorage.getItem("access_token") || "";
+    const token = BrokerAI.getToken() || "";
     if (!token) { window.location.href = "/login.html?next=/wizard-v2.html"; }
     const api = async (path, opts={}) => {
       const res = await fetch(path, {

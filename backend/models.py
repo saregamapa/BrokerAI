@@ -56,6 +56,9 @@ class User(SQLModel, table=True):
     brand_font: str = ""                # e.g. "Inter"
     brand_voice: str = ""               # tone descriptor ("professional", "playful", etc.)
     brand_source: str = ""              # "upload" | "ai" | ""
+    brand_key_messages: Optional[str] = Field(default=None)
+    brand_forbidden_words: Optional[str] = Field(default=None)
+    brand_cta_style: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     # RBAC fields
     # account_type: "individual" | "team" | "org"

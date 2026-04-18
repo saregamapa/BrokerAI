@@ -276,6 +276,7 @@ class CampaignDetailOut(BaseModel):
 class GenerateCampaignResponse(BaseModel):
     campaign_id: int
     posts: List[PostOut]
+    social_connected: bool = True
 
 
 class ApproveCampaignRequest(BaseModel):
@@ -379,6 +380,9 @@ class UserOut(BaseModel):
     brand_font: str = ""
     brand_voice: str = ""
     brand_source: str = ""
+    brand_key_messages: Optional[str] = None
+    brand_forbidden_words: Optional[str] = None
+    brand_cta_style: Optional[str] = None
 
 
 class UpdateProfileUrlsRequest(BaseModel):
@@ -585,6 +589,9 @@ class BrandKitUpdateRequest(BaseModel):
     brand_font: Optional[str] = None
     brand_voice: Optional[str] = None
     brand_source: Optional[Literal["upload", "ai", ""]] = None
+    brand_key_messages: Optional[str] = None
+    brand_forbidden_words: Optional[str] = None
+    brand_cta_style: Optional[str] = None
 
 
 class BrandKitAIRequest(BaseModel):

@@ -40,3 +40,6 @@ _pytest_out.txt
 .DS_Store
 .idea/
 .vscode/
+
+# Accidental pip version-pin artifacts (e.g. =5.0.0)
+=*.*.*

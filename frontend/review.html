@@ -382,6 +382,22 @@
         }).length;
         document.getElementById("stat-platforms").textContent = posts.length ? "Active" : "-";
 
+        // Draft-mode banner: show when campaign has no social accounts connected
+        var draftBanner = document.getElementById("draft-mode-banner");
+        if (camp.status === "draft") {
+          if (!draftBanner) {
+            draftBanner = document.createElement("div");
+            draftBanner.id = "draft-mode-banner";
+            draftBanner.style.cssText = "background:#FEF3C7;color:#92400E;padding:12px 16px;border-radius:8px;margin-bottom:16px;";
+            draftBanner.innerHTML = '\u26A0\uFE0F Connect your social accounts to publish this campaign. <a href="/connect.html" style="font-weight:600;text-decoration:underline;">Connect accounts \u2192</a>';
+            var postsEl = document.getElementById("posts");
+            postsEl.parentNode.insertBefore(draftBanner, postsEl);
+          }
+          draftBanner.style.display = "";
+        } else if (draftBanner) {
+          draftBanner.style.display = "none";
+        }
+
         var root = document.getElementById("posts");
         root.innerHTML = "";
         if (!posts.length) {
@@ -390,7 +406,7 @@
               '<div class="text-3xl mb-2">📝</div>' +
               '<h3 class="text-base font-semibold text-slate-800">No posts in this campaign yet</h3>' +
               '<p class="mt-1 text-sm text-slate-500">Generate content with AI or build posts manually to get started.</p>' +
-              '<a href="/wizard.html" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition hover:scale-[1.02]">✨ Run the wizard</a>' +
+              '<a href="/wizard-v2.html" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition hover:scale-[1.02]">✨ Run the wizard</a>' +
             '</div>';
           return;
         }
@@ -1115,7 +1131,7 @@
             window.__rbac_is_member = false;
           }
 
-          var data = await BrokerAI.apiJson("/campaign/" + encodeURIComponent(id), { method: "GET" });
+          var data = await BrokerAI.apiJson("/campaigns/" + encodeURIComponent(id), { method: "GET" });
           hideSkeleton('review-skeleton');
           render(data);
         } catch (err) {

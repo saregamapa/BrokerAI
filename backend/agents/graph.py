@@ -41,11 +41,16 @@ def _get_checkpointer():
         return _checkpointer
 
     # Determine checkpoint DB path — same directory as the main brokerai.db
+    import os as _os
+    _checkpoint_db_path = _os.getenv("LANGGRAPH_CHECKPOINT_DB", "")
     db_url = os.getenv("CHECKPOINT_DB_URL", "")
     if not db_url:
-        base = Path(__file__).resolve().parent.parent.parent
-        db_path = base / "brokerai_checkpoints.db"
-        db_url = f"sqlite:///{db_path}"
+        if _checkpoint_db_path:
+            db_url = f"sqlite:///{_checkpoint_db_path}" if not _checkpoint_db_path.startswith("sqlite") else _checkpoint_db_path
+        else:
+            base = Path(__file__).resolve().parent.parent.parent
+            db_path = base / "brokerai_checkpoints.db"
+            db_url = f"sqlite:///{db_path}"
 
     try:
         import sqlite3 as _sqlite3

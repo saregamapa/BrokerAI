@@ -61,25 +61,40 @@
       data = { detail: text || "Invalid JSON" };
     }
     if (res.status === 401) {
-      var hadToken = !!getToken();
-      clearToken();
-      var onAuthPage =
-        typeof window !== "undefined" &&
-        (window.location.pathname.indexOf("login") !== -1 ||
-          window.location.pathname.indexOf("signup") !== -1 ||
-          window.location.pathname.indexOf("forgot-password") !== -1);
-      if (!onAuthPage && typeof window !== "undefined") {
-        // Preserve where the user was trying to go + tell login page why.
-        try {
-          if (hadToken) {
-            sessionStorage.setItem("brokerai_session_expired", "1");
+      // Attempt a silent token refresh before giving up
+      var refreshed = false;
+      try {
+        var rfRes = await fetch(apiUrl("/auth/refresh"), { method: "POST", credentials: "include" });
+        if (rfRes.ok) {
+          var rfData = await rfRes.json();
+          if (rfData && rfData.access_token) {
+            setToken(rfData.access_token);
+            // Retry the original request with the new token
+            var retryHeaders = Object.assign({}, authHeaders(), opts.headers || {});
+            var retryRes = await fetch(apiUrl(path), Object.assign({}, opts, { headers: retryHeaders }));
+            if (retryRes.ok) {
+              var retryText = await retryRes.text();
+              try { return retryText ? JSON.parse(retryText) : null; } catch(e) { return null; }
+            }
+            refreshed = true;
           }
-          sessionStorage.setItem(
-            "brokerai_return_to",
-            window.location.pathname + window.location.search
-          );
-        } catch (e) {}
-        window.location.href = "/login.html" + (hadToken ? "?expired=1" : "");
+        }
+      } catch (rfErr) { /* refresh failed, fall through to logout */ }
+      if (!refreshed) {
+        var hadToken = !!getToken();
+        clearToken();
+        var onAuthPage =
+          typeof window !== "undefined" &&
+          (window.location.pathname.indexOf("login") !== -1 ||
+            window.location.pathname.indexOf("signup") !== -1 ||
+            window.location.pathname.indexOf("forgot-password") !== -1);
+        if (!onAuthPage && typeof window !== "undefined") {
+          try {
+            if (hadToken) sessionStorage.setItem("brokerai_session_expired", "1");
+            sessionStorage.setItem("brokerai_return_to", window.location.pathname + window.location.search);
+          } catch (e) {}
+          window.location.href = "/login.html" + (hadToken ? "?expired=1" : "");
+        }
       }
     }
     if (!res.ok) {

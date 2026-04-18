@@ -307,12 +307,7 @@
     ───────────────────────────────────────────────────────────────────── */
     const TOKEN = (function () {
       try {
-        return (
-          localStorage.getItem("brokerai_token") ||
-          localStorage.getItem("token") ||
-          localStorage.getItem("access_token") ||
-          ""
-        );
+        return BrokerAI.getToken() || "";
       } catch (e) { return ""; }
     })();
 

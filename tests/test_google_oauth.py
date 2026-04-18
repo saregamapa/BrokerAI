@@ -111,7 +111,8 @@ class TestGoogleAuthCallback:
         assert "google_profile_failed" in resp.headers["location"]
 
     def test_new_user_created_and_redirected_to_dashboard(self, client: TestClient):
-        """Valid profile for unknown email → creates user, redirects with JWT fragment."""
+        """Valid profile for unknown email → creates user, returns HTML that sets JWT
+        via localStorage (token never exposed in URL/browser history)."""
         fake_profile = {
             "sub": "google-uid-9999",
             "email": "googleuser@example.com",
@@ -127,16 +128,19 @@ class TestGoogleAuthCallback:
                 "/auth/google/callback?code=valid-code",
                 follow_redirects=False,
             )
-        assert resp.status_code in (302, 307)
-        location = resp.headers["location"]
-        assert "dashboard.html" in location
-        assert "google_token=" in location
-        # Token should be a non-empty JWT (3 dot-separated segments)
-        token = location.split("google_token=", 1)[1]
-        assert token.count(".") == 2
+        # Success path now returns 200 HTML (token set via localStorage, not URL fragment)
+        assert resp.status_code == 200
+        body = resp.text
+        assert "brokerai_token" in body
+        assert "dashboard.html" in body
+        # Token embedded in script should be a non-empty JWT (3 dot-separated segments)
+        import re
+        token_match = re.search(r"localStorage\.setItem\('brokerai_token',\s*'([^']+)'", body)
+        assert token_match, "JWT not found in HTML response"
+        assert token_match.group(1).count(".") == 2
 
     def test_existing_user_gets_token(self, client: TestClient):
-        """Existing user email → no duplicate created, still gets JWT redirect."""
+        """Existing user email → no duplicate created, still gets JWT via HTML response."""
         # First call creates the user
         fake_profile = {
             "sub": "google-uid-existing-1",
@@ -153,7 +157,9 @@ class TestGoogleAuthCallback:
                 "/auth/google/callback?code=code-1",
                 follow_redirects=False,
             )
-        assert resp1.status_code in (302, 307)
+        # Success path returns 200 HTML with localStorage token injection
+        assert resp1.status_code == 200
+        assert "brokerai_token" in resp1.text
 
         # Second call (same email) — should still succeed, not error
         with patch(
@@ -164,6 +170,6 @@ class TestGoogleAuthCallback:
                 "/auth/google/callback?code=code-2",
                 follow_redirects=False,
             )
-        assert resp2.status_code in (302, 307)
-        assert "dashboard.html" in resp2.headers["location"]
-        assert "google_token=" in resp2.headers["location"]
+        assert resp2.status_code == 200
+        assert "brokerai_token" in resp2.text
+        assert "dashboard.html" in resp2.text

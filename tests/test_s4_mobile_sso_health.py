@@ -161,37 +161,32 @@ class TestAnalyticsBackground:
         """sync_campaign_analytics with nonexistent campaign_id completes without raising."""
         from backend.services.analytics_background import sync_campaign_analytics
         # Should not raise even for a nonexistent campaign
-        asyncio.get_event_loop().run_until_complete(
-            sync_campaign_analytics(99999, 1)
-        )
+        # Use asyncio.run() — get_event_loop() is deprecated in Python 3.10+
+        asyncio.run(sync_campaign_analytics(99999, 1))
 
     def test_sync_user_analytics_summary_no_raise(self):
         """sync_user_analytics_summary completes without raising."""
         from backend.services.analytics_background import sync_user_analytics_summary
-        asyncio.get_event_loop().run_until_complete(
-            sync_user_analytics_summary(1)
-        )
+        asyncio.run(sync_user_analytics_summary(1))
 
     def test_sync_campaign_analytics_wrong_owner(self, client: TestClient):
         """sync_campaign_analytics silently exits when user_id doesn't own campaign."""
         from backend.services.analytics_background import sync_campaign_analytics
         # Create a real campaign then pass a wrong owner id
         user = _make_user(client, "analytics_bg@example.com")
-        resp = client.post(
+        client.post(
             "/generate-campaign",
             headers=user["headers"],
             json={"goal": "Leads", "location": "Miami", "platforms": ["Facebook"]},
         )
-        # May return 403 if social not connected — that's fine, we only need the id.
+        # May return 502 if OpenAI unconfigured or 200 if draft — just need the campaign list
         campaigns_resp = client.get("/campaigns", headers=user["headers"])
         assert campaigns_resp.status_code == 200
         campaigns = campaigns_resp.json()
         if campaigns:
             cid = campaigns[0]["id"]
             wrong_uid = 99998
-            asyncio.get_event_loop().run_until_complete(
-                sync_campaign_analytics(cid, wrong_uid)
-            )
+            asyncio.run(sync_campaign_analytics(cid, wrong_uid))
         # No assertion needed — just verifying no exception was raised
 
 
@@ -201,11 +196,14 @@ class TestAnalyticsBackground:
 
 class TestGoogleOAuthGuard:
     def test_google_auth_no_config_returns_400(self, client: TestClient):
-        """GET /auth/google with GOOGLE_CLIENT_ID='' returns 400."""
+        """GET /auth/google with GOOGLE_CLIENT_ID='' returns 400 or 302 to unavailable notice."""
         with patch.dict(os.environ, {"GOOGLE_CLIENT_ID": ""}, clear=False):
             resp = client.get("/auth/google", follow_redirects=False)
-        assert resp.status_code == 400
-        assert "not configured" in resp.json()["detail"].lower()
+        assert resp.status_code in (302, 400)
+        if resp.status_code == 302:
+            assert "google_oauth_unavailable" in (resp.headers.get("location") or "")
+        else:
+            assert "not configured" in resp.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------

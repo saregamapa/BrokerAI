@@ -105,3 +105,23 @@ def send_approval_needed_email(to: str, campaign_name: str, requester_name: str,
       <a href="{review_url}" style="display:inline-block;background:#111827;color:white;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">Review Campaign</a>
     """)
     return _send_email(to, f"Approval needed: {campaign_name}", html)
+
+
+def send_password_reset_email(to: str, reset_link: str) -> bool:
+    html = _html_wrap(f"""
+      <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Reset your password</h2>
+      <p style="color:#6B7280;margin:0 0 20px;line-height:1.6;">We received a request to reset your BrokerAI password. Click the button below to set a new password. This link expires in 15 minutes.</p>
+      <a href="{reset_link}" style="display:inline-block;background:#D97706;color:white;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">Reset Password</a>
+      <p style="color:#9CA3AF;font-size:12px;margin-top:24px;">If you didn't request this, you can safely ignore this email. Your password will not change.</p>
+    """)
+    return _send_email(to, "Reset your BrokerAI password", html)
+
+
+def send_email_verification_email(to: str, verify_link: str) -> bool:
+    html = _html_wrap(f"""
+      <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Verify your email address</h2>
+      <p style="color:#6B7280;margin:0 0 20px;line-height:1.6;">Thanks for signing up for BrokerAI! Click the button below to verify your email address.</p>
+      <a href="{verify_link}" style="display:inline-block;background:#D97706;color:white;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">Verify Email</a>
+      <p style="color:#9CA3AF;font-size:12px;margin-top:24px;">This link expires in 24 hours. If you didn't sign up, you can ignore this email.</p>
+    """)
+    return _send_email(to, "Verify your BrokerAI email address", html)

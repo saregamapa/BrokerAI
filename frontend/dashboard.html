@@ -416,7 +416,7 @@
         if (hash && hash.includes('google_token=')) {
           var token = hash.split('google_token=')[1].split('&')[0];
           if (token) {
-            localStorage.setItem('token', token);
+            BrokerAI.setToken(token);
             history.replaceState(null, '', window.location.pathname + window.location.search);
           }
         }
@@ -577,7 +577,7 @@
           '<li class="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2 text-sm text-slate-500">Generating insights…</li>';
         recList.innerHTML = "";
         try {
-          var data = await BrokerAI.apiJson("/campaign-insights/" + campaignId, { method: "GET" });
+          var data = await BrokerAI.apiJson("/campaigns/" + campaignId + "/insights", { method: "GET" });
           insList.innerHTML = "";
           recList.innerHTML = "";
           (data.insights || []).forEach(function (line) {
@@ -1499,7 +1499,7 @@
         }
 
         // Run all 3 status checks in parallel
-        var token = localStorage.getItem("token");
+        var token = BrokerAI.getToken();
         var headers = token ? { "Authorization": "Bearer " + token } : {};
 
         var socialCheck = fetch("/social-status", { headers: headers })
@@ -2235,8 +2235,7 @@
 
             var newIso = targetDate + "T" + originalTime + "Z";
             var token =
-              localStorage.getItem("brokerai_token") ||
-              localStorage.getItem("token") ||
+              BrokerAI.getToken() ||
               "";
 
             fetch("/posts/" + postId + "/reschedule", {
