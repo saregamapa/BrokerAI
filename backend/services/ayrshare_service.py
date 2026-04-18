@@ -60,11 +60,13 @@ def format_ayrshare_operator_hint(message: str) -> str:
     low = m.lower()
     if "api key not valid" in low or ("authorization" in low and "bearer" in low):
         return (
-            "Ayrshare rejected the server API key. On Render, open your web service (not Postgres/Redis), "
-            "Environment: set AYRSHARE_API_KEY to the Primary API Key from the same Ayrshare Business "
-            "account as your SSO package (Dashboard → Social Media API → API Key). Do not use a "
-            "Profile Key or prefix with 'Bearer '. Redeploy after saving. Call GET /health and check "
-            "ayrshare.api_key_configured and api_key_length."
+            "Ayrshare rejected the server API key. On Render: Web service → Environment → "
+            "AYRSHARE_API_KEY = Primary API Key (Social Media API → API Key) from the same Business "
+            "account as AYRSHARE_SSO_DOMAIN and your private key package. Not a Profile Key; no "
+            "'Bearer ' prefix. GET /health: ayrshare.api_key_length should match your key length; "
+            "if api_key_had_whitespace_removed is true, the paste had line breaks (now fixed in code). "
+            "If length looks correct but this error remains, the key is wrong or from another Ayrshare "
+            "account than the SSO package—regenerate the key in Ayrshare and paste again, then redeploy."
         )
     if m == "AYRSHARE_API_KEY is not configured":
         return (

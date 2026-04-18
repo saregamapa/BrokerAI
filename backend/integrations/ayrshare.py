@@ -16,12 +16,8 @@ AYRSHARE_ANALYTICS_POST_URL = "https://api.ayrshare.com/api/analytics/post"
 log = get_logger("brokerai.ayrshare")
 
 
-def normalize_ayrshare_api_key(value: str) -> str:
-    """
-    Normalize AYRSHARE_API_KEY from env (Render/dashboard pastes).
-
-    Handles BOM, outer quotes, and accidental ``Bearer `` prefix (docs show the header form).
-    """
+def _ayrshare_api_key_after_quote_bearer_strip(value: str) -> str:
+    """Strip BOM, outer quotes, and ``Bearer `` prefix only (before whitespace collapse)."""
     s = (value or "").replace("\ufeff", "").strip()
     if len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
         s = s[1:-1].strip()
@@ -30,12 +26,26 @@ def normalize_ayrshare_api_key(value: str) -> str:
     return s
 
 
+def normalize_ayrshare_api_key(value: str) -> str:
+    """
+    Normalize AYRSHARE_API_KEY from env (Render/dashboard pastes).
+
+    Handles BOM, outer quotes, accidental ``Bearer `` prefix, and internal line breaks /
+    spaces (PDF or email copies often split the key across lines).
+    """
+    s = _ayrshare_api_key_after_quote_bearer_strip(value)
+    # Ayrshare keys are a single token; joining split() removes newlines/tabs/spaces.
+    return "".join(s.split())
+
+
 def ayrshare_connect_env_snapshot() -> Dict[str, Any]:
     """Non-secret flags for /health — verify Render injected Ayrshare vars (no key material)."""
     from pathlib import Path
 
     raw = os.getenv("AYRSHARE_API_KEY", "") or ""
+    inter = _ayrshare_api_key_after_quote_bearer_strip(raw)
     norm = normalize_ayrshare_api_key(raw)
+    whitespace_stripped_from_key = bool(norm and inter != norm)
     pk = (os.getenv("AYRSHARE_PRIVATE_KEY", "") or "").strip()
     ppath = (os.getenv("AYRSHARE_PRIVATE_KEY_PATH", "") or "").strip()
     domain = (os.getenv("AYRSHARE_SSO_DOMAIN", "") or "").strip()
@@ -43,6 +53,7 @@ def ayrshare_connect_env_snapshot() -> Dict[str, Any]:
     return {
         "api_key_configured": bool(norm),
         "api_key_length": len(norm),
+        "api_key_had_whitespace_removed": whitespace_stripped_from_key,
         "sso_domain_configured": bool(domain),
         "private_key_inline_configured": bool(pk),
         "private_key_path_configured": bool(ppath),

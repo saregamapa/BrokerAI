@@ -47,6 +47,7 @@ class TestHealthEndpoint:
         assert body["db"] in ("ok", "fail")
         assert "ayrshare" in body
         assert "api_key_configured" in body["ayrshare"]
+        assert "api_key_had_whitespace_removed" in body["ayrshare"]
 
     def test_health_has_version(self, client: TestClient):
         """GET /health body includes a version field (can be 'dev' or any string)."""

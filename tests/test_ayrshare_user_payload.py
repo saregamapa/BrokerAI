@@ -123,6 +123,19 @@ def test_normalize_ayrshare_api_key_strips_bearer_prefix() -> None:
     assert normalize_ayrshare_api_key("BEARER xyz") == "xyz"
 
 
+def test_normalize_collapses_embedded_whitespace() -> None:
+    assert normalize_ayrshare_api_key("aa\nbb\t cc") == "aabbcc"
+
+
+def test_ayrshare_connect_env_snapshot_whitespace_removed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AYRSHARE_API_KEY", "aa\nbb")
+    monkeypatch.delenv("AYRSHARE_SSO_DOMAIN", raising=False)
+    snap = ayrshare_connect_env_snapshot()
+    assert snap["api_key_configured"] is True
+    assert snap["api_key_length"] == 4
+    assert snap["api_key_had_whitespace_removed"] is True
+
+
 def test_ayrshare_connect_env_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AYRSHARE_API_KEY", "Bearer kkk")
     monkeypatch.setenv("AYRSHARE_SSO_DOMAIN", "id-test")
@@ -131,6 +144,7 @@ def test_ayrshare_connect_env_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
     snap = ayrshare_connect_env_snapshot()
     assert snap["api_key_configured"] is True
     assert snap["api_key_length"] == 3
+    assert snap["api_key_had_whitespace_removed"] is False
     assert snap["sso_domain_configured"] is True
     assert snap["private_key_inline_configured"] is True
     assert snap["private_key_path_configured"] is False
