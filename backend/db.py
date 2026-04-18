@@ -272,11 +272,11 @@ def _sqlite_migrate() -> None:
                 conn.execute(text("UPDATE users SET timezone = 'UTC'"))
             if "plan" not in ucols:
                 conn.execute(
-                    text("ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'")
+                    text("ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'starter'")
                 )
-            # Backfill NULLs for existing rows
+            # Backfill NULLs for existing rows; also migrate legacy 'free' rows to starter
             conn.execute(
-                text("UPDATE users SET plan = 'free' WHERE plan IS NULL")
+                text("UPDATE users SET plan = 'starter' WHERE plan IS NULL OR plan = 'free'")
             )
             conn.execute(
                 text("UPDATE users SET timezone = 'UTC' WHERE timezone IS NULL OR trim(timezone) = ''")
@@ -351,6 +351,9 @@ def _sqlite_migrate() -> None:
                 ("brand_font", "''"),
                 ("brand_voice", "''"),
                 ("brand_source", "''"),
+                ("brand_key_messages", "NULL"),
+                ("brand_forbidden_words", "NULL"),
+                ("brand_cta_style", "NULL"),
             ]:
                 if col not in ucols:
                     conn.execute(

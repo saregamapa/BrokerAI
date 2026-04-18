@@ -143,28 +143,7 @@
               >
                 &#x1F4C4; Download Report
               </button>
-              <button
-                type="button"
-                id="btn-duplicate"
-                class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition duration-200 hover:scale-105 hover:shadow-md active:scale-95"
-                title="Create a copy of this campaign as a new draft"
-              >
-                📋 Duplicate
-              </button>
-              <button
-                type="button"
-                id="refresh"
-                class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition duration-200 hover:scale-105 hover:shadow-md active:scale-95"
-              >
-                Refresh
-              </button>
             </div>
-          </div>
-
-          <div class="mt-4 flex items-center gap-2" id="view-toggle">
-            <span class="text-xs font-medium text-slate-500">View:</span>
-            <button id="btn-edit-mode" type="button" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white">Edit</button>
-            <button id="btn-preview-mode" type="button" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50">Preview</button>
           </div>
 
           <div id="summary-bar" class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -338,19 +317,6 @@
           '</div>';
       }
 
-      function setViewMode(preview) {
-        previewMode = preview;
-        document.getElementById('btn-edit-mode').className = preview
-          ? 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-          : 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white';
-        document.getElementById('btn-preview-mode').className = preview
-          ? 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white'
-          : 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50';
-        // Re-render using the cached data if available
-        if (window.__lastRenderData) {
-          render(window.__lastRenderData);
-        }
-      }
       // ─────────────────────────────────────────────────────────────────
 
       function render(data) {
@@ -406,7 +372,7 @@
               '<div class="text-3xl mb-2">📝</div>' +
               '<h3 class="text-base font-semibold text-slate-800">No posts in this campaign yet</h3>' +
               '<p class="mt-1 text-sm text-slate-500">Generate content with AI or build posts manually to get started.</p>' +
-              '<a href="/wizard-v2.html" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition hover:scale-[1.02]">✨ Run the wizard</a>' +
+              '<a href="/wizard.html" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition hover:scale-[1.02]">✨ Run the wizard</a>' +
             '</div>';
           return;
         }
@@ -1142,38 +1108,6 @@
         }
       }
 
-      document.getElementById("btn-edit-mode").addEventListener("click", function () { setViewMode(false); });
-      document.getElementById("btn-preview-mode").addEventListener("click", function () { setViewMode(true); });
-      document.getElementById("refresh").addEventListener("click", load);
-      document.getElementById("btn-duplicate").addEventListener("click", async function () {
-        if (!campaignId) return;
-        var btn = this;
-        var defaultName = (document.querySelector("#campaign-meta")?.textContent || "Campaign") + " (Copy)";
-        var newName = prompt("Name for the duplicate:", defaultName.slice(0, 120));
-        if (newName === null) return;
-        var includePosts = await BrokerAI.confirmDialog({
-          title: "Include posts?",
-          message: "Copy this campaign's posts into the duplicate, or duplicate metadata only?",
-          confirmLabel: "Copy posts",
-          cancelLabel: "Metadata only",
-        });
-        btn.disabled = true;
-        btn.textContent = "Duplicating…";
-        try {
-          var d = await BrokerAI.apiJson("/campaigns/" + encodeURIComponent(campaignId) + "/duplicate", {
-            method: "POST",
-            body: JSON.stringify({ name: (newName || "").trim() || null, include_posts: !!includePosts }),
-          });
-          BrokerAI.showToast("Duplicated ✔︎ Opening new campaign…", "success");
-          setTimeout(function () {
-            window.location.href = "/review.html?campaign=" + encodeURIComponent(d.id);
-          }, 700);
-        } catch (err) {
-          BrokerAI.showToast(err.message || "Duplicate failed", "error");
-          btn.disabled = false;
-          btn.textContent = "📋 Duplicate";
-        }
-      });
       document.getElementById("approve-campaign-btn").addEventListener("click", async function () {
         if (!campaignId) return;
         var btn = this;

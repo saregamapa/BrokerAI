@@ -21,10 +21,10 @@ from sqlmodel import Session
 
 from backend.core.plan_limits import (
     PLAN_AGENCY,
-    PLAN_FREE,
     PLAN_GROWTH,
     PLAN_ORDER,
     PLAN_PRO,
+    PLAN_SCALE,
     PLAN_STARTER,
     UNLIMITED,
     PlanLimitExceeded,
@@ -44,7 +44,7 @@ from backend.models import Campaign, User
 # Fixtures
 # ---------------------------------------------------------------------------
 
-def _make_user(plan: str = "free") -> User:
+def _make_user(plan: str = "starter") -> User:
     """Create and persist a minimal User with the given plan."""
     import hashlib, secrets
     with Session(engine) as s:
@@ -81,43 +81,50 @@ def _add_campaigns(user_id: int, count: int) -> None:
 # ---------------------------------------------------------------------------
 
 class TestTierValues:
-    def test_free_limits(self):
-        assert PLAN_FREE.plan == "free"
-        assert PLAN_FREE.campaigns_per_month == 2
-        assert PLAN_FREE.posts_per_campaign == 5
-        assert PLAN_FREE.platforms_allowed == 1
-        assert PLAN_FREE.team_seats == 1
-        assert PLAN_FREE.analytics_ai is False
-        assert PLAN_FREE.comment_automations is False
-        assert PLAN_FREE.custom_brand_kit is False
-        assert PLAN_FREE.monthly_price_usd == 0
-
     def test_starter_limits(self):
         assert PLAN_STARTER.plan == "starter"
-        assert PLAN_STARTER.campaigns_per_month == 10
+        assert PLAN_STARTER.campaigns_per_month == 1
         assert PLAN_STARTER.posts_per_campaign == 10
         assert PLAN_STARTER.platforms_allowed == 2
         assert PLAN_STARTER.team_seats == 1
-        assert PLAN_STARTER.analytics_ai is False
+        assert PLAN_STARTER.videos_per_month == 1
+        assert PLAN_STARTER.analytics_ai is True
+        assert PLAN_STARTER.comment_automations is False
         assert PLAN_STARTER.custom_brand_kit is True
         assert PLAN_STARTER.monthly_price_usd == 29
 
     def test_growth_limits(self):
         assert PLAN_GROWTH.plan == "growth"
-        assert PLAN_GROWTH.campaigns_per_month == 30
-        assert PLAN_GROWTH.team_seats == 3
+        assert PLAN_GROWTH.campaigns_per_month == 5
+        assert PLAN_GROWTH.posts_per_campaign == 30
+        assert PLAN_GROWTH.platforms_allowed == 5
+        assert PLAN_GROWTH.team_seats == 1
+        assert PLAN_GROWTH.videos_per_month == 5
         assert PLAN_GROWTH.analytics_ai is True
-        assert PLAN_GROWTH.comment_automations is True
+        assert PLAN_GROWTH.comment_automations is False
         assert PLAN_GROWTH.monthly_price_usd == 79
 
     def test_pro_limits(self):
         assert PLAN_PRO.plan == "pro"
-        assert PLAN_PRO.campaigns_per_month == UNLIMITED
-        assert PLAN_PRO.posts_per_campaign == UNLIMITED
-        assert PLAN_PRO.platforms_allowed == UNLIMITED
-        assert PLAN_PRO.team_seats == 10
+        assert PLAN_PRO.campaigns_per_month == 10
+        assert PLAN_PRO.posts_per_campaign == 60
+        assert PLAN_PRO.platforms_allowed == 10
+        assert PLAN_PRO.team_seats == 3
+        assert PLAN_PRO.videos_per_month == 10
         assert PLAN_PRO.analytics_ai is True
-        assert PLAN_PRO.monthly_price_usd == 199
+        assert PLAN_PRO.comment_automations is True
+        assert PLAN_PRO.monthly_price_usd == 259
+
+    def test_scale_limits(self):
+        assert PLAN_SCALE.plan == "scale"
+        assert PLAN_SCALE.campaigns_per_month == 20
+        assert PLAN_SCALE.posts_per_campaign == 120
+        assert PLAN_SCALE.platforms_allowed == 15
+        assert PLAN_SCALE.team_seats == 5
+        assert PLAN_SCALE.videos_per_month == 15
+        assert PLAN_SCALE.analytics_ai is True
+        assert PLAN_SCALE.comment_automations is True
+        assert PLAN_SCALE.monthly_price_usd == 399
 
     def test_agency_limits(self):
         assert PLAN_AGENCY.plan == "agency"
@@ -126,7 +133,7 @@ class TestTierValues:
         assert PLAN_AGENCY.monthly_price_usd is None  # contact sales
 
     def test_plan_order_integrity(self):
-        assert PLAN_ORDER == ["free", "starter", "growth", "pro", "agency"]
+        assert PLAN_ORDER == ["starter", "growth", "pro", "scale", "agency"]
 
 
 # ---------------------------------------------------------------------------
@@ -139,16 +146,16 @@ class TestGetLimits:
             lim = get_limits(slug)
             assert lim.plan == slug
 
-    def test_unknown_plan_falls_back_to_free(self):
+    def test_unknown_plan_falls_back_to_starter(self):
         lim = get_limits("unknown_tier")
-        assert lim.plan == "free"
+        assert lim.plan == "starter"
 
-    def test_none_falls_back_to_free(self):
+    def test_none_falls_back_to_starter(self):
         lim = get_limits(None)  # type: ignore[arg-type]
-        assert lim.plan == "free"
+        assert lim.plan == "starter"
 
     def test_case_insensitive(self):
-        assert get_limits("FREE").plan == "free"
+        assert get_limits("STARTER").plan == "starter"
         assert get_limits("Starter").plan == "starter"
         assert get_limits("GROWTH").plan == "growth"
 
@@ -164,17 +171,17 @@ class TestIsPlanAtLeast:
 
     def test_higher_tier_is_true(self):
         assert is_plan_at_least("growth", "starter") is True
-        assert is_plan_at_least("pro", "free") is True
+        assert is_plan_at_least("pro", "starter") is True
         assert is_plan_at_least("agency", "pro") is True
 
     def test_lower_tier_is_false(self):
-        assert is_plan_at_least("free", "starter") is False
         assert is_plan_at_least("starter", "growth") is False
         assert is_plan_at_least("growth", "pro") is False
+        assert is_plan_at_least("pro", "scale") is False
 
     def test_unknown_plan_is_false(self):
-        assert is_plan_at_least("bogus", "free") is False
-        assert is_plan_at_least("free", "bogus") is False
+        assert is_plan_at_least("bogus", "starter") is False
+        assert is_plan_at_least("starter", "bogus") is False
 
 
 # ---------------------------------------------------------------------------
@@ -182,26 +189,24 @@ class TestIsPlanAtLeast:
 # ---------------------------------------------------------------------------
 
 class TestNextPlanUp:
-    def test_free_goes_to_starter(self):
-        n = next_plan_up("free")
-        assert n is not None
-        assert n.plan == "starter"
-
     def test_starter_goes_to_growth(self):
         assert next_plan_up("starter").plan == "growth"
 
     def test_growth_goes_to_pro(self):
         assert next_plan_up("growth").plan == "pro"
 
-    def test_pro_goes_to_agency(self):
-        assert next_plan_up("pro").plan == "agency"
+    def test_pro_goes_to_scale(self):
+        assert next_plan_up("pro").plan == "scale"
+
+    def test_scale_goes_to_agency(self):
+        assert next_plan_up("scale").plan == "agency"
 
     def test_agency_returns_none(self):
         assert next_plan_up("agency") is None
 
-    def test_unknown_defaults_to_starter(self):
-        # idx 0 (fallback) → next is index 1 = starter
-        assert next_plan_up("nonexistent").plan == "starter"
+    def test_unknown_defaults_to_growth(self):
+        # idx 0 (fallback) is starter → next is index 1 = growth
+        assert next_plan_up("nonexistent").plan == "growth"
 
 
 # ---------------------------------------------------------------------------
@@ -210,7 +215,7 @@ class TestNextPlanUp:
 
 class TestCountCampaignsThisMonth:
     def test_zero_for_new_user(self):
-        u = _make_user("free")
+        u = _make_user("starter")
         with Session(engine) as s:
             count = count_campaigns_this_month(s, int(u.id))
         assert count == 0
@@ -223,8 +228,8 @@ class TestCountCampaignsThisMonth:
         assert count == 3
 
     def test_different_users_isolated(self):
-        u1 = _make_user("free")
-        u2 = _make_user("free")
+        u1 = _make_user("starter")
+        u2 = _make_user("starter")
         _add_campaigns(int(u1.id), 2)
         with Session(engine) as s:
             assert count_campaigns_this_month(s, int(u2.id)) == 0
@@ -235,40 +240,62 @@ class TestCountCampaignsThisMonth:
 # ---------------------------------------------------------------------------
 
 class TestAssertCanCreateCampaign:
-    def test_free_user_allowed_up_to_limit(self):
-        u = _make_user("free")
-        _add_campaigns(int(u.id), 1)  # 1 of 2 used — OK
-        with Session(engine) as s:
-            u_db = s.get(User, u.id)
-            assert_can_create_campaign(s, u_db)  # must not raise
-
-    def test_free_user_blocked_at_limit(self):
-        u = _make_user("free")
-        _add_campaigns(int(u.id), 2)  # 2 of 2 — hit cap
+    def test_starter_user_blocked_at_1(self):
+        u = _make_user("starter")
+        _add_campaigns(int(u.id), 1)
         with Session(engine) as s:
             u_db = s.get(User, u.id)
             with pytest.raises(PlanLimitExceeded) as exc_info:
                 assert_can_create_campaign(s, u_db)
         assert exc_info.value.limit_key == "campaigns_per_month"
-        assert exc_info.value.current == 2
-        assert exc_info.value.max_allowed == 2
+        assert exc_info.value.current == 1
+        assert exc_info.value.max_allowed == 1
 
-    def test_starter_user_blocked_at_10(self):
+    def test_starter_user_allowed_at_0(self):
         u = _make_user("starter")
+        with Session(engine) as s:
+            u_db = s.get(User, u.id)
+            assert_can_create_campaign(s, u_db)  # must not raise
+
+    def test_growth_user_blocked_at_5(self):
+        u = _make_user("growth")
+        _add_campaigns(int(u.id), 5)
+        with Session(engine) as s:
+            u_db = s.get(User, u.id)
+            with pytest.raises(PlanLimitExceeded):
+                assert_can_create_campaign(s, u_db)
+
+    def test_pro_user_blocked_at_10(self):
+        u = _make_user("pro")
         _add_campaigns(int(u.id), 10)
         with Session(engine) as s:
             u_db = s.get(User, u.id)
             with pytest.raises(PlanLimitExceeded):
                 assert_can_create_campaign(s, u_db)
 
-    def test_pro_user_never_blocked(self):
-        u = _make_user("pro")
+    def test_scale_user_blocked_at_20(self):
+        u = _make_user("scale")
+        _add_campaigns(int(u.id), 20)
+        with Session(engine) as s:
+            u_db = s.get(User, u.id)
+            with pytest.raises(PlanLimitExceeded):
+                assert_can_create_campaign(s, u_db)
+
+    def test_scale_user_allowed_up_to_19(self):
+        u = _make_user("scale")
+        _add_campaigns(int(u.id), 19)
+        with Session(engine) as s:
+            u_db = s.get(User, u.id)
+            assert_can_create_campaign(s, u_db)  # must not raise
+
+    def test_agency_user_never_blocked(self):
+        u = _make_user("agency")
         _add_campaigns(int(u.id), 500)  # way over any normal limit
         with Session(engine) as s:
             u_db = s.get(User, u.id)
             assert_can_create_campaign(s, u_db)  # must not raise
 
-    def test_unlimited_campaigns_env_bypasses_free_cap(self, monkeypatch):
+    def test_unlimited_campaigns_env_bypasses_cap(self, monkeypatch):
         import secrets
 
         email = f"bypass_cap_{secrets.token_hex(4)}@example.com"
@@ -277,7 +304,7 @@ class TestAssertCanCreateCampaign:
             u = User(
                 email=email,
                 password_hash="x",
-                plan="free",
+                plan="starter",
             )
             s.add(u)
             s.commit()
@@ -291,22 +318,6 @@ class TestAssertCanCreateCampaign:
 # ---------------------------------------------------------------------------
 
 class TestAssertPlatformCount:
-    def test_free_allows_one_platform(self):
-        u = _make_user("free")
-        with Session(engine) as s:
-            u_db = s.get(User, u.id)
-        assert_platform_count(u_db, ["instagram"])  # OK
-
-    def test_free_blocks_two_platforms(self):
-        u = _make_user("free")
-        with Session(engine) as s:
-            u_db = s.get(User, u.id)
-        with pytest.raises(PlanLimitExceeded) as exc_info:
-            assert_platform_count(u_db, ["instagram", "linkedin"])
-        assert exc_info.value.limit_key == "platforms_allowed"
-        assert exc_info.value.current == 2
-        assert exc_info.value.max_allowed == 1
-
     def test_starter_allows_two_platforms(self):
         u = _make_user("starter")
         with Session(engine) as s:
@@ -317,18 +328,42 @@ class TestAssertPlatformCount:
         u = _make_user("starter")
         with Session(engine) as s:
             u_db = s.get(User, u.id)
-        with pytest.raises(PlanLimitExceeded):
+        with pytest.raises(PlanLimitExceeded) as exc_info:
             assert_platform_count(u_db, ["instagram", "linkedin", "twitter"])
+        assert exc_info.value.limit_key == "platforms_allowed"
+        assert exc_info.value.current == 3
+        assert exc_info.value.max_allowed == 2
 
-    def test_pro_allows_any_count(self):
+    def test_growth_allows_five_platforms(self):
+        u = _make_user("growth")
+        with Session(engine) as s:
+            u_db = s.get(User, u.id)
+        assert_platform_count(u_db, ["instagram", "linkedin", "twitter", "tiktok", "facebook"])  # OK
+
+    def test_growth_blocks_six_platforms(self):
+        u = _make_user("growth")
+        with Session(engine) as s:
+            u_db = s.get(User, u.id)
+        with pytest.raises(PlanLimitExceeded):
+            assert_platform_count(u_db, ["instagram", "linkedin", "twitter", "tiktok", "facebook", "pinterest"])
+
+    def test_pro_allows_ten_platforms(self):
         u = _make_user("pro")
         with Session(engine) as s:
             u_db = s.get(User, u.id)
-        assert_platform_count(u_db, ["instagram", "linkedin", "twitter", "tiktok", "facebook"])
+        assert_platform_count(u_db, ["instagram", "linkedin", "twitter", "tiktok", "facebook",
+                                     "pinterest", "youtube", "snapchat", "reddit", "threads"])  # 10 OK
+
+    def test_scale_allows_fifteen_platforms(self):
+        u = _make_user("scale")
+        with Session(engine) as s:
+            u_db = s.get(User, u.id)
+        platforms = [f"platform_{i}" for i in range(15)]
+        assert_platform_count(u_db, platforms)  # OK
 
     def test_deduplicates_platforms(self):
         """Duplicate platforms should count as one."""
-        u = _make_user("free")
+        u = _make_user("starter")
         with Session(engine) as s:
             u_db = s.get(User, u.id)
         assert_platform_count(u_db, ["instagram", "instagram"])  # deduped = 1, OK
@@ -339,13 +374,11 @@ class TestAssertPlatformCount:
 # ---------------------------------------------------------------------------
 
 class TestAssertFeature:
-    def test_free_lacks_analytics_ai(self):
-        u = _make_user("free")
+    def test_starter_has_analytics_ai(self):
+        u = _make_user("starter")
         with Session(engine) as s:
             u_db = s.get(User, u.id)
-        with pytest.raises(PlanLimitExceeded) as exc_info:
-            assert_feature(u_db, "analytics_ai")
-        assert exc_info.value.limit_key == "analytics_ai"
+        assert_feature(u_db, "analytics_ai")  # must not raise
 
     def test_growth_has_analytics_ai(self):
         u = _make_user("growth")
@@ -353,25 +386,37 @@ class TestAssertFeature:
             u_db = s.get(User, u.id)
         assert_feature(u_db, "analytics_ai")  # must not raise
 
-    def test_free_lacks_comment_automations(self):
-        u = _make_user("free")
+    def test_starter_lacks_comment_automations(self):
+        u = _make_user("starter")
         with Session(engine) as s:
             u_db = s.get(User, u.id)
         with pytest.raises(PlanLimitExceeded):
             assert_feature(u_db, "comment_automations")
+
+    def test_growth_lacks_comment_automations(self):
+        u = _make_user("growth")
+        with Session(engine) as s:
+            u_db = s.get(User, u.id)
+        with pytest.raises(PlanLimitExceeded):
+            assert_feature(u_db, "comment_automations")
+
+    def test_pro_has_comment_automations(self):
+        u = _make_user("pro")
+        with Session(engine) as s:
+            u_db = s.get(User, u.id)
+        assert_feature(u_db, "comment_automations")  # must not raise
+
+    def test_scale_has_comment_automations(self):
+        u = _make_user("scale")
+        with Session(engine) as s:
+            u_db = s.get(User, u.id)
+        assert_feature(u_db, "comment_automations")  # must not raise
 
     def test_starter_has_brand_kit(self):
         u = _make_user("starter")
         with Session(engine) as s:
             u_db = s.get(User, u.id)
         assert_feature(u_db, "custom_brand_kit")  # must not raise
-
-    def test_free_lacks_brand_kit(self):
-        u = _make_user("free")
-        with Session(engine) as s:
-            u_db = s.get(User, u.id)
-        with pytest.raises(PlanLimitExceeded):
-            assert_feature(u_db, "custom_brand_kit")
 
 
 # ---------------------------------------------------------------------------
@@ -398,10 +443,22 @@ class TestPlanLimitExceededResponse:
         err = PlanLimitExceeded(
             "Need more campaigns",
             limit_key="campaigns_per_month",
-            current=2,
-            max_allowed=2,
-            next_tier=PLAN_STARTER,
+            current=1,
+            max_allowed=1,
+            next_tier=PLAN_GROWTH,
         )
         resp = err.to_response()
-        assert resp["upgrade_to"] == "starter"
-        assert resp["upgrade_price_usd"] == 29
+        assert resp["upgrade_to"] == "growth"
+        assert resp["upgrade_price_usd"] == 79
+
+    def test_scale_next_tier_price(self):
+        err = PlanLimitExceeded(
+            "Need more campaigns",
+            limit_key="campaigns_per_month",
+            current=10,
+            max_allowed=10,
+            next_tier=PLAN_SCALE,
+        )
+        resp = err.to_response()
+        assert resp["upgrade_to"] == "scale"
+        assert resp["upgrade_price_usd"] == 399

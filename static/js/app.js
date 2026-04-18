@@ -110,6 +110,52 @@
   }
 
   /**
+   * fetch() with Bearer token and the same 401 → /auth/refresh → retry behavior as apiJson.
+   * For non-JSON responses (e.g. CSV download).
+   */
+  async function fetchWithAuth(path, init) {
+    init = init || {};
+    var headers = Object.assign({}, init.headers || {});
+    var t = getToken();
+    if (t) headers.Authorization = "Bearer " + t;
+    var res = await fetch(apiUrl(path), Object.assign({}, init, { headers: headers }));
+    if (res.status === 401) {
+      var refreshed = false;
+      try {
+        var rfRes = await fetch(apiUrl("/auth/refresh"), { method: "POST", credentials: "include" });
+        if (rfRes.ok) {
+          var rfData = await rfRes.json();
+          if (rfData && rfData.access_token) {
+            setToken(rfData.access_token);
+            refreshed = true;
+            var retryHeaders = Object.assign({}, init.headers || {});
+            var t2 = getToken();
+            if (t2) retryHeaders.Authorization = "Bearer " + t2;
+            res = await fetch(apiUrl(path), Object.assign({}, init, { headers: retryHeaders }));
+          }
+        }
+      } catch (rfErr) {}
+      if (!refreshed || res.status === 401) {
+        var hadToken = !!getToken();
+        clearToken();
+        var onAuthPage =
+          typeof window !== "undefined" &&
+          (window.location.pathname.indexOf("login") !== -1 ||
+            window.location.pathname.indexOf("signup") !== -1 ||
+            window.location.pathname.indexOf("forgot-password") !== -1);
+        if (!onAuthPage && typeof window !== "undefined") {
+          try {
+            if (hadToken) sessionStorage.setItem("brokerai_session_expired", "1");
+            sessionStorage.setItem("brokerai_return_to", window.location.pathname + window.location.search);
+          } catch (e) {}
+          window.location.href = "/login.html" + (hadToken ? "?expired=1" : "");
+        }
+      }
+    }
+    return res;
+  }
+
+  /**
    * POST multipart/form-data (e.g. file upload). Do not set Content-Type — browser sets boundary.
    * @param {string} path
    * @param {FormData} formData
@@ -485,6 +531,7 @@
   window.BrokerAI = {
     apiUrl: apiUrl,
     apiJson: apiJson,
+    fetchWithAuth: fetchWithAuth,
     apiForm: apiForm,
     showToast: showToast,
     setLoading: setLoading,

@@ -1,11 +1,11 @@
 """S1-03: Plan tier definitions and enforcement helpers.
 
-Tier matrix:
-  free     — 2 campaigns/mo,  5 posts/campaign, 1 platform,  1 seat
-  starter  — 10 campaigns/mo, 10 posts/campaign, 2 platforms, 1 seat   ($29/mo)
-  growth   — 30 campaigns/mo, 20 posts/campaign, 3 platforms, 3 seats  ($79/mo)
-  pro      — unlimited,        unlimited,        all,          10 seats ($199/mo)
-  agency   — same as pro (provisioned manually via sales)
+Tier matrix (updated 2026-04):
+  starter  — 1 campaign/mo,  10 posts/campaign, 2 platforms,  1 seat   ($29/mo)
+  growth   — 5 campaigns/mo, 30 posts/campaign, 5 platforms,  1 seat   ($79/mo)
+  pro      — 10 campaigns/mo,60 posts/campaign, 10 platforms, 3 seats  ($259/mo)
+  scale    — 20 campaigns/mo,120 posts/campaign,15 platforms, 5 seats  ($399/mo)
+  agency   — same as scale (provisioned manually via sales)
 
 These values are checked at the API layer before generation starts so users
 see a clear, actionable error rather than a mid-workflow failure.
@@ -26,6 +26,7 @@ class PlanLimits:
     posts_per_campaign: int
     platforms_allowed: int           # max simultaneous publish platforms
     team_seats: int                  # max members including owner
+    videos_per_month: int            # AI video generations per month (display only)
     analytics_ai: bool               # AI analytics insights enabled
     comment_automations: bool        # comment-to-DM automation enabled
     custom_brand_kit: bool           # brand kit upload/AI generation enabled
@@ -43,26 +44,14 @@ def _price(env_key: str, fallback: str = "") -> str:
     return _os.getenv(env_key, fallback).strip()
 
 
-PLAN_FREE = PlanLimits(
-    plan="free",
-    campaigns_per_month=2,
-    posts_per_campaign=5,
-    platforms_allowed=1,
-    team_seats=1,
-    analytics_ai=False,
-    comment_automations=False,
-    custom_brand_kit=False,
-    stripe_price_id_monthly="",
-    monthly_price_usd=0,
-)
-
 PLAN_STARTER = PlanLimits(
     plan="starter",
-    campaigns_per_month=10,
+    campaigns_per_month=1,
     posts_per_campaign=10,
     platforms_allowed=2,
     team_seats=1,
-    analytics_ai=False,
+    videos_per_month=1,
+    analytics_ai=True,
     comment_automations=False,
     custom_brand_kit=True,
     stripe_price_id_monthly=_price("STRIPE_PRICE_STARTER", "price_starter_placeholder"),
@@ -71,12 +60,13 @@ PLAN_STARTER = PlanLimits(
 
 PLAN_GROWTH = PlanLimits(
     plan="growth",
-    campaigns_per_month=30,
-    posts_per_campaign=20,
-    platforms_allowed=3,
-    team_seats=3,
+    campaigns_per_month=5,
+    posts_per_campaign=30,
+    platforms_allowed=5,
+    team_seats=1,
+    videos_per_month=5,
     analytics_ai=True,
-    comment_automations=True,
+    comment_automations=False,
     custom_brand_kit=True,
     stripe_price_id_monthly=_price("STRIPE_PRICE_GROWTH", "price_growth_placeholder"),
     monthly_price_usd=79,
@@ -84,15 +74,30 @@ PLAN_GROWTH = PlanLimits(
 
 PLAN_PRO = PlanLimits(
     plan="pro",
-    campaigns_per_month=UNLIMITED,
-    posts_per_campaign=UNLIMITED,
-    platforms_allowed=UNLIMITED,
-    team_seats=10,
+    campaigns_per_month=10,
+    posts_per_campaign=60,
+    platforms_allowed=10,
+    team_seats=3,
+    videos_per_month=10,
     analytics_ai=True,
     comment_automations=True,
     custom_brand_kit=True,
     stripe_price_id_monthly=_price("STRIPE_PRICE_PRO", "price_pro_placeholder"),
-    monthly_price_usd=199,
+    monthly_price_usd=259,
+)
+
+PLAN_SCALE = PlanLimits(
+    plan="scale",
+    campaigns_per_month=20,
+    posts_per_campaign=120,
+    platforms_allowed=15,
+    team_seats=5,
+    videos_per_month=15,
+    analytics_ai=True,
+    comment_automations=True,
+    custom_brand_kit=True,
+    stripe_price_id_monthly=_price("STRIPE_PRICE_SCALE", "price_scale_placeholder"),
+    monthly_price_usd=399,
 )
 
 PLAN_AGENCY = PlanLimits(
@@ -101,6 +106,7 @@ PLAN_AGENCY = PlanLimits(
     posts_per_campaign=UNLIMITED,
     platforms_allowed=UNLIMITED,
     team_seats=UNLIMITED,
+    videos_per_month=UNLIMITED,
     analytics_ai=True,
     comment_automations=True,
     custom_brand_kit=True,
@@ -109,20 +115,20 @@ PLAN_AGENCY = PlanLimits(
 )
 
 _TIERS: dict[str, PlanLimits] = {
-    "free": PLAN_FREE,
     "starter": PLAN_STARTER,
     "growth": PLAN_GROWTH,
     "pro": PLAN_PRO,
+    "scale": PLAN_SCALE,
     "agency": PLAN_AGENCY,
 }
 
 # Plans ordered from lowest to highest (for upgrade CTA logic)
-PLAN_ORDER = ["free", "starter", "growth", "pro", "agency"]
+PLAN_ORDER = ["starter", "growth", "pro", "scale", "agency"]
 
 
 def get_limits(plan: str) -> PlanLimits:
-    """Return PlanLimits for the given plan slug. Falls back to free."""
-    return _TIERS.get((plan or "free").lower().strip(), PLAN_FREE)
+    """Return PlanLimits for the given plan slug. Falls back to starter."""
+    return _TIERS.get((plan or "starter").lower().strip(), PLAN_STARTER)
 
 
 def is_plan_at_least(user_plan: str, required: str) -> bool:
@@ -275,7 +281,7 @@ def warn_placeholder_stripe_prices() -> None:
     """Log a warning if any paid plan is using a placeholder Stripe price ID."""
     import logging as _log
     _logger = _log.getLogger("brokerai.plan_limits")
-    for tier in [PLAN_STARTER, PLAN_GROWTH, PLAN_PRO]:
+    for tier in [PLAN_STARTER, PLAN_GROWTH, PLAN_PRO, PLAN_SCALE]:
         if "placeholder" in (tier.stripe_price_id_monthly or "").lower():
             _logger.warning(
                 "Plan '%s' has a placeholder Stripe price ID ('%s'). "

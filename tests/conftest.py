@@ -6,7 +6,9 @@ import tempfile
 from pathlib import Path
 
 # Must run before importing backend.db / backend.main
-_test_db = Path(tempfile.gettempdir()) / f"brokerai_pytest_{os.getpid()}.db"
+# Use uuid so parallel CI runs and PID-recycling sandboxes never collide.
+import uuid as _uuid
+_test_db = Path(tempfile.gettempdir()) / f"brokerai_pytest_{_uuid.uuid4().hex}.db"
 try:
     _test_db.unlink(missing_ok=True)
 except OSError:
@@ -67,10 +69,10 @@ def _stub_ayrshare_profile_sync(monkeypatch: pytest.MonkeyPatch) -> None:
             return ["facebook", "instagram", "linkedin"]
         return real_fetch(pk)
 
-    def _profiles(ref_id: str):
+    def _profiles(ref_id: str, *, include=None, **kwargs):
         if str(ref_id or "").strip().startswith("brokerai_user_"):
             return [{"refId": ref_id, "title": "Pytest Profile"}]
-        return real_profiles(ref_id)
+        return real_profiles(ref_id, include=include)
 
     monkeypatch.setattr(ayrshare_service, "fetch_active_social_accounts", _fetch)
     monkeypatch.setattr(ayrshare_service, "fetch_profiles_by_ref_id", _profiles)

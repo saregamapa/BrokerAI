@@ -92,32 +92,34 @@ def _get_plans(client: TestClient) -> list:
 
 
 class TestGetPlans:
-    def test_returns_three_plans(self, client):
+    def test_returns_four_plans(self, client):
         plans = _get_plans(client)
         assert isinstance(plans, list)
-        assert len(plans) == 3
+        assert len(plans) == 4
 
     def test_plan_slugs(self, client):
         slugs = [p["plan"] for p in _get_plans(client)]
-        assert slugs == ["starter", "growth", "pro"]
+        assert slugs == ["starter", "growth", "pro", "scale"]
 
     def test_plan_prices(self, client):
         plans = {p["plan"]: p for p in _get_plans(client)}
         assert plans["starter"]["price_usd"] == 29
         assert plans["growth"]["price_usd"] == 79
-        assert plans["pro"]["price_usd"] == 199
+        assert plans["pro"]["price_usd"] == 259
+        assert plans["scale"]["price_usd"] == 399
 
     def test_growth_is_highlighted(self, client):
         plans = {p["plan"]: p for p in _get_plans(client)}
         assert plans["growth"]["highlighted"] is True
         assert plans["starter"]["highlighted"] is False
         assert plans["pro"]["highlighted"] is False
+        assert plans["scale"]["highlighted"] is False
 
     def test_plan_has_required_fields(self, client):
         plans = _get_plans(client)
         required = {"plan", "name", "price_usd", "price_period", "tagline",
-                    "campaigns_per_month", "posts_per_campaign", "platforms",
-                    "team_seats", "analytics_ai", "comment_automations"}
+                    "campaigns_per_month", "posts_per_month", "platforms",
+                    "team_seats", "videos_per_month", "analytics_ai", "comment_automations"}
         for p in plans:
             assert required.issubset(set(p.keys())), f"Missing fields in {p['plan']}"
 
@@ -136,16 +138,16 @@ class TestGetMyPlan:
         r = client.get("/me/plan")
         assert r.status_code == 401
 
-    def test_free_user_defaults(self, client):
+    def test_new_user_defaults_to_starter(self, client):
         creds = _register(client)
         token = _login(client, creds)
         r = client.get("/me/plan", headers=_auth(token))
         assert r.status_code == 200
         data = r.json()
-        assert data["plan"] == "free"
-        assert data["limits"]["campaigns_per_month"] == 2
-        assert data["limits"]["analytics_ai"] is False
-        assert data["limits"]["custom_brand_kit"] is False
+        assert data["plan"] == "starter"
+        assert data["limits"]["campaigns_per_month"] == 1
+        assert data["limits"]["analytics_ai"] is True
+        assert data["limits"]["custom_brand_kit"] is True
         assert data["usage"]["campaigns_this_month"] == 0
 
     def test_usage_reflects_current_campaigns(self, client):
@@ -165,7 +167,7 @@ class TestGetMyPlan:
         assert r.status_code == 200
         data = r.json()
         assert data["plan"] == "starter"
-        assert data["limits"]["campaigns_per_month"] == 10
+        assert data["limits"]["campaigns_per_month"] == 1
         assert data["limits"]["platforms_allowed"] == 2
 
     def test_growth_plan_features(self, client):
@@ -174,8 +176,29 @@ class TestGetMyPlan:
         _set_plan(creds["user_id"], "growth")
         data = client.get("/me/plan", headers=_auth(token)).json()
         assert data["limits"]["analytics_ai"] is True
+        assert data["limits"]["comment_automations"] is False
+        assert data["limits"]["team_seats"] == 1
+
+    def test_scale_plan_reflected(self, client):
+        creds = _register(client)
+        token = _login(client, creds)
+        _set_plan(creds["user_id"], "scale")
+        data = client.get("/me/plan", headers=_auth(token)).json()
+        assert data["plan"] == "scale"
+        assert data["limits"]["campaigns_per_month"] == 20
+        assert data["limits"]["platforms_allowed"] == 15
+        assert data["limits"]["team_seats"] == 5
         assert data["limits"]["comment_automations"] is True
+
+    def test_pro_plan_reflected(self, client):
+        creds = _register(client)
+        token = _login(client, creds)
+        _set_plan(creds["user_id"], "pro")
+        data = client.get("/me/plan", headers=_auth(token)).json()
+        assert data["plan"] == "pro"
+        assert data["limits"]["campaigns_per_month"] == 10
         assert data["limits"]["team_seats"] == 3
+        assert data["limits"]["comment_automations"] is True
 
     def test_plan_expires_at_returned(self, client):
         creds = _register(client)
@@ -193,8 +216,9 @@ class TestGetMyPlan:
         creds = _register(client)
         token = _login(client, creds)
         data = client.get("/me/plan", headers=_auth(token)).json()
-        assert data["upgrade_to"] == "starter"
-        assert data["upgrade_price_usd"] == 29
+        # New users default to starter; next upgrade is growth
+        assert data["upgrade_to"] == "growth"
+        assert data["upgrade_price_usd"] == 79
 
     def test_upgrade_to_none_for_agency(self, client):
         creds = _register(client)
@@ -234,29 +258,30 @@ class TestCheckoutGating:
                 os.environ["STRIPE_SECRET_KEY"] = original
 
     def test_checkout_with_mocked_stripe(self, client, monkeypatch):
-        """Happy-path: mocked Stripe returns a URL."""
-        from backend.core.plan_limits import PLAN_STARTER, PlanLimits
+        """Happy-path: starter user upgrades to growth — mocked Stripe returns a URL."""
+        from backend.core.plan_limits import PLAN_GROWTH, PlanLimits
         creds = _register(client)
         token = _login(client, creds)
+        # New users are on starter; upgrade to growth
         monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_mock_key")
 
-        # PLAN_STARTER is frozen at import time; patch get_limits to return
-        # a version with a real price ID so the placeholder guard passes.
-        real_starter_with_price = PlanLimits(
-            plan="starter",
-            campaigns_per_month=10,
-            posts_per_campaign=10,
-            platforms_allowed=2,
+        # Patch get_limits so growth has a real price ID (bypasses placeholder guard)
+        real_growth_with_price = PlanLimits(
+            plan="growth",
+            campaigns_per_month=5,
+            posts_per_campaign=30,
+            platforms_allowed=5,
             team_seats=1,
-            analytics_ai=False,
+            videos_per_month=5,
+            analytics_ai=True,
             comment_automations=False,
             custom_brand_kit=True,
-            stripe_price_id_monthly="price_starter_test_001",
-            monthly_price_usd=29,
+            stripe_price_id_monthly="price_growth_test_001",
+            monthly_price_usd=79,
         )
         monkeypatch.setattr(
             "backend.services.billing_service.get_limits",
-            lambda plan: real_starter_with_price if plan == "starter" else PLAN_STARTER,
+            lambda plan: real_growth_with_price if plan == "growth" else PLAN_GROWTH,
         )
 
         mock_session = MagicMock()
@@ -267,7 +292,7 @@ class TestCheckoutGating:
             mock_stripe = MagicMock()
             mock_stripe.checkout.Session.create.return_value = mock_session
             mock_stripe_fn.return_value = mock_stripe
-            r = client.post("/billing/checkout", json={"plan": "starter"}, headers=_auth(token))
+            r = client.post("/billing/checkout", json={"plan": "growth"}, headers=_auth(token))
 
         assert r.status_code == 200, r.text
         data = r.json()
@@ -413,44 +438,13 @@ def _connect_social(user_id: int) -> None:
 
 
 class TestCampaignCapEnforcement:
-    def test_free_user_blocked_after_2_campaigns(self, client, monkeypatch):
-        """Free plan allows 2 campaigns; 3rd attempt must return 402 before generation starts."""
-        creds = _register(client)
-        token = _login(client, creds)
-        uid = creds["user_id"]
-        _add_campaigns(uid, 2)  # fill quota
-        _connect_social(uid)
-
-        # Stub LangGraph so test is fast (402 fires before generation anyway)
-        from tests.helpers import stub_run_campaign_phase1
-        monkeypatch.setattr(
-            "backend.main.run_campaign_phase1",
-            stub_run_campaign_phase1,
-            raising=False,
-        )
-
-        r = client.post(
-            "/generate-campaign",
-            json={
-                "goal": "Sell houses",
-                "location": "Test City",
-                "platforms": ["instagram"],
-                "tone": "professional",
-            },
-            headers=_auth(token),
-        )
-        assert r.status_code == 402, r.text
-        detail = r.json()["detail"]
-        assert detail["upgrade_required"] is True
-        assert detail["limit_key"] == "campaigns_per_month"
-
-    def test_starter_campaign_limit_is_enforced_at_10(self, client, monkeypatch):
-        """Starter plan blocks on the 11th campaign."""
+    def test_starter_campaign_limit_is_enforced_at_1(self, client, monkeypatch):
+        """Starter plan blocks on the 2nd campaign (cap = 1/month)."""
         creds = _register(client)
         token = _login(client, creds)
         uid = creds["user_id"]
         _set_plan(uid, "starter")
-        _add_campaigns(uid, 10)  # exactly at cap
+        _add_campaigns(uid, 1)  # exactly at cap
         _connect_social(uid)
 
         from tests.helpers import stub_run_campaign_phase1
@@ -473,17 +467,48 @@ class TestCampaignCapEnforcement:
         assert r.status_code == 402, r.text
         assert r.json()["detail"]["limit_key"] == "campaigns_per_month"
 
+    def test_scale_campaign_limit_is_enforced_at_20(self, client, monkeypatch):
+        """Scale plan blocks on the 21st campaign (cap = 20/month)."""
+        creds = _register(client)
+        token = _login(client, creds)
+        uid = creds["user_id"]
+        _set_plan(uid, "scale")
+        _add_campaigns(uid, 20)  # exactly at cap
+        _connect_social(uid)
+
+        from tests.helpers import stub_run_campaign_phase1
+        monkeypatch.setattr(
+            "backend.main.run_campaign_phase1",
+            stub_run_campaign_phase1,
+            raising=False,
+        )
+
+        r = client.post(
+            "/generate-campaign",
+            json={
+                "goal": "Scale up listings",
+                "location": "Test City",
+                "platforms": ["instagram"],
+                "tone": "professional",
+            },
+            headers=_auth(token),
+        )
+        assert r.status_code == 402, r.text
+        assert r.json()["detail"]["limit_key"] == "campaigns_per_month"
+
 
 # ---------------------------------------------------------------------------
 # HTTP 402 enforcement — platform cap
 # ---------------------------------------------------------------------------
 
 class TestPlatformCapEnforcement:
-    def test_free_user_blocked_on_two_platforms(self, client, monkeypatch):
-        """Free plan allows 1 platform; 2 platforms must return 402."""
+    def test_starter_user_blocked_on_three_platforms(self, client, monkeypatch):
+        """Starter plan allows 2 platforms; 3 platforms must return 402."""
         creds = _register(client)
         token = _login(client, creds)
-        _connect_social(creds["user_id"])
+        uid = creds["user_id"]
+        _set_plan(uid, "starter")
+        _connect_social(uid)
 
         from tests.helpers import stub_run_campaign_phase1
         monkeypatch.setattr(
@@ -497,7 +522,7 @@ class TestPlatformCapEnforcement:
             json={
                 "goal": "Grow my business",
                 "location": "Test City",
-                "platforms": ["instagram", "linkedin"],
+                "platforms": ["instagram", "linkedin", "twitter"],
                 "tone": "professional",
             },
             headers=_auth(token),
@@ -513,13 +538,13 @@ class TestPlatformCapEnforcement:
 # ---------------------------------------------------------------------------
 
 class TestFeatureGates:
-    def test_analytics_ai_gate_for_free_user(self, client):
+    def test_analytics_ai_allowed_for_starter(self, client):
+        """Starter is the minimum plan; analytics_ai must be enabled."""
         creds = _register(client)
         token = _login(client, creds)
+        # Endpoint may 200/404/503 depending on data — but must NOT gate with 402
         r = client.get("/analytics/insights", headers=_auth(token))
-        # Free plan → 402
-        assert r.status_code == 402, r.text
-        assert r.json()["detail"]["limit_key"] == "analytics_ai"
+        assert r.status_code != 402, "Starter user should not hit analytics_ai gate"
 
     def test_analytics_ai_allowed_for_growth(self, client, monkeypatch):
         creds = _register(client)

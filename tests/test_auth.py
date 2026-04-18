@@ -1,6 +1,22 @@
 from fastapi.testclient import TestClient
 
 
+def test_signup_with_billing_plan_persists_plan(client: TestClient) -> None:
+    r = client.post(
+        "/signup",
+        json={
+            "email": "auth_plan_growth@example.com",
+            "password": "secret12",
+            "billing_plan": "growth",
+        },
+    )
+    assert r.status_code == 200
+    token = r.json()["access_token"]
+    me = client.get("/me/plan", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json()["plan"] == "growth"
+
+
 def test_signup_login_and_me(client: TestClient) -> None:
     r = client.post("/signup", json={"email": "auth1@example.com", "password": "secret12"})
     assert r.status_code == 200

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import os
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -24,6 +25,18 @@ AYRSHARE_API_GET_PROFILES = "https://api.ayrshare.com/api/profiles"
 
 # All three must be linked before campaign creation / publishing.
 REQUIRED_LINKED_SOCIAL_PLATFORMS = frozenset({"facebook", "instagram", "linkedin"})
+
+# GET /api/user may return activeSocialAccounts=[] briefly after OAuth; retry before failing verify.
+_USER_PLATFORM_BLOCKS = (
+    "facebook",
+    "instagram",
+    "linkedin",
+    "twitter",
+    "tiktok",
+    "youtube",
+    "pinterest",
+    "threads",
+)
 
 
 class AyrshareServiceError(Exception):
@@ -373,30 +386,86 @@ def generate_social_connect_url(
     )
 
 
-def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
-    """
-    GET /api/user with Profile-Key. Returns activeSocialAccounts list, or None on failure.
-    """
-    key = _api_key()
+def _coerce_ayrshare_platform_slug(raw: str) -> str:
+    """Normalize an Ayrshare platform label to a lowercase slug (unknown labels kept as normalized string)."""
+    s = str(raw).strip()
+    if not s:
+        return ""
+    mapped = slug_from_ayrshare_account_label(s)
+    if mapped:
+        return mapped
+    return s.lower().replace(" ", "").replace("_", "")
+
+
+def _platform_slugs_from_active_social_entries(entries: List[Any]) -> List[str]:
+    """Parse activeSocialAccounts / activeSocialNetworks list entries (strings or {platform: ...} objects)."""
+    out: List[str] = []
+    for x in entries:
+        if x is None:
+            continue
+        if isinstance(x, str):
+            slug = _coerce_ayrshare_platform_slug(x)
+            if slug:
+                out.append(slug)
+        elif isinstance(x, dict):
+            p = x.get("platform") or x.get("network") or x.get("name")
+            if isinstance(p, str) and p.strip():
+                slug = _coerce_ayrshare_platform_slug(p)
+                if slug:
+                    out.append(slug)
+    return list(dict.fromkeys(out))
+
+
+def _parse_display_names_platforms(data: Dict[str, Any]) -> List[str]:
+    """Ayrshare returns linked account rows under displayNames[].platform (see profile-details docs)."""
+    dn = data.get("displayNames")
+    if not isinstance(dn, list) or not dn:
+        return []
+    out: List[str] = []
+    for item in dn:
+        if not isinstance(item, dict):
+            continue
+        p = item.get("platform")
+        if isinstance(p, str) and p.strip():
+            slug = _coerce_ayrshare_platform_slug(p)
+            if slug:
+                out.append(slug)
+    return list(dict.fromkeys(out))
+
+
+def parse_profile_linked_platforms(profile: Dict[str, Any]) -> List[str]:
+    """Linked platform slugs from one object in GET /api/profiles `profiles` array."""
+    raw = profile.get("activeSocialAccounts")
+    if isinstance(raw, list) and raw:
+        return _platform_slugs_from_active_social_entries(raw)
+    sh = profile.get("socialHealth")
+    if isinstance(sh, dict):
+        linked: List[str] = []
+        for plat_key, meta in sh.items():
+            if not isinstance(plat_key, str) or not isinstance(meta, dict):
+                continue
+            if meta.get("linked") is True:
+                slug = _coerce_ayrshare_platform_slug(plat_key)
+                if slug:
+                    linked.append(slug)
+        if linked:
+            return list(dict.fromkeys(linked))
+    return []
+
+
+def _ayrshare_get_user_payload(*, api_key: str, profile_key: str) -> Optional[Dict[str, Any]]:
     pk = profile_key.strip()
-    if not key or not pk:
-        log.warning(
-            "fetch_active_social_accounts skipped: api_key_present=%s profile_key_present=%s",
-            bool(key),
-            bool(pk),
-        )
-        return None
     try:
         with httpx.Client(timeout=12.0) as client:
             resp = client.get(
                 AYRSHARE_API_USER,
                 headers={
-                    "Authorization": f"Bearer {key}",
+                    "Authorization": f"Bearer {api_key}",
                     "Profile-Key": pk,
                 },
             )
     except Exception as e:
-        log.warning("Ayrshare GET /user failed profile_key=%s err=%s", pk[:8], e)
+        log.warning("Ayrshare GET /user failed profile_key_prefix=%s err=%s", pk[:8], e)
         return None
 
     try:
@@ -416,26 +485,124 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
         log.warning("Ayrshare GET /user error: %s", data.get("message"))
         return None
 
+    return data
+
+
+def _parse_active_social_accounts_from_user_payload(data: Dict[str, Any]) -> List[str]:
+    """Derive linked platform labels from GET /api/user JSON (handles alternate shapes)."""
     raw = data.get("activeSocialAccounts")
-    if not isinstance(raw, list):
+    if isinstance(raw, list) and raw:
+        acc = _platform_slugs_from_active_social_entries(raw)
+        if acc:
+            return acc
+
+    raw2 = data.get("activeSocialNetworks")
+    if isinstance(raw2, list) and raw2:
+        acc2 = _platform_slugs_from_active_social_entries(raw2)
+        if acc2:
+            return acc2
+
+    dn_slugs = _parse_display_names_platforms(data)
+    if dn_slugs:
+        return dn_slugs
+
+    found: List[str] = []
+    for plat in _USER_PLATFORM_BLOCKS:
+        block = data.get(plat)
+        if isinstance(block, dict):
+            if block.get("active") is True or block.get("linked") is True:
+                found.append(plat)
+                continue
+            pid = str(block.get("id") or block.get("userId") or "").strip()
+            handle = str(
+                block.get("username")
+                or block.get("userName")
+                or block.get("handle")
+                or block.get("screenName")
+                or ""
+            ).strip()
+            disp = str(block.get("displayName") or block.get("name") or "").strip()
+            if pid and (handle or disp):
+                found.append(plat)
+        elif isinstance(block, str) and block.strip():
+            found.append(plat)
+
+    return list(dict.fromkeys(found))
+
+
+def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
+    """
+    GET /api/user with Profile-Key. Returns linked platform ids, or None on transport/API failure.
+
+    After OAuth, Ayrshare may briefly return an empty activeSocialAccounts list; we retry with
+    backoff (AYRSHARE_OAUTH_VERIFY_ATTEMPTS / AYRSHARE_OAUTH_VERIFY_DELAY_SEC).
+    """
+    key = _api_key()
+    pk = profile_key.strip()
+    if not key or not pk:
         log.warning(
-            "Ayrshare GET /user returned no activeSocialAccounts for profile_key prefix %s — data keys: %s",
-            pk[:8],
-            list(data.keys()) if isinstance(data, dict) else type(data).__name__,
+            "fetch_active_social_accounts skipped: api_key_present=%s profile_key_present=%s",
+            bool(key),
+            bool(pk),
         )
-        return []
-    accounts = [str(x).strip().lower() for x in raw if x]
-    log.info(
-        "Ayrshare GET /user profile_key_prefix=%s activeSocialAccounts=%s",
+        return None
+
+    try:
+        max_attempts = int((os.getenv("AYRSHARE_OAUTH_VERIFY_ATTEMPTS") or "5").strip())
+    except ValueError:
+        max_attempts = 5
+    max_attempts = max(1, min(15, max_attempts))
+
+    try:
+        delay_sec = float((os.getenv("AYRSHARE_OAUTH_VERIFY_DELAY_SEC") or "0.85").strip())
+    except ValueError:
+        delay_sec = 0.85
+    delay_sec = max(0.05, min(5.0, delay_sec))
+
+    for attempt in range(max_attempts):
+        data = _ayrshare_get_user_payload(api_key=key, profile_key=pk)
+        if data is None:
+            return None
+        accounts = _parse_active_social_accounts_from_user_payload(data)
+        if accounts:
+            log.info(
+                "Ayrshare GET /user profile_key_prefix=%s active_accounts=%s attempts=%s",
+                pk[:8],
+                accounts,
+                attempt + 1,
+            )
+            return accounts
+        raw = data.get("activeSocialAccounts")
+        if not isinstance(raw, list):
+            log.warning(
+                "Ayrshare GET /user unexpected activeSocialAccounts for profile_key prefix %s — data keys: %s",
+                pk[:8],
+                list(data.keys()),
+            )
+        if attempt < max_attempts - 1:
+            log.info(
+                "ayrshare_oauth_verify_retry profile_key_prefix=%s attempt=%s/%s delay=%ss",
+                pk[:8],
+                attempt + 1,
+                max_attempts,
+                delay_sec,
+            )
+            time.sleep(delay_sec)
+
+    log.warning(
+        "Ayrshare GET /user no linked accounts after %s attempts prefix=%s",
+        max_attempts,
         pk[:8],
-        accounts,
     )
-    return accounts
+    return []
 
 
-def fetch_profiles_by_ref_id(ref_id: str) -> Optional[List[Dict[str, Any]]]:
+def fetch_profiles_by_ref_id(
+    ref_id: str, *, include: Optional[str] = None
+) -> Optional[List[Dict[str, Any]]]:
     """
     GET /api/profiles filtered by refId.
+    Optional `include` (e.g. \"socialHealth\") matches Ayrshare query params for extended rows.
     Returns profile list or None when Ayrshare call fails.
     """
     key = _api_key()
@@ -447,11 +614,15 @@ def fetch_profiles_by_ref_id(ref_id: str) -> Optional[List[Dict[str, Any]]]:
             bool(rid),
         )
         return None
+    params: Dict[str, Any] = {"refId": rid}
+    inc = (include or "").strip()
+    if inc:
+        params["include"] = inc
     try:
         with httpx.Client(timeout=30.0) as client:
             resp = client.get(
                 AYRSHARE_API_GET_PROFILES,
-                params={"refId": rid},
+                params=params,
                 headers={"Authorization": f"Bearer {key}"},
             )
     except Exception as e:
@@ -481,6 +652,20 @@ def fetch_profiles_by_ref_id(ref_id: str) -> Optional[List[Dict[str, Any]]]:
         profiles = []
     log.info("Ayrshare GET /profiles ref_id=%s response=%s", rid, data)
     return [p for p in profiles if isinstance(p, dict)]
+
+
+def fetch_linked_platforms_via_ref_id(ref_id: str) -> Optional[List[str]]:
+    """
+    When GET /api/user is empty, Ayrshare may still report links on the Business profile row.
+    Uses refId (same value as create profile) + include=socialHealth as a secondary source.
+    """
+    profiles = fetch_profiles_by_ref_id(ref_id, include="socialHealth")
+    if profiles is None:
+        return None
+    merged: List[str] = []
+    for p in profiles:
+        merged.extend(parse_profile_linked_platforms(p))
+    return list(dict.fromkeys(merged))
 
 
 def linked_social_slugs(active_accounts: Optional[List[str]]) -> set[str]:

@@ -300,8 +300,18 @@ class UpdatePostRequest(BaseModel):
 
 
 class SignupRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def _validate_email_lenient(cls, v: str) -> str:
+        """Accept any address that looks like user@domain.tld, including reserved TLDs."""
+        import re
+        v = str(v).strip().lower()
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError("Enter a valid email address.")
+        return v
     timezone: Optional[str] = None
     # RBAC: account type chosen at signup (ignored when invite_token is present)
     account_type: str = Field(default="individual")
@@ -309,6 +319,8 @@ class SignupRequest(BaseModel):
     team_name: Optional[str] = Field(default=None, max_length=120)
     # Invite token — when present, bypasses normal account_type logic
     invite_token: Optional[str] = None
+    # Paid tier chosen at signup (Stripe checkout may still be required for card-on-file in production)
+    billing_plan: str = Field(default="starter")
 
     @field_validator("password")
     @classmethod
@@ -328,6 +340,14 @@ class SignupRequest(BaseModel):
         v = str(v).strip().lower()
         if v not in ("individual", "team", "org"):
             raise ValueError("account_type must be 'individual', 'team', or 'org'")
+        return v
+
+    @field_validator("billing_plan")
+    @classmethod
+    def _valid_billing_plan(cls, v: str) -> str:
+        v = str(v or "starter").strip().lower()
+        if v not in ("starter", "growth", "pro", "scale"):
+            raise ValueError("billing_plan must be starter, growth, pro, or scale")
         return v
 
     @field_validator("team_name")
@@ -350,8 +370,17 @@ class SignupRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
+
+    @field_validator("email")
+    @classmethod
+    def _validate_email_lenient(cls, v: str) -> str:
+        import re
+        v = str(v).strip().lower()
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError("Enter a valid email address.")
+        return v
 
 
 class TokenResponse(BaseModel):

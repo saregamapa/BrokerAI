@@ -144,32 +144,17 @@
               />
             </div>
 
-            <!-- Account Type (hidden for invite signups) -->
+            <!-- Plan selection (hidden for invite signups); billing tiers from /billing/plans -->
             <div id="account-type-section">
-              <label for="account_type" class="block text-sm font-medium text-slate-700">Account type</label>
-              <select
-                id="account_type"
-                name="account_type"
-                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
+              <p class="text-sm font-medium text-slate-700">Choose your plan</p>
+              <div
+                id="signup-plans-summary"
+                class="mt-3 rounded-xl border border-slate-200/90 bg-slate-50/80 px-3 py-3 text-left shadow-sm"
+                aria-live="polite"
               >
-                <option value="individual">Individual — just me</option>
-                <option value="team">Small Business (Team) — up to 5 users</option>
-                <option value="org">Organisation — up to 13 users</option>
-              </select>
-            </div>
-
-            <!-- Team / Org Name (shown for team/org, hidden for invite) -->
-            <div id="team-name-field" class="hidden">
-              <label for="team_name" class="block text-sm font-medium text-slate-700">
-                <span id="team-name-label">Team name</span>
-              </label>
-              <input
-                id="team_name"
-                name="team_name"
-                type="text"
-                placeholder="e.g. Acme Realty"
-                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
-              />
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Current plans — select one</p>
+                <p id="signup-plans-loading" class="mt-2 text-xs text-slate-500">Loading plans…</p>
+              </div>
             </div>
 
             <button
@@ -311,27 +296,100 @@
           // Non-critical — just proceed without pre-fill
         }
 
-        // Hide account type section for invite signups
-        document.getElementById("account-type-section").classList.add("hidden");
-        document.getElementById("team-name-field").classList.add("hidden");
+        // Hide plan section for invite signups
+        var ats = document.getElementById("account-type-section");
+        if (ats) ats.classList.add("hidden");
       })();
 
-      // ── Account-type dropdown logic (normal signup only) ───────────────
-      var accountTypeEl = document.getElementById("account_type");
-      var teamNameField = document.getElementById("team-name-field");
-      var teamNameLabel = document.getElementById("team-name-label");
-      function updateTeamNameVisibility() {
-        if (_inviteToken) return; // invite flow — section is hidden
-        var val = accountTypeEl.value;
-        if (val === "team" || val === "org") {
-          teamNameField.classList.remove("hidden");
-          teamNameLabel.textContent = val === "org" ? "Organisation name" : "Team name";
-        } else {
-          teamNameField.classList.add("hidden");
-        }
+      // ── Public plan catalog (matches /billing/plans) ───────────────────
+      function _fmtSeats(n) {
+        var x = Number(n);
+        return !isFinite(x) || x >= 999999 ? "Unlimited" : String(x);
       }
-      accountTypeEl.addEventListener("change", updateTeamNameVisibility);
-      updateTeamNameVisibility();
+      (function loadSignupPlansSummary() {
+        var wrap = document.getElementById("signup-plans-summary");
+        var loading = document.getElementById("signup-plans-loading");
+        if (!wrap) return;
+        fetch("/billing/plans")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            var plans = (data && data.plans) || [];
+            if (!plans.length) {
+              if (loading) loading.remove();
+              var h0 = document.createElement("input");
+              h0.type = "hidden";
+              h0.name = "billing_plan";
+              h0.value = "starter";
+              wrap.appendChild(h0);
+              var p0 = document.createElement("p");
+              p0.className = "mt-2 text-xs text-slate-600";
+              p0.textContent = "Plan list unavailable. Defaulting to Starter.";
+              wrap.appendChild(p0);
+              return;
+            }
+            if (loading) loading.remove();
+            var grid = document.createElement("div");
+            grid.setAttribute("role", "radiogroup");
+            grid.setAttribute("aria-label", "Subscription plan");
+            grid.className = "mt-2 grid gap-2 sm:grid-cols-2";
+            plans.forEach(function (p) {
+              var rid = "billing-plan-" + p.plan;
+              var lbl = document.createElement("label");
+              lbl.className = "relative block cursor-pointer text-left";
+              var price = "$" + p.price_usd + (p.price_period || "/mo");
+              var seats = _fmtSeats(p.team_seats);
+              var camps = String(p.campaigns_per_month);
+              var checked = p.plan === "starter" ? " checked" : "";
+              var baseBorder = p.highlighted ? "border-amber-200 bg-amber-50/50" : "border-slate-200 bg-white";
+              lbl.innerHTML =
+                '<input type="radio" name="billing_plan" id="' +
+                rid +
+                '" value="' +
+                p.plan +
+                '" class="peer sr-only"' +
+                checked +
+                " />" +
+                '<span class="block rounded-lg border px-2.5 py-2 transition ' +
+                baseBorder +
+                ' peer-checked:border-amber-500 peer-checked:bg-amber-50/90 peer-checked:ring-2 peer-checked:ring-amber-400/50 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-amber-500">' +
+                '<span class="text-xs font-bold text-slate-900">' +
+                p.name +
+                (p.highlighted
+                  ? ' <span class="text-[10px] font-bold uppercase text-amber-700">Popular</span>'
+                  : "") +
+                "</span>" +
+                '<span class="mt-0.5 block text-[11px] text-slate-600">' +
+                price +
+                " · " +
+                camps +
+                " campaigns/mo · " +
+                seats +
+                " seat(s) · " +
+                p.platforms +
+                " platforms</span>" +
+                '<span class="mt-0.5 block text-[10px] text-slate-500">' +
+                (p.tagline || "") +
+                "</span></span>";
+              grid.appendChild(lbl);
+            });
+            wrap.appendChild(grid);
+          })
+          .catch(function () {
+            if (loading) loading.remove();
+            var h = document.createElement("input");
+            h.type = "hidden";
+            h.name = "billing_plan";
+            h.value = "starter";
+            wrap.appendChild(h);
+            var err = document.createElement("p");
+            err.className = "mt-2 text-xs text-slate-600";
+            err.textContent =
+              "Could not load the plan list. You will be created on the Starter plan; you can upgrade after signup.";
+            wrap.appendChild(err);
+          });
+      })();
 
       // ── Form submit ───────────────────────────────────────────────────
       var signupForm = document.getElementById("signup-form");
@@ -348,21 +406,13 @@
         var password = (fd.get("password") || "").toString();
 
         // Client-side validation (inline errors, no alerts)
-        BrokerAI.clearFieldErrors(["email", "password", "team_name"]);
+        BrokerAI.clearFieldErrors(["email", "password"]);
         var hasErr = false;
         var eErr = BrokerAI.validateEmail(email);
         if (eErr) { BrokerAI.setFieldError("email", eErr); hasErr = true; }
         var pErr = BrokerAI.validatePassword(password);
         if (pErr) { BrokerAI.setFieldError("password", pErr); hasErr = true; }
 
-        if (!_inviteToken) {
-          var accountType = fd.get("account_type") || "individual";
-          var teamName = (fd.get("team_name") || "").trim();
-          if ((accountType === "team" || accountType === "org") && !teamName) {
-            BrokerAI.setFieldError("team_name", (accountType === "org" ? "Organisation" : "Team") + " name is required.");
-            hasErr = true;
-          }
-        }
         if (hasErr) return;
 
         var body = {
@@ -373,9 +423,9 @@
         if (_inviteToken) {
           body.invite_token = _inviteToken;
         } else {
-          body.account_type = fd.get("account_type") || "individual";
-          var tName = (fd.get("team_name") || "").trim();
-          if (tName) body.team_name = tName;
+          body.account_type = "individual";
+          var bp = (fd.get("billing_plan") || "starter").toString().trim().toLowerCase();
+          body.billing_plan = ["starter", "growth", "pro", "scale"].indexOf(bp) !== -1 ? bp : "starter";
         }
 
         signupBtn.disabled = true;

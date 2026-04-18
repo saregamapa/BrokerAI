@@ -6,6 +6,7 @@ Environment variables required:
   STRIPE_PRICE_STARTER       — price_xxx (monthly Starter price ID)
   STRIPE_PRICE_GROWTH        — price_xxx
   STRIPE_PRICE_PRO           — price_xxx
+  STRIPE_PRICE_SCALE         — price_xxx
   APP_URL                    — https://brokerai.app (used for success/cancel URLs)
 
 Supported webhook events:
@@ -55,6 +56,7 @@ def _price_id_to_plan() -> Dict[str, str]:
             "starter": os.getenv("STRIPE_PRICE_STARTER", "").strip(),
             "growth": os.getenv("STRIPE_PRICE_GROWTH", "").strip(),
             "pro": os.getenv("STRIPE_PRICE_PRO", "").strip(),
+            "scale": os.getenv("STRIPE_PRICE_SCALE", "").strip(),
         }.items()
         if v
     }
@@ -221,7 +223,7 @@ def _plan_slug_from_subscription(sub: Any) -> str:
     plan = str(meta.get("plan") or "").strip().lower()
     if plan in PLAN_ORDER:
         return plan
-    return "free"
+    return "starter"
 
 
 def _handle_checkout_completed(data: Any, session: Session) -> None:
@@ -275,7 +277,7 @@ def _handle_subscription_updated(data: Any, session: Session) -> None:
             user.plan_expires_at = datetime.fromtimestamp(period_end, tz=timezone.utc).replace(tzinfo=None)
         log_event("billing.payment_overdue", user_id=user.id, plan=plan, status=status)
     elif status in ("canceled", "incomplete_expired"):
-        user.plan = "free"
+        user.plan = "starter"
         user.stripe_subscription_id = None
         user.plan_expires_at = None
         log_event("billing.plan_cancelled", user_id=user.id)
@@ -291,7 +293,7 @@ def _handle_subscription_deleted(data: Any, session: Session) -> None:
     if user is None:
         return
 
-    user.plan = "free"
+    user.plan = "starter"
     user.stripe_subscription_id = None
     user.plan_expires_at = None
     session.add(user)
@@ -313,22 +315,19 @@ def _handle_payment_failed(data: Any, session: Session) -> None:
 
 def plan_display_name(plan: str) -> str:
     return {
-        "free": "Free",
         "starter": "Starter",
         "growth": "Growth",
         "pro": "Pro",
+        "scale": "Scale",
         "agency": "Agency",
     }.get(plan, plan.title())
 
 
 def get_all_plan_summaries() -> list[dict]:
     """Return frontend-consumable pricing data for all non-agency plans."""
-    from backend.core.plan_limits import PLAN_STARTER, PLAN_GROWTH, PLAN_PRO
+    from backend.core.plan_limits import PLAN_STARTER, PLAN_GROWTH, PLAN_PRO, PLAN_SCALE
 
-    def _fmt_campaigns(n: int) -> str:
-        return "Unlimited" if n >= 999_999 else str(n)
-
-    def _fmt_seats(n: int) -> str:
+    def _fmt(n: int) -> str:
         return "Unlimited" if n >= 999_999 else str(n)
 
     return [
@@ -338,10 +337,11 @@ def get_all_plan_summaries() -> list[dict]:
             "price_usd": 29,
             "price_period": "/month",
             "tagline": "Perfect for solo agents",
-            "campaigns_per_month": _fmt_campaigns(PLAN_STARTER.campaigns_per_month),
-            "posts_per_campaign": _fmt_campaigns(PLAN_STARTER.posts_per_campaign),
+            "campaigns_per_month": _fmt(PLAN_STARTER.campaigns_per_month),
+            "posts_per_month": _fmt(PLAN_STARTER.posts_per_campaign),
             "platforms": PLAN_STARTER.platforms_allowed,
-            "team_seats": _fmt_seats(PLAN_STARTER.team_seats),
+            "team_seats": _fmt(PLAN_STARTER.team_seats),
+            "videos_per_month": _fmt(PLAN_STARTER.videos_per_month),
             "analytics_ai": PLAN_STARTER.analytics_ai,
             "comment_automations": PLAN_STARTER.comment_automations,
             "highlighted": False,
@@ -352,10 +352,11 @@ def get_all_plan_summaries() -> list[dict]:
             "price_usd": 79,
             "price_period": "/month",
             "tagline": "For growing teams",
-            "campaigns_per_month": _fmt_campaigns(PLAN_GROWTH.campaigns_per_month),
-            "posts_per_campaign": _fmt_campaigns(PLAN_GROWTH.posts_per_campaign),
+            "campaigns_per_month": _fmt(PLAN_GROWTH.campaigns_per_month),
+            "posts_per_month": _fmt(PLAN_GROWTH.posts_per_campaign),
             "platforms": PLAN_GROWTH.platforms_allowed,
-            "team_seats": _fmt_seats(PLAN_GROWTH.team_seats),
+            "team_seats": _fmt(PLAN_GROWTH.team_seats),
+            "videos_per_month": _fmt(PLAN_GROWTH.videos_per_month),
             "analytics_ai": PLAN_GROWTH.analytics_ai,
             "comment_automations": PLAN_GROWTH.comment_automations,
             "highlighted": True,   # most popular
@@ -363,15 +364,31 @@ def get_all_plan_summaries() -> list[dict]:
         {
             "plan": "pro",
             "name": "Pro",
-            "price_usd": 199,
+            "price_usd": 259,
             "price_period": "/month",
-            "tagline": "For power users",
-            "campaigns_per_month": _fmt_campaigns(PLAN_PRO.campaigns_per_month),
-            "posts_per_campaign": _fmt_campaigns(PLAN_PRO.posts_per_campaign),
+            "tagline": "For power brokers & teams",
+            "campaigns_per_month": _fmt(PLAN_PRO.campaigns_per_month),
+            "posts_per_month": _fmt(PLAN_PRO.posts_per_campaign),
             "platforms": PLAN_PRO.platforms_allowed,
-            "team_seats": _fmt_seats(PLAN_PRO.team_seats),
+            "team_seats": _fmt(PLAN_PRO.team_seats),
+            "videos_per_month": _fmt(PLAN_PRO.videos_per_month),
             "analytics_ai": PLAN_PRO.analytics_ai,
             "comment_automations": PLAN_PRO.comment_automations,
+            "highlighted": False,
+        },
+        {
+            "plan": "scale",
+            "name": "Scale",
+            "price_usd": 399,
+            "price_period": "/month",
+            "tagline": "For high-volume agencies",
+            "campaigns_per_month": _fmt(PLAN_SCALE.campaigns_per_month),
+            "posts_per_month": _fmt(PLAN_SCALE.posts_per_campaign),
+            "platforms": PLAN_SCALE.platforms_allowed,
+            "team_seats": _fmt(PLAN_SCALE.team_seats),
+            "videos_per_month": _fmt(PLAN_SCALE.videos_per_month),
+            "analytics_ai": PLAN_SCALE.analytics_ai,
+            "comment_automations": PLAN_SCALE.comment_automations,
             "highlighted": False,
         },
     ]

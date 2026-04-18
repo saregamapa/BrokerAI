@@ -222,6 +222,7 @@ from backend.services.ayrshare_service import (
     AyrshareServiceError,
     create_ayrshare_profile,
     fetch_active_social_accounts,
+    fetch_linked_platforms_via_ref_id,
     fetch_profiles_by_ref_id,
     generate_social_connect_url,
 )
@@ -425,6 +426,17 @@ def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, 
                 session.commit()
             log.warning("verify_social: Ayrshare /user failed user_id=%s", uid)
             return bool(user.social_connected), False
+
+        if len(active_accounts) == 0:
+            ref_linked = fetch_linked_platforms_via_ref_id(f"brokerai_user_{uid}")
+            if ref_linked:
+                log.info(
+                    "verify_social: refId/socialHealth fallback user_id=%s prefix=%s accounts=%s",
+                    uid,
+                    pk[:8],
+                    ref_linked,
+                )
+                active_accounts = ref_linked
 
         is_connected = len(active_accounts) > 0
         _upsert_social_account(
@@ -818,11 +830,6 @@ async def serve_index():
     return FileResponse(BASE_DIR / "frontend" / "index.html")
 
 
-@app.get("/wizard-v2.html")
-def wizard_v2_page():
-    return FileResponse(Path(__file__).resolve().parent.parent / "frontend" / "wizard-v2.html")
-
-
 @app.get("/wizard.html")
 async def serve_wizard():
     return FileResponse(BASE_DIR / "frontend" / "wizard.html")
@@ -1083,7 +1090,11 @@ def social_connected_callback(
     if not sync_ok:
         msg = "Could not verify with Ayrshare right now. Please retry."
     elif not connected:
-        msg = "Authorization not completed yet. Finish in Ayrshare and retry."
+        msg = (
+            "Ayrshare has not reported any linked networks yet. "
+            "If you just finished linking, wait a few seconds and click “I've finished linking” again. "
+            "Otherwise open the Ayrshare flow and connect at least one network."
+        )
     log.info(
         "social-connected-callback requester_id=%s subject_user_id=%s sync_ok=%s connected=%s state=%s",
         current_user.id,
@@ -1137,6 +1148,7 @@ def signup(
             email=email,
             password_hash=hash_password(body.password),
             timezone=tz,
+            plan="starter",
             account_type="team",
             role="member",
             team_id=invite.team_id,
@@ -1177,6 +1189,7 @@ def signup(
         email=email,
         password_hash=hash_password(body.password),
         timezone=tz,
+        plan=body.billing_plan,
         account_type=account_type,
         role="owner",
     )
@@ -4507,8 +4520,8 @@ def create_checkout(
     from backend.core.plan_limits import PLAN_ORDER
 
     plan = str((body or {}).get("plan") or "").strip().lower()
-    if plan not in ("starter", "growth", "pro"):
-        raise HTTPException(status_code=400, detail="plan must be starter, growth, or pro")
+    if plan not in ("starter", "growth", "pro", "scale"):
+        raise HTTPException(status_code=400, detail="plan must be starter, growth, pro, or scale")
 
     # Prevent downgrade via checkout (must use portal)
     try:
@@ -4516,7 +4529,7 @@ def create_checkout(
         requested_idx = PLAN_ORDER.index(plan)
     except ValueError:
         current_idx = requested_idx = 0
-    if requested_idx <= current_idx and current_user.plan != "free":
+    if requested_idx <= current_idx:
         raise HTTPException(
             status_code=400,
             detail="To change or cancel your subscription, use the billing portal.",

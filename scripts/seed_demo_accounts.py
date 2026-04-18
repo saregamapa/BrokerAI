@@ -5,8 +5,8 @@ Run from the repository root:
 
   python scripts/seed_demo_accounts.py
 
-Plan limits match ``backend/core/plan_limits.py`` (free / starter / growth / pro / agency).
-Team demo: owner (agency, unlimited campaigns) + admin (agency) + member (growth).
+Plan limits match ``backend/core/plan_limits.py``:
+  starter ($29) / growth ($79) / pro ($259) / scale ($399) / agency
 
 Shared password for all seeded accounts (change after first login in production):
 
@@ -15,6 +15,15 @@ Shared password for all seeded accounts (change after first login in production)
 Optional: set in ``.env`` so an existing non-seed admin email skips the monthly cap:
 
   BROKERAI_UNLIMITED_CAMPAIGNS_EMAILS=you@company.com
+
+Test accounts summary:
+  starter@demo.brokerai.test    — Starter $29   (1 campaign/mo, 10 posts, 2 platforms, 1 video)
+  growth@demo.brokerai.test     — Growth $79    (5 campaigns/mo, 30 posts, 5 platforms, 5 videos)
+  pro@demo.brokerai.test        — Pro $259      (10 campaigns/mo, 60 posts, 10 platforms, 10 videos, 3 seats)
+  scale@demo.brokerai.test      — Scale $399    (20 campaigns/mo, 120 posts, 15 platforms, 15 videos, 5 seats)
+  owner@demo.brokerai.test      — Agency owner  (team workspace, unlimited)
+  admin@demo.brokerai.test      — Agency admin  (team workspace member)
+  member@demo.brokerai.test     — Scale member  (team workspace member)
 """
 from __future__ import annotations
 
@@ -77,12 +86,12 @@ def _ensure_user(
 def main() -> None:
     create_db_and_tables()
 
-    owner_email = f"owner@{DOMAIN}"
-    admin_email = f"admin@{DOMAIN}"
+    owner_email  = f"owner@{DOMAIN}"
+    admin_email  = f"admin@{DOMAIN}"
     member_email = f"member@{DOMAIN}"
 
     with Session(engine) as session:
-        # --- Team workspace (owner + admin + member) ---
+        # ── Team workspace (owner + admin + member) ──────────────────────────
         owner = _ensure_user(
             session,
             email=owner_email,
@@ -102,66 +111,68 @@ def main() -> None:
         tid = int(owner.team_id or 0)
         assert tid > 0, "team_id missing after create_team"
 
-        _ensure_user(session, email=admin_email, plan="agency", account_type="individual", role="owner")
-        _ensure_user(session, email=member_email, plan="growth", account_type="individual", role="owner")
+        _ensure_user(session, email=admin_email,  plan="agency", account_type="individual", role="owner")
+        _ensure_user(session, email=member_email, plan="scale",  account_type="individual", role="owner")
 
-        admin_u = get_user_by_email(session, admin_email)
+        admin_u  = get_user_by_email(session, admin_email)
         member_u = get_user_by_email(session, member_email)
         assert admin_u and member_u
 
         if admin_u.team_id != tid:
-            invite_member(
-                session,
-                team_id=tid,
-                inviter=owner,
-                invitee_email=admin_email,
-            )
+            invite_member(session, team_id=tid, inviter=owner, invitee_email=admin_email)
             session.refresh(admin_u)
         admin_u = session.get(User, admin_u.id)
         assert admin_u is not None
-        admin_u.role = "admin"
-        admin_u.plan = "agency"
+        admin_u.role  = "admin"
+        admin_u.plan  = "agency"
         session.add(admin_u)
         session.commit()
 
         if member_u.team_id != tid:
-            invite_member(
-                session,
-                team_id=tid,
-                inviter=owner,
-                invitee_email=member_email,
-            )
+            invite_member(session, team_id=tid, inviter=owner, invitee_email=member_email)
             session.refresh(member_u)
         member_u = session.get(User, member_u.id)
         assert member_u is not None
         member_u.role = "member"
-        member_u.plan = "growth"
+        member_u.plan = "scale"
         session.add(member_u)
         session.commit()
 
-        # --- Solo accounts: exact tier limits from plan_limits ---
-        _ensure_user(session, email=f"free@{DOMAIN}", plan="free")
+        # ── Individual tier test accounts ─────────────────────────────────────
         _ensure_user(session, email=f"starter@{DOMAIN}", plan="starter")
-        _ensure_user(session, email=f"growth@{DOMAIN}", plan="growth")
-        _ensure_user(session, email=f"pro@{DOMAIN}", plan="pro")
+        _ensure_user(session, email=f"growth@{DOMAIN}",  plan="growth")
+        _ensure_user(session, email=f"pro@{DOMAIN}",     plan="pro")
+        _ensure_user(session, email=f"scale@{DOMAIN}",   plan="scale")
 
-    print("Demo accounts ready (password for all):", DEMO_PASSWORD)
+    # ── Print summary ─────────────────────────────────────────────────────────
+    SEP  = "─" * 72
+    W    = 40
+
     print()
-    print("Team workspace @", DOMAIN)
-    print(f"  {owner_email:36}  agency   owner   (unlimited campaigns)")
-    print(f"  {admin_email:36}  agency   admin")
-    print(f"  {member_email:36}  growth   member  (30 campaigns/mo, … growth limits)")
+    print("╔══════════════════════════════════════════════════════════════════════╗")
+    print("║          BrokerAI Test Accounts — password: BrokerAI-Demo!1         ║")
+    print("╚══════════════════════════════════════════════════════════════════════╝")
     print()
-    print("Individual tier demos @", DOMAIN)
-    print(f"  {'free@' + DOMAIN:36}  free     (2 campaigns/mo, 5 posts/campaign, 1 platform)")
-    print(f"  {'starter@' + DOMAIN:36}  starter  (10 / 10 / 2)")
-    print(f"  {'growth@' + DOMAIN:36}  growth   (30 / 20 / 3)")
-    print(f"  {'pro@' + DOMAIN:36}  pro      (unlimited campaigns & posts, all platforms)")
+    print("  Individual plan accounts")
+    print(SEP)
+    rows = [
+        (f"starter@{DOMAIN}", "starter", "$29",   "1 campaign/mo · 10 posts · 2 platforms · 1 video"),
+        (f"growth@{DOMAIN}",  "growth",  "$79",   "5 campaigns/mo · 30 posts · 5 platforms · 5 videos"),
+        (f"pro@{DOMAIN}",     "pro",     "$259",  "10 campaigns/mo · 60 posts · 10 platforms · 3 seats"),
+        (f"scale@{DOMAIN}",   "scale",   "$399",  "20 campaigns/mo · 120 posts · 15 platforms · 5 seats"),
+    ]
+    for email, plan, price, limits in rows:
+        print(f"  {email:<40}  {plan:<8}  {price:<6}  {limits}")
     print()
-    print(
-        "To remove monthly campaign limits for any other email (e.g. legacy test admin), add to .env:\n"
-        "  BROKERAI_UNLIMITED_CAMPAIGNS_EMAILS=admin@yourcompany.com\n"
-    )
+    print("  Team workspace accounts")
+    print(SEP)
+    print(f"  {owner_email:<40}  agency   owner   (unlimited — team workspace)")
+    print(f"  {admin_email:<40}  agency   admin   (team workspace)")
+    print(f"  {member_email:<40}  scale    member  (20 campaigns/mo)")
+    print()
+    print("  To skip monthly campaign cap for extra emails, add to .env:")
+    print("    BROKERAI_UNLIMITED_CAMPAIGNS_EMAILS=you@company.com")
+    print()
 
 
 if __name__ == "__main__":

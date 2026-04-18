@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="BrokerAI pricing — AI-powered social media campaigns for real estate. Starter $29, Growth $79, Pro $199/mo." />
+  <meta name="description" content="BrokerAI pricing — AI-powered social media campaigns for real estate. Starter $29, Growth $79, Pro $259, Scale $399/mo." />
   <title>Pricing — BrokerAI</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
   <script src="https://cdn.tailwindcss.com"></script>
@@ -29,18 +29,18 @@
     <nav class="flex items-center gap-4 text-sm">
       <a href="/dashboard.html" class="hidden font-medium text-slate-600 hover:text-slate-900 sm:inline">Dashboard</a>
       <a href="/login.html" id="nav-login" class="rounded-xl border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">Log in</a>
-      <a href="/signup.html" class="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 font-semibold text-white shadow-md shadow-amber-500/20 transition hover:scale-105">Sign up free</a>
+      <a href="/signup.html" class="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2 font-semibold text-white shadow-md shadow-amber-500/20 transition hover:scale-105">Get started</a>
     </nav>
   </div>
 </header>
 
-<main class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+<main class="mx-auto max-w-7xl px-4 py-16 sm:px-6">
 
   <!-- Hero -->
   <div class="mb-14 text-center">
-    <span class="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-bold text-amber-800">⚡ Launch offer — 14-day free trial on all plans</span>
+    <span class="mb-4 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-bold text-amber-800">⚡ Launch offer — special pricing for early members</span>
     <h1 class="mt-4 text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">Simple, transparent pricing</h1>
-    <p class="mt-4 text-lg text-slate-500">Generate a month of AI social media content in minutes.<br class="hidden sm:block" />Scale from solo agent to full agency without changing tools.</p>
+    <p class="mt-4 text-lg text-slate-500">Generate a month of AI social media content in minutes.<br class="hidden sm:block" />Scale from solo agent to full brokerage without changing tools.</p>
     <!-- Toggle annual/monthly -->
     <div class="mt-8 inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
       <button id="btn-monthly" onclick="setBilling('monthly')" class="rounded-lg px-5 py-2 text-sm font-semibold transition bg-slate-900 text-white">Monthly</button>
@@ -50,7 +50,7 @@
     </div>
   </div>
 
-  <!-- Plan grid -->
+  <!-- Plan grid — 4 columns -->
   <div class="grid gap-6 lg:grid-cols-4">
 
     <!-- Starter -->
@@ -66,16 +66,16 @@
       </div>
       <button onclick="startCheckout('starter')" class="mb-6 w-full rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 active:scale-95">Get Started</button>
       <ul class="flex-1 space-y-3 text-sm text-slate-700">
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>3 campaigns / month</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>15 posts / month</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Instagram, Facebook, LinkedIn</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>1</strong>&nbsp;campaign / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>10</strong>&nbsp;posts / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>2</strong>&nbsp;social media platforms</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>1</strong>&nbsp;video / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Compliance Checker</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Performance Insights</li>
         <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>1 user (solo only)</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>AI captions &amp; hashtags</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Basic engagement metrics</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Email support (48h SLA)</li>
         <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Team members / RBAC</li>
-        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>AI video generation</li>
-        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Analytics charts &amp; date filter</li>
+        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Comment Automation</li>
+        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Priority Support</li>
       </ul>
     </div>
 
@@ -84,7 +84,7 @@
       <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-500 px-4 py-1 text-[11px] font-black text-white shadow">⭐ BEST VALUE</div>
       <div class="mb-5">
         <p class="text-xs font-bold uppercase tracking-widest text-amber-600">Growth</p>
-        <p class="mt-1 text-sm text-slate-500">Small brokerages (2–5 agents)</p>
+        <p class="mt-1 text-sm text-slate-500">Small brokerages &amp; active agents</p>
         <div class="mt-4 flex items-end gap-1">
           <span id="growth-price" class="text-4xl font-extrabold text-slate-900">$79</span>
           <span class="mb-1 text-sm text-slate-400">/mo</span>
@@ -93,72 +93,69 @@
       </div>
       <button onclick="startCheckout('growth')" class="mb-6 w-full rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition hover:scale-[1.02] active:scale-95">Start Growing</button>
       <ul class="flex-1 space-y-3 text-sm text-slate-700">
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>10 campaigns / month</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>60 posts / month</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>All platforms incl. TikTok &amp; X</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Up to 5 users + RBAC + approval flow</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>AI captions, hooks, compliance + brand kit</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Charts, date filter, per-platform analytics</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>3 AI videos / month</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Email support (24h SLA)</li>
-        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>A/B caption testing</li>
-        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Client PDF reports</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>5</strong>&nbsp;campaigns / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>30</strong>&nbsp;posts / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>5</strong>&nbsp;social media platforms</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>5</strong>&nbsp;videos / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Compliance Checker</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Performance Insights</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>1 user seat</li>
+        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Team members / RBAC</li>
+        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Comment Automation</li>
+        <li class="flex gap-2 opacity-35"><span class="mt-0.5">✗</span>Priority Support</li>
       </ul>
     </div>
 
     <!-- Pro -->
-    <div class="relative flex flex-col rounded-2xl border border-slate-200 bg-white p-7 shadow-lg transition hover:-translate-y-1 hover:shadow-xl">
-      <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-violet-600 px-4 py-1 text-[11px] font-black text-white shadow">MAXIMUM POWER</div>
+    <div class="relative flex flex-col rounded-2xl border border-violet-200 bg-white p-7 shadow-lg transition hover:-translate-y-1 hover:shadow-xl">
+      <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-violet-600 px-4 py-1 text-[11px] font-black text-white shadow">TEAM POWER</div>
       <div class="mb-5">
         <p class="text-xs font-bold uppercase tracking-widest text-violet-600">Pro</p>
         <p class="mt-1 text-sm text-slate-500">Power brokers &amp; marketing teams</p>
         <div class="mt-4 flex items-end gap-1">
-          <span id="pro-price" class="text-4xl font-extrabold text-slate-900">$199</span>
+          <span id="pro-price" class="text-4xl font-extrabold text-slate-900">$259</span>
           <span class="mb-1 text-sm text-slate-400">/mo</span>
         </div>
         <p id="pro-note" class="mt-1 text-xs text-slate-400">billed monthly</p>
       </div>
       <button onclick="startCheckout('pro')" class="mb-6 w-full rounded-xl bg-violet-600 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-violet-700 active:scale-95">Go Pro</button>
       <ul class="flex-1 space-y-3 text-sm text-slate-700">
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Unlimited campaigns</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Unlimited posts</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>All platforms + custom scheduling</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Up to 15 users + audit log + RBAC</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>A/B testing, auto-winner, content library</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Full analytics + client PDF reports + export</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Unlimited AI video</li>
-        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Priority support (4h SLA) + onboarding call</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>10</strong>&nbsp;campaigns / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>60</strong>&nbsp;posts / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>10</strong>&nbsp;social media platforms</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>10</strong>&nbsp;videos / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Compliance Checker</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Performance Insights</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span><strong>3 team seats</strong> (1 Admin + 2 Members)</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Comment Automation</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-emerald-500">✓</span>Priority Support</li>
       </ul>
     </div>
 
-    <!-- Agency — Connect With Us (replaces pricing card) -->
+    <!-- Scale -->
     <div class="relative flex flex-col overflow-hidden rounded-2xl border-2 border-slate-800 p-7 shadow-lg transition hover:-translate-y-1 hover:shadow-xl" style="background: linear-gradient(135deg, #111827 0%, #1f2937 100%);">
-      <div class="mb-6 text-center">
-        <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-amber-500 mb-4">
-          <span class="text-2xl">🏢</span>
+      <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-amber-400 px-4 py-1 text-[11px] font-black text-slate-900 shadow">MAXIMUM SCALE</div>
+      <div class="mb-5">
+        <p class="text-xs font-bold uppercase tracking-widest text-amber-400">Scale</p>
+        <p class="mt-1 text-sm text-slate-400">High-volume brokerages &amp; agencies</p>
+        <div class="mt-4 flex items-end gap-1">
+          <span id="scale-price" class="text-4xl font-extrabold text-white">$399</span>
+          <span class="mb-1 text-sm text-slate-400">/mo</span>
         </div>
-        <div class="text-xl font-bold text-white">Agency</div>
-        <div class="text-sm text-slate-400 mt-1">Marketing agencies · Multi-client</div>
+        <p id="scale-note" class="mt-1 text-xs text-slate-500">billed monthly</p>
       </div>
-      <div class="text-center mb-6">
-        <div class="text-4xl font-extrabold text-amber-400">Custom</div>
-        <div class="text-sm text-slate-400 mt-1">Negotiated enterprise pricing</div>
-      </div>
-      <!-- Features preview -->
-      <ul class="flex-1 space-y-2 mb-6">
-        <li class="flex items-start gap-2 text-sm text-slate-300"><span class="text-amber-400 font-bold flex-shrink-0 mt-0.5">✓</span>Multi-account management</li>
-        <li class="flex items-start gap-2 text-sm text-slate-300"><span class="text-amber-400 font-bold flex-shrink-0 mt-0.5">✓</span>Unlimited campaigns + white-label</li>
-        <li class="flex items-start gap-2 text-sm text-slate-300"><span class="text-amber-400 font-bold flex-shrink-0 mt-0.5">✓</span>Everything in Pro + custom AI tuning</li>
-        <li class="flex items-start gap-2 text-sm text-slate-300"><span class="text-amber-400 font-bold flex-shrink-0 mt-0.5">✓</span>Dedicated account manager + SLA</li>
-        <li class="flex items-start gap-2 text-sm text-slate-400"><span class="text-slate-500 font-bold flex-shrink-0 mt-0.5">+</span>Unlimited users + API access</li>
-        <li class="flex items-start gap-2 text-sm text-slate-400"><span class="text-slate-500 font-bold flex-shrink-0 mt-0.5">+</span>Cross-client analytics dashboard</li>
+      <button onclick="startCheckout('scale')" class="mb-6 w-full rounded-xl bg-amber-400 py-2.5 text-sm font-bold text-slate-900 shadow-md transition hover:bg-amber-300 active:scale-95">Scale Up</button>
+      <ul class="flex-1 space-y-3 text-sm text-slate-300">
+        <li class="flex gap-2"><span class="mt-0.5 text-amber-400">✓</span><strong class="text-white">20</strong>&nbsp;campaigns / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-amber-400">✓</span><strong class="text-white">120</strong>&nbsp;posts / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-amber-400">✓</span><strong class="text-white">15</strong>&nbsp;social media platforms</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-amber-400">✓</span><strong class="text-white">15</strong>&nbsp;videos / month</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-amber-400">✓</span>Compliance Checker</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-amber-400">✓</span>Performance Insights</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-amber-400">✓</span><strong class="text-white">5 team seats</strong> (1 Admin + 4 Members)</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-amber-400">✓</span>Comment Automation</li>
+        <li class="flex gap-2"><span class="mt-0.5 text-amber-400">✓</span>Priority Support</li>
       </ul>
-      <!-- CTA -->
-      <a href="/contact.html"
-        class="block w-full rounded-xl py-3 px-4 text-center font-semibold text-slate-900 bg-amber-400 hover:bg-amber-300 transition-colors text-sm">
-        Connect With Us →
-      </a>
-      <p class="text-center text-xs text-slate-500 mt-3">No credit card required · Custom onboarding call</p>
     </div>
 
   </div>
@@ -174,7 +171,7 @@
             <th class="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider text-blue-600">Starter</th>
             <th class="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider text-amber-600">Growth</th>
             <th class="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider text-violet-600">Pro</th>
-            <th class="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider text-slate-900">Agency</th>
+            <th class="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider text-amber-400" style="background:#111827;">Scale</th>
           </tr>
         </thead>
         <tbody id="feature-table-body" class="divide-y divide-slate-50"></tbody>
@@ -191,11 +188,11 @@
   <!-- CTA banner -->
   <div class="mt-20 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 px-8 py-14 text-center shadow-2xl">
     <h2 class="text-3xl font-extrabold text-white">Ready to 10× your listing content?</h2>
-    <p class="mt-3 text-slate-400">Start your 14-day free trial. No credit card required.</p>
+    <p class="mt-3 text-slate-400">Choose your plan and start generating AI-powered campaigns today.</p>
     <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
       <a href="/signup.html" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-8 py-3.5 text-sm font-bold text-white shadow-lg shadow-amber-500/30 transition hover:scale-105">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-        Start free trial
+        Get started now
       </a>
       <a href="https://calendly.com/brokerai-demo" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-xl border border-slate-600 bg-white/5 px-8 py-3.5 text-sm font-bold text-white transition hover:bg-white/10">
         Book a demo
@@ -214,9 +211,10 @@
   // ── Billing toggle ────────────────────────────────────────────────────────
   var billingMode = 'monthly';
   var PRICES = {
-    starter: { monthly: 29, annual: 23 },
-    growth:  { monthly: 79, annual: 63 },
-    pro:     { monthly: 199, annual: 159 },
+    starter: { monthly: 29,  annual: 23 },
+    growth:  { monthly: 79,  annual: 63 },
+    pro:     { monthly: 259, annual: 207 },
+    scale:   { monthly: 399, annual: 319 },
   };
 
   function setBilling(mode) {
@@ -228,7 +226,7 @@
     document.getElementById('btn-annual').className =
       'rounded-lg px-5 py-2 text-sm font-semibold transition ' +
       (isAnnual ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900');
-    ['starter','growth','pro'].forEach(function(plan) {
+    ['starter','growth','pro','scale'].forEach(function(plan) {
       var p = isAnnual ? PRICES[plan].annual : PRICES[plan].monthly;
       document.getElementById(plan + '-price').textContent = '$' + p;
       document.getElementById(plan + '-note').textContent =
@@ -260,42 +258,47 @@
 
   // ── Feature comparison table ──────────────────────────────────────────────
   var ROWS = [
-    ['Campaigns / month','3','10','Unlimited','Unlimited'],
-    ['Posts / month','15','60','Unlimited','Unlimited'],
-    ['Team seats','1','5','15','Unlimited'],
-    ['AI video generation','—','3/mo','Unlimited','Unlimited'],
-    ['Brand kit','—','✅','✅','✅'],
-    ['A/B caption testing','—','—','✅','✅'],
-    ['Analytics charts','—','✅','✅','✅'],
-    ['Date range filter','—','✅','✅','✅'],
-    ['Content library','—','—','✅','✅'],
-    ['Client PDF reports','—','—','✅','✅'],
-    ['Audit log','—','—','✅','✅'],
-    ['Multi-account (Agency)','—','—','—','✅'],
-    ['White-label','—','—','—','✅'],
-    ['API access','—','—','—','✅'],
+    ['Campaigns / month',       '1',      '5',      '10',     '20'],
+    ['Posts / month',           '10',     '30',     '60',     '120'],
+    ['Social media platforms',  '2',      '5',      '10',     '15'],
+    ['Videos / month',          '1',      '5',      '10',     '15'],
+    ['Compliance Checker',      '✅',     '✅',     '✅',     '✅'],
+    ['Performance Insights',    '✅',     '✅',     '✅',     '✅'],
+    ['Brand kit',               '✅',     '✅',     '✅',     '✅'],
+    ['Team seats',              '1',      '1',      '3',      '5'],
+    ['RBAC + approval flow',    '—',      '—',      '✅',     '✅'],
+    ['Comment Automation',      '—',      '—',      '✅',     '✅'],
+    ['Priority Support',        '—',      '—',      '✅',     '✅'],
+    ['Analytics charts',        '✅',     '✅',     '✅',     '✅'],
+    ['A/B caption testing',     '—',      '—',      '✅',     '✅'],
+    ['Content library',         '—',      '—',      '✅',     '✅'],
+    ['Audit log',               '—',      '—',      '✅',     '✅'],
   ];
   var tbody = document.getElementById('feature-table-body');
   ROWS.forEach(function(row, i) {
     var tr = document.createElement('tr');
     tr.style.background = i % 2 === 0 ? '#fff' : '#f9fafb';
     tr.innerHTML = '<td class="px-5 py-3.5 font-medium text-slate-700">' + row[0] + '</td>' +
-      row.slice(1).map(function(v) {
+      row.slice(1).map(function(v, colIdx) {
         var color = v === '—' ? '#d1d5db' : v === '✅' ? '#16a34a' : '#0f172a';
         var weight = v === '—' ? '400' : '700';
-        return '<td class="px-4 py-3.5 text-center" style="color:' + color + ';font-weight:' + weight + ';">' + v + '</td>';
+        var bg = colIdx === 3 ? 'background:#111827;' : '';
+        var textColor = colIdx === 3 && v !== '—' ? 'color:' + (v === '✅' ? '#fbbf24' : '#f9fafb') + ';' : 'color:' + color + ';';
+        var dimColor = colIdx === 3 && v === '—' ? 'color:#4b5563;' : '';
+        return '<td class="px-4 py-3.5 text-center" style="' + bg + (v === '—' && colIdx === 3 ? dimColor : textColor) + 'font-weight:' + weight + ';">' + v + '</td>';
       }).join('');
     tbody.appendChild(tr);
   });
 
   // ── FAQ ───────────────────────────────────────────────────────────────────
   var FAQS = [
-    ['Can I try BrokerAI for free?','Yes — every plan includes a 14-day free trial with full features. No credit card required to start.'],
+    ['Is there a minimum commitment?','No — all plans are billed monthly and can be cancelled at any time. Upgrades take effect immediately.'],
     ['What happens when I hit my campaign limit?','You\'ll see a friendly upgrade prompt. Existing campaigns and posts are never deleted.'],
     ['Can I switch plans at any time?','Absolutely. Upgrade or downgrade at any time. Upgrades take effect immediately; downgrades apply at the next billing cycle.'],
     ['Is annual billing required?','No. Monthly billing is always available. Annual billing saves you 20%.'],
     ['What social platforms are supported?','Instagram, Facebook, LinkedIn, TikTok, X (Twitter), and Pinterest. YouTube Shorts support is coming in 2026.'],
-    ['How does the Agency plan work?','Agency is custom-priced based on the number of client accounts, features, and SLA required. Click "Connect With Us" to schedule a call.'],
+    ['What is the difference between Pro and Scale?','Pro includes 10 campaigns/month, 60 posts, 10 platforms, and 3 team seats. Scale doubles the capacity to 20 campaigns, 120 posts, 15 platforms, and 5 team seats — ideal for high-volume brokerages.'],
+    ['Do I need separate tools for compliance?','No. Every BrokerAI plan includes our built-in Compliance Checker that scans every post for real estate ad compliance before publishing.'],
   ];
   var faqEl = document.getElementById('faq-list');
   FAQS.forEach(function(faq) {

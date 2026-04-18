@@ -37,7 +37,7 @@ class User(SQLModel, table=True):
     email: str = Field(index=True, unique=True)
     password_hash: str
     timezone: str = "UTC"  # IANA timezone; stored for display + scheduling context
-    plan: str = "free"  # free | starter | growth | pro | agency
+    plan: str = "starter"  # starter | growth | pro | scale | agency
     # S1-02: Stripe billing
     stripe_customer_id: Optional[str] = Field(default=None, index=True)
     stripe_subscription_id: Optional[str] = Field(default=None)

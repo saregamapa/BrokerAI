@@ -462,10 +462,10 @@
 
       /* ── Plan metadata ─────────────────────────────────────────────── */
       var PLAN_META = {
-        free:    { label: 'Free',    price: '$0 / month',      badgeClass: 'bg-slate-100 text-slate-700',   barClass: 'from-slate-300 to-slate-400'   },
         starter: { label: 'Starter', price: '$29 / month',     badgeClass: 'bg-amber-100 text-amber-800',   barClass: 'from-amber-400 to-amber-500'   },
         growth:  { label: 'Growth',  price: '$79 / month',     badgeClass: 'bg-sky-100 text-sky-800',       barClass: 'from-sky-400 to-sky-500'       },
-        pro:     { label: 'Pro',     price: '$199 / month',    badgeClass: 'bg-violet-100 text-violet-800', barClass: 'from-violet-500 to-violet-600' },
+        pro:     { label: 'Pro',     price: '$259 / month',    badgeClass: 'bg-violet-100 text-violet-800', barClass: 'from-violet-500 to-violet-600' },
+        scale:   { label: 'Scale',   price: '$399 / month',    badgeClass: 'bg-slate-800 text-white',       barClass: 'from-slate-700 to-slate-800'   },
         agency:  { label: 'Agency',  price: 'Custom pricing',  badgeClass: 'bg-amber-200 text-amber-900',   barClass: 'from-amber-500 to-amber-600'   },
       };
 
@@ -473,8 +473,8 @@
       async function loadPlan() {
         try {
           var data = await API.json('/me/plan', { method: 'GET' });
-          var plan = (data.plan || 'free').toLowerCase();
-          var meta = PLAN_META[plan] || PLAN_META['free'];
+          var plan = (data.plan || 'starter').toLowerCase();
+          var meta = PLAN_META[plan] || PLAN_META['starter'];
 
           // Badge
           var badge = document.getElementById('plan-badge');
