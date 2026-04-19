@@ -101,7 +101,17 @@ def _load_private_key_for_jwt() -> Tuple[str, bool]:
     )
     b64_val = os.getenv("AYRSHARE_PRIVATE_KEY_BASE64_VALUE", "").strip()
     if b64_val:
-        return b64_val.replace("\n", "").replace(" ", ""), True
+        # Decode the base64 value back to raw PEM, then normalize.
+        # Ayrshare's generateJWT expects the plain PEM string in "privateKey" —
+        # there is no "privateKeyBase64" flag in their API.
+        try:
+            pem = _normalize_private_key_pem(
+                base64.b64decode(b64_val.replace("\n", "").replace(" ", "")).decode("utf-8")
+            )
+        except Exception as exc:
+            log.error("AYRSHARE_PRIVATE_KEY_BASE64_VALUE decode failed: %s", exc)
+            return "", False
+        return pem, False
 
     raw = os.getenv("AYRSHARE_PRIVATE_KEY", "").strip()
     if raw:
