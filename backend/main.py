@@ -467,9 +467,80 @@ def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, 
         log.warning("verify_social: Ayrshare /profiles failed user_id=%s", uid)
         return False, False
 
-    has_profile = len(profiles) > 0
-    # Without a profile key we cannot be truly connected
-    is_connected = False
+    if not profiles:
+        _upsert_social_account(
+            session,
+            user_id=uid,
+            platform="ayrshare_profile",
+            is_connected=False,
+            profile_key="",
+        )
+        user.social_connected = False
+        session.add(user)
+        session.commit()
+        log.info("verify_social user_id=%s no_ayrshare_profile connected=False", uid)
+        return False, True
+
+    # Try to recover profileKey from the profiles response so we can do a real /api/user check.
+    recovered_pk: Optional[str] = None
+    for _prof in profiles:
+        _pk_val = (_prof.get("profileKey") or "").strip()
+        if _pk_val:
+            recovered_pk = _pk_val
+            break
+
+    if recovered_pk:
+        # Persist recovered key so subsequent calls take the primary (fast) path.
+        fresh_user = session.get(User, uid)
+        if fresh_user:
+            fresh_user.ayrshare_profile_key = recovered_pk
+            session.add(fresh_user)
+            session.commit()
+            session.refresh(fresh_user)
+        user.ayrshare_profile_key = recovered_pk
+
+        active_accounts = fetch_active_social_accounts(recovered_pk)
+        if active_accounts is None:
+            row = _get_social_account(session, uid)
+            if row is not None:
+                existing_connected = bool(row.is_connected and (row.profile_key or "").strip())
+                user.social_connected = existing_connected
+                session.add(user)
+                session.commit()
+            log.warning("verify_social: Ayrshare /user failed after key recovery user_id=%s", uid)
+            return bool(user.social_connected), False
+
+        if len(active_accounts) == 0:
+            ref_linked = fetch_linked_platforms_via_ref_id(ref_id)
+            if ref_linked:
+                log.info(
+                    "verify_social: refId/socialHealth fallback after key recovery user_id=%s accounts=%s",
+                    uid,
+                    ref_linked,
+                )
+                active_accounts = ref_linked
+
+        is_connected = len(active_accounts) > 0
+        _upsert_social_account(
+            session,
+            user_id=uid,
+            platform="ayrshare_profile",
+            is_connected=is_connected,
+            profile_key=recovered_pk,
+        )
+        user.social_connected = is_connected
+        session.add(user)
+        session.commit()
+        log.info(
+            "verify_social user_id=%s recovered_pk_prefix=%s active_accounts=%s connected=%s",
+            uid,
+            recovered_pk[:8],
+            active_accounts,
+            is_connected,
+        )
+        return is_connected, True
+
+    # Profile exists in Ayrshare but no key returned — cannot verify accounts.
     _upsert_social_account(
         session,
         user_id=uid,
@@ -481,9 +552,8 @@ def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, 
     session.add(user)
     session.commit()
     log.info(
-        "verify_social user_id=%s has_profile=%s pk_empty=True connected=False",
+        "verify_social user_id=%s has_profile=True pk_empty=True connected=False",
         uid,
-        has_profile,
     )
     return False, True
 
