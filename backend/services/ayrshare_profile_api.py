@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import os
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
@@ -140,6 +141,7 @@ def fetch_all_business_profiles(*, timeout_sec: float = 25.0) -> Optional[List[D
 def recover_profile_key_for_user(user_id: int, *, timeout_sec: float = 25.0) -> Optional[str]:
     ref = brokerai_profile_ref_id(user_id)
     title = brokerai_profile_title(user_id)
+    title_lower = title.lower()
     rows = fetch_profiles_by_ref_id(ref, timeout_sec=timeout_sec) or []
     for p in rows:
         pk = str(p.get("profileKey") or "").strip()
@@ -149,7 +151,8 @@ def recover_profile_key_for_user(user_id: int, *, timeout_sec: float = 25.0) -> 
     for p in all_rows:
         rid = str(p.get("refId") or "").strip()
         t = str(p.get("title") or "").strip()
-        if rid == ref or t == title:
+        # Match on refId (exact) or title (case-insensitive exact or prefix match)
+        if rid == ref or t.lower() == title_lower or t.lower().startswith(title_lower):
             pk = str(p.get("profileKey") or "").strip()
             if pk:
                 return pk
@@ -183,10 +186,44 @@ def create_user_profile(user_id: int, _email: str) -> str:
     if data.get("status") == "error":
         msg = str(data.get("message") or "Ayrshare profile creation rejected")
         if "Profile title already exists" in msg or "duplicate" in msg.lower():
+            # First: try to recover the existing profile (same user, DB was reset)
             recovered = recover_profile_key_for_user(user_id)
             if recovered:
                 log.info("create_user_profile duplicate title recovered user_id=%s", user_id)
                 return recovered
+            # Second: recovery failed — create a new profile with a unique title suffix
+            # so the user is never permanently blocked by a stale Ayrshare profile.
+            unique_suffix = uuid.uuid4().hex[:8]
+            fallback_title = f"BrokerAI User {int(user_id)} {unique_suffix}"
+            log.warning(
+                "create_user_profile recovery failed, creating with unique title user_id=%s title=%s",
+                user_id, fallback_title,
+            )
+            fallback_payload = {
+                "title": fallback_title,
+                "refId": brokerai_profile_ref_id(user_id),
+            }
+            try:
+                with httpx.Client(timeout=25.0) as client:
+                    fb_resp = client.post(
+                        AYRSHARE_API_CREATE_PROFILE,
+                        json=fallback_payload,
+                        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    )
+                fb_data = fb_resp.json() if fb_resp.content else {}
+                if fb_resp.status_code < 400 and isinstance(fb_data, dict) and fb_data.get("status") != "error":
+                    fb_pk = str(fb_data.get("profileKey") or "").strip()
+                    if fb_pk:
+                        log.info("create_user_profile unique-title fallback succeeded user_id=%s", user_id)
+                        return fb_pk
+            except Exception as fb_exc:
+                log.warning("create_user_profile unique-title fallback also failed: %s", fb_exc)
+            raise AyrshareProfileApiError(
+                "Could not create your social profile on Ayrshare. "
+                "A profile with this name already exists and could not be recovered. "
+                "Please contact support or try reconnecting from Settings.",
+                status_code=502,
+            )
         raise AyrshareProfileApiError(msg, status_code=502)
     pk = data.get("profileKey")
     if not isinstance(pk, str) or not pk.strip():
