@@ -3568,9 +3568,11 @@ def billing_portal(
             stripe_customer_id=current_user.stripe_customer_id,
             return_url=return_url,
         )
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         log.exception("stripe_portal_error user_id=%s", current_user.id)
-        raise HTTPException(status_code=502, detail=f"Billing portal error: {e}")
+        raise HTTPException(status_code=503, detail=f"Billing portal error: {e}")
     return {"url": portal_url}
 
 

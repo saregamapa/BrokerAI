@@ -109,7 +109,23 @@ def create_checkout_session(
         params["customer"] = stripe_customer_id
         params.pop("customer_email", None)
 
-    session = stripe.checkout.Session.create(**params)
+    try:
+        session = stripe.checkout.Session.create(**params)
+    except stripe.error.InvalidRequestError as e:
+        # Price ID exists in env but is not valid in this Stripe account — treat as
+        # a configuration error (503) so the generic 502 handler is never reached.
+        raise ValueError(
+            f"Stripe price ID for plan '{plan}' is not valid in this Stripe account: {e}. "
+            f"Please check STRIPE_PRICE_{plan.upper()} in your environment."
+        ) from e
+    except stripe.error.AuthenticationError as e:
+        raise ValueError(
+            f"Stripe API key is invalid or revoked: {e}. "
+            "Check STRIPE_SECRET_KEY in your environment."
+        ) from e
+    except stripe.error.StripeError as e:
+        # Any other Stripe API error (rate limit, unavailable, etc.) → 503.
+        raise ValueError(f"Stripe error during checkout: {e}") from e
     log_event(
         "billing.checkout_created",
         user_id=user_id,
@@ -130,10 +146,15 @@ def create_portal_session(
     """Create a Stripe Customer Portal session. Returns the portal URL."""
     stripe = _stripe()
     app_url = os.getenv("APP_URL", "https://brokerai.app").rstrip("/")
-    session = stripe.billing_portal.Session.create(
-        customer=stripe_customer_id,
-        return_url=return_url or f"{app_url}/dashboard.html",
-    )
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=stripe_customer_id,
+            return_url=return_url or f"{app_url}/dashboard.html",
+        )
+    except stripe.error.InvalidRequestError as e:
+        raise ValueError(f"Stripe customer portal error (invalid customer or not configured): {e}") from e
+    except stripe.error.StripeError as e:
+        raise ValueError(f"Stripe error opening billing portal: {e}") from e
     log.info("billing.portal_created customer_id=%s", stripe_customer_id[:8])
     return session.url
 

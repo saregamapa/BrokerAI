@@ -324,13 +324,14 @@
         window.__lastRenderData = data;
         var camp = data.campaign;
         campaignId = camp.id;
-        campaignPending = camp.status === "pending_approval";
+        var PENDING_STATUSES = ["pending_approval", "in_review"];
+        campaignPending = PENDING_STATUSES.indexOf(camp.status) !== -1;
         var meta = document.getElementById("campaign-meta");
         meta.textContent = "Campaign #" + camp.id + " · " + camp.status.replace(/_/g, " ");
 
         var btn = document.getElementById("approve-campaign-btn");
         var wrap = document.getElementById("approve-wrap");
-        var pending = camp.status === "pending_approval";
+        var pending = campaignPending;
         btn.disabled = !pending;
         btn.textContent = pending
           ? "Approve & schedule"

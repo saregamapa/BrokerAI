@@ -183,7 +183,7 @@
             <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Account</p>
             <ul class="mt-4 space-y-2.5 text-sm text-slate-400">
               <li><a href="/dashboard.html" class="transition hover:text-white">Dashboard</a></li>
-              <li><a href="/dashboard.html" class="transition hover:text-white">Dashboard</a></li>
+              <li><a href="/analytics.html" class="transition hover:text-white">Analytics</a></li>
               <li><a href="/wizard.html" class="transition hover:text-white">New Campaign</a></li>
             </ul>
           </div>
@@ -246,17 +246,18 @@
       // Show error if Google OAuth failed
       (function handleGoogleError() {
         var urlParams = new URLSearchParams(window.location.search);
+        var ban = document.getElementById('google-oauth-notice-banner');
         var authError = urlParams.get('error');
         if (authError === 'google_auth_failed' || authError === 'google_profile_failed') {
-          var errEl = document.getElementById('error-message') || document.getElementById('error') || document.querySelector('.error-text');
-          if (errEl) {
-            errEl.textContent = 'Google sign-in failed. Please try again or use email/password.';
-            errEl.style.display = 'block';
+          if (ban) {
+            ban.textContent = 'Google sign-in failed. Please try again or use email and password below.';
+            ban.classList.remove('hidden');
+            ban.classList.add('border-red-200', 'bg-red-50', 'text-red-900');
+            ban.classList.remove('border-sky-200', 'bg-sky-50', 'text-sky-900');
           }
         }
         var notice = urlParams.get('notice');
         if (notice === 'google_oauth_unavailable') {
-          var ban = document.getElementById('google-oauth-notice-banner');
           if (ban) {
             ban.textContent =
               'Google sign-in is not configured on this server yet. Use email and password below, or ask your admin to set GOOGLE_CLIENT_ID in the environment.';
