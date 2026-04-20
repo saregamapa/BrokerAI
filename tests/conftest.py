@@ -64,15 +64,15 @@ def _stub_ayrshare_profile_sync(monkeypatch: pytest.MonkeyPatch) -> None:
     real_fetch = ayrshare_service.fetch_active_social_accounts
     real_profiles = ayrshare_service.fetch_profiles_by_ref_id
 
-    def _fetch(pk: str):
+    def _fetch(pk: str, **kwargs):
         if (pk or "").strip() == "pytest-ayrshare-profile-key":
             return ["facebook", "instagram", "linkedin"]
-        return real_fetch(pk)
+        return real_fetch(pk, **kwargs)
 
     def _profiles(ref_id: str, *, include=None, **kwargs):
         if str(ref_id or "").strip().startswith("brokerai_user_"):
             return [{"refId": ref_id, "title": "Pytest Profile"}]
-        return real_profiles(ref_id, include=include)
+        return real_profiles(ref_id, include=include, **kwargs)
 
     monkeypatch.setattr(ayrshare_service, "fetch_active_social_accounts", _fetch)
     monkeypatch.setattr(ayrshare_service, "fetch_profiles_by_ref_id", _profiles)

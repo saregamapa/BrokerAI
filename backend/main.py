@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from dotenv import load_dotenv
 
@@ -359,7 +359,12 @@ def _social_state_from_row(row: Optional[SocialAccount], *, sync_ok: bool) -> st
     return "not_connected"
 
 
-def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, bool]:
+def _verify_user_social_connection(
+    session: Session,
+    user: User,
+    *,
+    ayrshare_probe: Literal["full", "fast"] = "full",
+) -> Tuple[bool, bool]:
     """
     Verify social connection against Ayrshare.
     Strategy:
@@ -368,10 +373,16 @@ def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, 
          this avoids the unreliable GET /profiles?refId= filter.
       2. Fall back to GET /profiles?refId= only when no key is known.
     Returns (is_connected, ayrshare_sync_ok).
+
+    ``ayrshare_probe="fast"`` uses short HTTP timeouts and skips slow refId/socialHealth
+    fallbacks so dashboard / connect page status does not hang behind Ayrshare (Render).
+    Use ``full`` after OAuth callback and before publishing.
     """
     uid = int(user.id or 0)
     if uid <= 0:
         return False, False
+
+    fast = ayrshare_probe == "fast"
 
     # Re-read fresh from DB to avoid session-cache staleness
     db_user = session.get(User, uid)
@@ -385,7 +396,7 @@ def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, 
 
     if pk:
         # Primary path: verify via profile key directly (most reliable)
-        active_accounts = fetch_active_social_accounts(pk)
+        active_accounts = fetch_active_social_accounts(pk, quick=fast)
         if active_accounts is None:
             # Ayrshare API failed — preserve existing DB state, signal sync failure
             row = _get_social_account(session, uid)
@@ -397,7 +408,7 @@ def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, 
             log.warning("verify_social: Ayrshare /user failed user_id=%s", uid)
             return bool(user.social_connected), False
 
-        if len(active_accounts) == 0:
+        if len(active_accounts) == 0 and not fast:
             ref_linked = fetch_linked_platforms_via_ref_id(f"brokerai_user_{uid}")
             if ref_linked:
                 log.info(
@@ -430,7 +441,7 @@ def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, 
 
     # Fallback path: no profile key known, try refId lookup
     ref_id = f"brokerai_user_{uid}"
-    profiles = fetch_profiles_by_ref_id(ref_id)
+    profiles = fetch_profiles_by_ref_id(ref_id, timeout_sec=8.0 if fast else 30.0)
     if profiles is None:
         log.warning("verify_social: Ayrshare /profiles failed user_id=%s", uid)
         return False, False
@@ -467,7 +478,7 @@ def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, 
             session.refresh(fresh_user)
         user.ayrshare_profile_key = recovered_pk
 
-        active_accounts = fetch_active_social_accounts(recovered_pk)
+        active_accounts = fetch_active_social_accounts(recovered_pk, quick=fast)
         if active_accounts is None:
             row = _get_social_account(session, uid)
             if row is not None:
@@ -478,7 +489,7 @@ def _verify_user_social_connection(session: Session, user: User) -> Tuple[bool, 
             log.warning("verify_social: Ayrshare /user failed after key recovery user_id=%s", uid)
             return bool(user.social_connected), False
 
-        if len(active_accounts) == 0:
+        if len(active_accounts) == 0 and not fast:
             ref_linked = fetch_linked_platforms_via_ref_id(ref_id)
             if ref_linked:
                 log.info(
@@ -531,7 +542,9 @@ def _require_social_ready(session: Session, user_id: int) -> None:
     if not u:
         raise HTTPException(status_code=401, detail="Not authenticated")
     subject = resolve_ayrshare_subject_user(session, u)
-    connected, _sync_ok = _verify_user_social_connection(session, subject)
+    connected, _sync_ok = _verify_user_social_connection(
+        session, subject, ayrshare_probe="full"
+    )
     session.refresh(subject)
     if not connected:
         raise HTTPException(
@@ -543,7 +556,9 @@ def _require_social_ready(session: Session, user_id: int) -> None:
 def _user_out(session: Session, u: User) -> UserOut:
     """User profile for API responses; social_connected follows team owner's link for members."""
     subject = resolve_ayrshare_subject_user(session, u)
-    connected, _ = _verify_user_social_connection(session, subject)
+    connected, _ = _verify_user_social_connection(
+        session, subject, ayrshare_probe="fast"
+    )
     session.refresh(u)
     session.refresh(subject)
     return UserOut(
@@ -1089,7 +1104,9 @@ def social_status(
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     subject = resolve_ayrshare_subject_user(session, user)
-    connected, sync_ok = _verify_user_social_connection(session, subject)
+    connected, sync_ok = _verify_user_social_connection(
+        session, subject, ayrshare_probe="fast"
+    )
     session.refresh(subject)
     row = _get_social_account(session, int(subject.id or 0))
     state = _social_state_from_row(row, sync_ok=sync_ok)

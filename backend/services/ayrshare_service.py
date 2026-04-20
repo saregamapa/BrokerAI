@@ -501,10 +501,12 @@ def parse_profile_linked_platforms(profile: Dict[str, Any]) -> List[str]:
     return []
 
 
-def _ayrshare_get_user_payload(*, api_key: str, profile_key: str) -> Optional[Dict[str, Any]]:
+def _ayrshare_get_user_payload(
+    *, api_key: str, profile_key: str, timeout_sec: float = 12.0
+) -> Optional[Dict[str, Any]]:
     pk = profile_key.strip()
     try:
-        with httpx.Client(timeout=12.0) as client:
+        with httpx.Client(timeout=timeout_sec) as client:
             resp = client.get(
                 AYRSHARE_API_USER,
                 headers={
@@ -578,7 +580,7 @@ def _parse_active_social_accounts_from_user_payload(data: Dict[str, Any]) -> Lis
     return list(dict.fromkeys(found))
 
 
-def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
+def fetch_active_social_accounts(profile_key: str, *, quick: bool = False) -> Optional[List[str]]:
     """
     GET /api/user with Profile-Key. Returns linked platform ids, or None on transport/API failure.
 
@@ -600,6 +602,8 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
     except ValueError:
         max_attempts = 5
     max_attempts = max(1, min(15, max_attempts))
+    if quick:
+        max_attempts = 1
 
     try:
         delay_sec = float((os.getenv("AYRSHARE_OAUTH_VERIFY_DELAY_SEC") or "0.85").strip())
@@ -607,8 +611,12 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
         delay_sec = 0.85
     delay_sec = max(0.05, min(5.0, delay_sec))
 
+    user_timeout = 5.0 if quick else 12.0
+
     for attempt in range(max_attempts):
-        data = _ayrshare_get_user_payload(api_key=key, profile_key=pk)
+        data = _ayrshare_get_user_payload(
+            api_key=key, profile_key=pk, timeout_sec=user_timeout
+        )
         if data is None:
             return None
         accounts = _parse_active_social_accounts_from_user_payload(data)
@@ -646,7 +654,7 @@ def fetch_active_social_accounts(profile_key: str) -> Optional[List[str]]:
 
 
 def fetch_profiles_by_ref_id(
-    ref_id: str, *, include: Optional[str] = None
+    ref_id: str, *, include: Optional[str] = None, timeout_sec: float = 30.0
 ) -> Optional[List[Dict[str, Any]]]:
     """
     GET /api/profiles filtered by refId.
@@ -667,7 +675,7 @@ def fetch_profiles_by_ref_id(
     if inc:
         params["include"] = inc
     try:
-        with httpx.Client(timeout=30.0) as client:
+        with httpx.Client(timeout=timeout_sec) as client:
             resp = client.get(
                 AYRSHARE_API_GET_PROFILES,
                 params=params,
@@ -702,12 +710,16 @@ def fetch_profiles_by_ref_id(
     return [p for p in profiles if isinstance(p, dict)]
 
 
-def fetch_linked_platforms_via_ref_id(ref_id: str) -> Optional[List[str]]:
+def fetch_linked_platforms_via_ref_id(
+    ref_id: str, *, timeout_sec: float = 30.0
+) -> Optional[List[str]]:
     """
     When GET /api/user is empty, Ayrshare may still report links on the Business profile row.
     Uses refId (same value as create profile) + include=socialHealth as a secondary source.
     """
-    profiles = fetch_profiles_by_ref_id(ref_id, include="socialHealth")
+    profiles = fetch_profiles_by_ref_id(
+        ref_id, include="socialHealth", timeout_sec=timeout_sec
+    )
     if profiles is None:
         return None
     merged: List[str] = []
