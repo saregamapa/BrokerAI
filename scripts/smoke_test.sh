@@ -26,9 +26,10 @@ echo "---"
 
 check "health_ok"    "curl -sf $BASE_URL/health"       '"status":"ok"'
 check "health_ready" "curl -sf $BASE_URL/health/ready" '"ready":true'
-check "login_page"   "curl -sf $BASE_URL/login.html"   '<title>'
-check "signup_page"  "curl -sf $BASE_URL/signup.html"  '<title>'
+check "dashboard_page" "curl -sf $BASE_URL/dashboard.html" '<title>'
 check "pricing_page" "curl -sf $BASE_URL/pricing.html" '<title>'
+check "login_page" "curl -sf $BASE_URL/login.html" '<title>'
+check "signup_page" "curl -sf $BASE_URL/signup.html" '<title>'
 
 echo "---"
 echo "Results: $PASS passed, $FAIL failed"

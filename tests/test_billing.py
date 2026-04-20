@@ -27,6 +27,8 @@ from sqlmodel import Session
 from backend.db import engine
 from backend.models import Campaign, User
 
+from tests.helpers import create_test_user, user_headers
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -34,23 +36,16 @@ from backend.models import Campaign, User
 
 def _register(client: TestClient, email: str | None = None, password: str = "Password1!") -> dict:
     email = email or f"bill_{secrets.token_hex(5)}@example.com"
-    r = client.post("/signup", json={"email": email, "password": password})
-    assert r.status_code == 200, r.text
-    token = r.json()["access_token"]
-    # Resolve user_id via /me (signup doesn't return it directly)
-    me = client.get("/me", headers={"Authorization": f"Bearer {token}"})
-    assert me.status_code == 200, me.text
-    return {"email": email, "password": password, "user_id": me.json()["id"]}
+    uid = create_test_user(email, password=password)
+    return {"email": email, "password": password, "user_id": uid}
 
 
-def _login(client: TestClient, creds: dict) -> str:
-    r = client.post("/login", json={"email": creds["email"], "password": creds["password"]})
-    assert r.status_code == 200, r.text
-    return r.json()["access_token"]
+def _login(client: TestClient, creds: dict) -> int:
+    return int(creds["user_id"])
 
 
-def _auth(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
+def _auth(user_id: int) -> dict:
+    return user_headers(user_id)
 
 
 def _set_plan(user_id: int, plan: str, sub_id: str | None = None) -> None:
@@ -134,9 +129,10 @@ class TestGetPlans:
 # ---------------------------------------------------------------------------
 
 class TestGetMyPlan:
-    def test_requires_auth(self, client):
-        r = client.get("/me/plan")
-        assert r.status_code == 401
+    def test_me_plan_with_user_header(self, client):
+        uid = create_test_user("billing_meplan_default@example.com")
+        r = client.get("/me/plan", headers=user_headers(uid))
+        assert r.status_code == 200
 
     def test_new_user_defaults_to_starter(self, client):
         creds = _register(client)
@@ -233,9 +229,14 @@ class TestGetMyPlan:
 # ---------------------------------------------------------------------------
 
 class TestCheckoutGating:
-    def test_requires_auth(self, client):
-        r = client.post("/billing/checkout", json={"plan": "starter"})
-        assert r.status_code == 401
+    def test_checkout_with_user_header(self, client):
+        uid = create_test_user("billing_checkout_default@example.com")
+        r = client.post(
+            "/billing/checkout",
+            json={"plan": "starter"},
+            headers=user_headers(uid),
+        )
+        assert r.status_code in (400, 503)
 
     def test_invalid_plan_rejected(self, client):
         creds = _register(client)
@@ -305,9 +306,10 @@ class TestCheckoutGating:
 # ---------------------------------------------------------------------------
 
 class TestPortalGating:
-    def test_requires_auth(self, client):
-        r = client.post("/billing/portal")
-        assert r.status_code == 401
+    def test_portal_with_user_no_stripe_returns_400(self, client):
+        uid = create_test_user("billing_portal_default@example.com")
+        r = client.post("/billing/portal", headers=user_headers(uid))
+        assert r.status_code == 400
 
     def test_no_subscription_returns_400(self, client):
         creds = _register(client)

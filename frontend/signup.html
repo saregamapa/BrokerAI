@@ -1,459 +1,338 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="BrokerAI — AI-powered social media campaigns for any business. Generate, schedule, and publish a month of content in minutes." />
-    <meta name="og:site_name" content="BrokerAI" />
-    <meta property="og:type" content="website" />
-    <title>Sign up — BrokerAI</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/static/css/styles.css" />
-  </head>
-  <body class="brokerai-app min-h-screen bg-white text-slate-900 antialiased">
-    <div id="brokerai-loading" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-white/70 backdrop-blur-sm">
-      <div class="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-8 shadow-xl">
-        <div class="brokerai-spinner" aria-label="Loading"></div>
-        <p class="text-sm font-medium text-slate-600">Creating your account…</p>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Create your BrokerAI account and subscribe securely with Stripe." />
+  <title>Create account — BrokerAI</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <style>
+    .plan-card { transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+    .plan-card:has(input:checked),
+    .plan-card.plan-card--on {
+      border-color: rgb(245 158 11);
+      box-shadow: 0 0 0 1px rgb(245 158 11 / 0.35), 0 10px 40px -10px rgb(245 158 11 / 0.25);
+    }
+    .plan-card input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+  </style>
+</head>
+<body class="brokerai-app relative flex min-h-screen flex-col overflow-x-hidden bg-slate-50 text-slate-900 antialiased" data-skip-footer>
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute -left-32 top-0 h-[420px] w-[420px] rounded-full bg-amber-200/30 blur-3xl"></div>
+    <div class="absolute bottom-0 right-0 h-[380px] w-[380px] rounded-full bg-sky-200/25 blur-3xl"></div>
+    <div class="absolute left-1/2 top-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-violet-100/40 blur-3xl"></div>
+  </div>
+
+  <div id="brokerai-loading" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/25 backdrop-blur-sm">
+    <div class="flex flex-col items-center gap-4 rounded-2xl border border-white/20 bg-white/95 px-10 py-8 shadow-2xl">
+      <div class="brokerai-spinner"></div>
+      <p class="text-sm font-semibold text-slate-800" data-brokerai-loading-text>Please wait…</p>
+    </div>
+  </div>
+
+  <header class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-md">
+    <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
+      <a href="/" class="text-lg font-bold tracking-tight text-[#0f172a] transition hover:opacity-90">
+        Broker<span class="text-amber-500">AI</span>
+      </a>
+      <nav class="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
+        <a href="/#features" class="transition hover:text-slate-900">Features</a>
+        <a href="/#how-it-works" class="transition hover:text-slate-900">How it works</a>
+        <a href="/pricing.html" class="transition hover:text-slate-900">Pricing</a>
+        <a href="/#faq" class="transition hover:text-slate-900">FAQ</a>
+      </nav>
+      <div class="flex items-center gap-2">
+        <a href="/login.html" class="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition duration-200 hover:scale-105 hover:shadow-lg active:scale-95 sm:px-5">Log in</a>
       </div>
     </div>
+  </header>
 
-    <div class="flex min-h-screen">
-      <!-- Left branding panel -->
-      <div class="relative hidden flex-col justify-between overflow-hidden bg-[#0f172a] p-10 lg:flex lg:w-[46%] xl:w-[42%]">
-        <div class="pointer-events-none absolute -top-24 right-0 h-80 w-80 rounded-full bg-amber-500/10 blur-3xl" aria-hidden="true"></div>
-        <div class="pointer-events-none absolute bottom-0 -left-12 h-64 w-64 rounded-full bg-emerald-500/8 blur-3xl" aria-hidden="true"></div>
-
-        <a href="/" class="relative z-10 text-xl font-bold text-white">
-          Broker<span class="text-amber-400">AI</span>
-        </a>
-
-        <div class="relative z-10 my-auto">
-          <div class="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
-            <span class="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-            AI-Powered Campaigns
-          </div>
-          <h2 class="mt-5 text-3xl font-bold leading-tight text-white xl:text-4xl">Start creating content that actually works.</h2>
-          <p class="mt-4 text-base text-slate-400 leading-relaxed">Join thousands of marketers using AI to run their social presence — without the stress or the hours.</p>
-
-          <!-- What you get -->
-          <div class="mt-8 space-y-3">
-            <div class="flex items-start gap-3 rounded-xl border border-white/8 bg-white/5 p-4">
-              <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-              <div>
-                <p class="text-sm font-semibold text-white">Full AI campaign generation</p>
-                <p class="text-xs text-slate-500 mt-0.5">Strategy, captions, images, and schedule — all at once</p>
-              </div>
-            </div>
-            <div class="flex items-start gap-3 rounded-xl border border-white/8 bg-white/5 p-4">
-              <svg class="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
-              <div>
-                <p class="text-sm font-semibold text-white">Auto-publish everywhere</p>
-                <p class="text-xs text-slate-500 mt-0.5">Instagram, Facebook, LinkedIn, X, TikTok</p>
-              </div>
-            </div>
-            <div class="flex items-start gap-3 rounded-xl border border-white/8 bg-white/5 p-4">
-              <svg class="mt-0.5 h-5 w-5 shrink-0 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-              <div>
-                <p class="text-sm font-semibold text-white">Performance analytics</p>
-                <p class="text-xs text-slate-500 mt-0.5">AI surfaces what's working and what to improve</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p class="relative z-10 text-xs text-slate-600">© 2026 BrokerAI · All rights reserved</p>
-      </div>
-
-      <!-- Right form panel -->
-      <div class="brokerai-page flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-10 lg:px-16">
-        <!-- Mobile logo only -->
-        <a href="/" class="mb-8 text-xl font-bold text-[#0f172a] lg:hidden">
-          Broker<span class="text-amber-500">AI</span>
-        </a>
-
-        <div class="w-full max-w-sm">
-          <!-- Invite banner — shown when invite_token is present in URL -->
-          <div id="invite-banner" class="hidden mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
-            <div class="flex items-start gap-3">
-              <span class="mt-0.5 text-lg">🎉</span>
-              <div>
-                <p class="text-sm font-semibold text-amber-900">You've been invited to join a team</p>
-                <p id="invite-desc" class="mt-0.5 text-xs text-amber-700">Sign up with your invited email address to join.</p>
-              </div>
-            </div>
-          </div>
-
-          <h1 id="signup-heading" class="text-2xl font-bold tracking-tight text-slate-900">Create your account</h1>
-          <p class="mt-2 text-sm text-slate-600">
-            Already registered?
-            <a href="/login.html" class="font-semibold text-amber-600 hover:underline">Log in</a>
-          </p>
-          <div id="google-oauth-notice-banner" class="mt-5 hidden rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900" role="status"></div>
-
-          <form id="signup-form" class="mt-8 space-y-5" novalidate>
-            <!-- Google SSO Button -->
-            <button type="button" id="google-btn" onclick="loginWithGoogle()"
-              class="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 transition-colors text-sm font-medium text-slate-700 shadow-sm">
-              <svg width="18" height="18" viewBox="0 0 48 48">
-                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                <path fill="none" d="M0 0h48v48H0z"/>
-              </svg>
-              Continue with Google
-            </button>
-
-            <!-- Divider -->
-            <div class="flex items-center gap-3 my-4">
-              <div class="flex-1 h-px bg-slate-200"></div>
-              <span class="text-xs text-slate-400 font-medium">or continue with email</span>
-              <div class="flex-1 h-px bg-slate-200"></div>
-            </div>
-
-            <div>
-              <label for="email" class="block text-sm font-medium text-slate-700">Email address</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                autocomplete="email"
-                placeholder="you@example.com"
-                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
-              />
-              <p id="invite-email-hint" class="hidden mt-1 text-xs text-amber-700 font-medium">
-                ⚠ You must sign up with the exact invited email address.
-              </p>
-            </div>
-            <div>
-              <label for="password" class="block text-sm font-medium text-slate-700">
-                Password <span class="text-slate-400 font-normal">(min 6 characters)</span>
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                minlength="6"
-                autocomplete="new-password"
-                placeholder="Create a strong password"
-                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/25"
-              />
-            </div>
-
-            <!-- Plan selection (hidden for invite signups); billing tiers from /billing/plans -->
-            <div id="account-type-section">
-              <p class="text-sm font-medium text-slate-700">Choose your plan</p>
-              <div
-                id="signup-plans-summary"
-                class="mt-3 rounded-xl border border-slate-200/90 bg-slate-50/80 px-3 py-3 text-left shadow-sm"
-                aria-live="polite"
-              >
-                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Current plans — select one</p>
-                <p id="signup-plans-loading" class="mt-2 text-xs text-slate-500">Loading plans…</p>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              id="signup-btn"
-              class="w-full rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
-            >
-              Create account
-            </button>
-          </form>
-
-          <p class="mt-4 text-center text-xs text-slate-500">
-            By creating an account you agree to our
-            <a href="/#terms-of-service" class="text-slate-600 hover:underline">Terms</a>
-            and
-            <a href="/#privacy-policy" class="text-slate-600 hover:underline">Privacy Policy</a>.
-          </p>
-
-          <div class="mt-6 flex items-center gap-3">
-            <div class="h-px flex-1 bg-slate-200"></div>
-            <span class="text-xs text-slate-400 font-medium">already have an account?</span>
-            <div class="h-px flex-1 bg-slate-200"></div>
-          </div>
-
-          <a href="/login.html" class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow-sm">
-            Log in
-          </a>
-        </div>
-      </div>
+  <main class="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col px-5 py-10 sm:px-8 lg:flex-row lg:items-stretch lg:gap-12 lg:py-14">
+    <!-- Left column: value prop (desktop) -->
+    <div class="mb-10 hidden max-w-sm flex-col justify-center lg:flex lg:mb-0">
+      <p class="text-xs font-bold uppercase tracking-widest text-amber-600">New account</p>
+      <h1 class="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-slate-900">Create your account</h1>
+      <p class="mt-4 text-sm leading-relaxed text-slate-600">Pick the plan that fits your volume. After signup you&apos;ll complete a secure checkout with Stripe—cards, Apple Pay, and more where enabled.</p>
+      <ul class="mt-8 space-y-3 text-sm text-slate-700">
+        <li class="flex gap-3"><span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">✓</span> AI campaigns, compliance, and scheduling</li>
+        <li class="flex gap-3"><span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">✓</span> Cancel or manage billing anytime</li>
+        <li class="flex gap-3"><span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700">✓</span> Encrypted checkout powered by Stripe</li>
+      </ul>
     </div>
 
-    <script src="/static/js/app.js"></script>
-    <script>
-      if (BrokerAI.getToken()) {
-        window.location.href = "/dashboard.html";
+    <!-- Card: form + plans -->
+    <div class="mx-auto w-full max-w-md lg:mx-0 lg:max-w-[440px]">
+      <div class="rounded-2xl border border-slate-200/90 bg-white p-7 shadow-xl shadow-slate-300/40 sm:p-9">
+        <div class="lg:hidden">
+          <p class="text-xs font-bold uppercase tracking-widest text-amber-600">New account</p>
+          <h1 class="mt-2 text-2xl font-extrabold tracking-tight text-slate-900">Create your account</h1>
+          <p class="mt-2 text-sm text-slate-600">Choose a plan, then enter your details. Payment runs on Stripe after this step.</p>
+        </div>
+
+        <form id="signup-form" class="mt-6 space-y-6" novalidate>
+          <div>
+            <h2 class="text-sm font-bold uppercase tracking-wide text-slate-500">Plan &amp; billing</h2>
+            <p class="mt-1 text-xs text-slate-500">Billed monthly · Prices in USD</p>
+            <div id="plan-tiles" class="mt-4 grid grid-cols-2 gap-3">
+              <!-- Filled by script from /billing/plans; fallback below -->
+            </div>
+            <p id="plan-load-err" class="mt-2 hidden text-xs text-amber-800"></p>
+          </div>
+
+          <div class="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" aria-hidden="true"></div>
+
+          <div>
+            <h2 class="text-sm font-bold uppercase tracking-wide text-slate-500">Account details</h2>
+            <div class="mt-4 space-y-4">
+              <div>
+                <label for="name" class="block text-xs font-semibold uppercase tracking-wide text-slate-600">Full name</label>
+                <input id="name" name="name" type="text" autocomplete="name" required maxlength="120"
+                  class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 shadow-inner transition placeholder:text-slate-400 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/25" placeholder="Jane Agent" />
+                <p class="mt-1 hidden text-xs font-medium text-red-600" data-error-for="name"></p>
+              </div>
+              <div>
+                <label for="email" class="block text-xs font-semibold uppercase tracking-wide text-slate-600">Work email</label>
+                <input id="email" name="email" type="email" autocomplete="email" required
+                  class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 shadow-inner transition placeholder:text-slate-400 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/25" placeholder="you@brokerage.com" />
+                <p class="mt-1 hidden text-xs font-medium text-red-600" data-error-for="email"></p>
+              </div>
+              <div>
+                <label for="password" class="block text-xs font-semibold uppercase tracking-wide text-slate-600">Password</label>
+                <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8"
+                  class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 shadow-inner transition focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/25" placeholder="At least 8 characters" />
+                <p class="mt-1 text-xs text-slate-500">Use 8+ characters. Avoid common passwords.</p>
+                <p class="mt-1 hidden text-xs font-medium text-red-600" data-error-for="password"></p>
+              </div>
+            </div>
+          </div>
+
+          <p id="form-error" class="hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"></p>
+
+          <button type="submit" class="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 py-3.5 text-sm font-bold text-white shadow-lg shadow-amber-500/30 transition hover:shadow-xl hover:shadow-amber-500/40 active:scale-[0.99]">
+            <span class="relative z-10">Create account &amp; continue to payment</span>
+            <span class="absolute inset-0 bg-gradient-to-r from-white/0 via-white/15 to-white/0 opacity-0 transition group-hover:opacity-100" aria-hidden="true"></span>
+          </button>
+          <p class="text-center text-[11px] leading-relaxed text-slate-500">
+            Next step: secure Stripe Checkout for the plan you selected. By continuing you agree to our
+            <a href="/terms.html" class="font-medium text-amber-700 hover:underline">Terms</a> and
+            <a href="/privacy.html" class="font-medium text-amber-700 hover:underline">Privacy</a>.
+          </p>
+        </form>
+
+        <p class="mt-8 border-t border-slate-100 pt-6 text-center text-sm text-slate-600">
+          Already registered? <a href="/login.html" class="font-semibold text-amber-700 hover:text-amber-800">Sign in</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-slate-200 bg-[#0f172a] py-14">
+    <div class="mx-auto max-w-6xl px-6">
+      <div class="grid gap-10 sm:grid-cols-2 md:grid-cols-4">
+        <div class="col-span-2 sm:col-span-1">
+          <a href="/" class="text-xl font-bold text-white">Broker<span class="text-amber-400">AI</span></a>
+          <p class="mt-3 text-sm text-slate-400 leading-relaxed">AI-powered social media campaigns for any business. Generate, schedule, and publish — all in one place.</p>
+        </div>
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Product</p>
+          <ul class="mt-4 space-y-2.5 text-sm text-slate-400">
+            <li><a href="/#features" class="transition hover:text-white">Features</a></li>
+            <li><a href="/#how-it-works" class="transition hover:text-white">How it works</a></li>
+            <li><a href="/#pricing" class="transition hover:text-white">Pricing</a></li>
+            <li><a href="/#faq" class="transition hover:text-white">FAQ</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Account</p>
+          <ul class="mt-4 space-y-2.5 text-sm text-slate-400">
+            <li><a href="/dashboard.html" class="transition hover:text-white">Dashboard</a></li>
+            <li><a href="/dashboard.html" class="transition hover:text-white">Dashboard</a></li>
+            <li><a href="/wizard.html" class="transition hover:text-white">New Campaign</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Legal</p>
+          <ul class="mt-4 space-y-2.5 text-sm text-slate-400">
+            <li><a href="/privacy.html" class="transition hover:text-white">Privacy Policy</a></li>
+            <li><a href="/cookies.html" class="transition hover:text-white">Cookies Policy</a></li>
+            <li><a href="/terms.html" class="transition hover:text-white">Terms of Service</a></li>
+            <li><a href="/contact.html" class="transition hover:text-white">Contact Us</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="mt-10 flex flex-col items-center justify-between gap-4 border-t border-slate-800 pt-8 text-sm text-slate-600 sm:flex-row">
+        <p>© 2026 BrokerAI. All rights reserved.</p>
+        <p class="text-slate-600">Made with AI, for everyone.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/static/js/app.js" defer></script>
+  <script>
+    (function () {
+      var FALLBACK = [
+        { plan: "starter", name: "Starter", price_usd: 29, tagline: "Solo volume", highlighted: false },
+        { plan: "growth", name: "Growth", price_usd: 79, tagline: "Most popular", highlighted: true },
+        { plan: "pro", name: "Pro", price_usd: 259, tagline: "Teams", highlighted: false },
+        { plan: "scale", name: "Scale", price_usd: 399, tagline: "High volume", highlighted: false },
+      ];
+
+      function renderPlans(list) {
+        var host = document.getElementById("plan-tiles");
+        if (!host) return;
+        host.innerHTML = "";
+        list.forEach(function (p) {
+          var slug = p.plan;
+          var hi = p.highlighted;
+          var card = document.createElement("label");
+          card.className =
+            "plan-card relative flex cursor-pointer flex-col rounded-xl border-2 border-slate-200 bg-slate-50/40 p-3 text-left sm:p-4 " +
+            (hi ? "ring-1 ring-amber-400/40" : "");
+          card.innerHTML =
+            '<input type="radio" name="signup-plan" value="' +
+            slug +
+            '" class="sr-only" />' +
+            '<span class="text-[10px] font-bold uppercase tracking-wider ' +
+            (hi ? "text-amber-600" : "text-slate-500") +
+            '">' +
+            (hi ? "Popular" : "Plan") +
+            "</span>" +
+            '<span class="mt-1 text-sm font-bold text-slate-900">' +
+            (p.name || slug) +
+            "</span>" +
+            '<span class="mt-2 text-lg font-extrabold tabular-nums text-slate-900">$' +
+            (p.price_usd != null ? p.price_usd : "—") +
+            '<span class="text-xs font-semibold text-slate-500">/mo</span></span>' +
+            '<span class="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-600">' +
+            (p.tagline || "") +
+            "</span>";
+          host.appendChild(card);
+        });
+        applyPlanFromUrl();
       }
 
-      function loginWithGoogle() {
-        window.location.href = '/auth/google';
+      function syncPlanCardStyles() {
+        var cards = document.querySelectorAll(".plan-card");
+        for (var c = 0; c < cards.length; c++) {
+          cards[c].classList.remove("plan-card--on");
+          var inp = cards[c].querySelector('input[name="signup-plan"]');
+          if (inp && inp.checked) cards[c].classList.add("plan-card--on");
+        }
       }
 
-      (function initGoogleButtonVisibility() {
-        fetch('/api/public-config')
-          .then(function (r) { return r.json(); })
-          .then(function (cfg) {
-            if (cfg && cfg.google_oauth_enabled) return;
-            var btn = document.getElementById('google-btn');
-            if (btn) {
-              btn.classList.add('hidden');
-              btn.setAttribute('aria-hidden', 'true');
-            }
-            var divs = document.querySelectorAll('#signup-form .flex.items-center.gap-3.my-4');
-            if (divs.length) divs[0].classList.add('hidden');
-          })
-          .catch(function () {});
-      })();
-
-      // On page load — check if we arrived from Google OAuth callback
-      (function handleGoogleToken() {
-        var hash = window.location.hash;
-        if (hash && hash.includes('google_token=')) {
-          var token = hash.split('google_token=')[1].split('&')[0];
-          if (token) {
-            BrokerAI.setToken(token);
-            history.replaceState(null, '', window.location.pathname);
-            window.location.href = '/dashboard.html';
-          }
+      function applyPlanFromUrl() {
+        var params = new URLSearchParams(window.location.search);
+        var plan = (params.get("plan") || "starter").toLowerCase();
+        if (!{ starter: 1, growth: 1, pro: 1, scale: 1 }[plan]) plan = "starter";
+        var radios = document.querySelectorAll('input[name="signup-plan"]');
+        for (var i = 0; i < radios.length; i++) {
+          radios[i].checked = radios[i].value === plan;
         }
-      })();
-
-      // Show error if Google OAuth failed
-      (function handleGoogleError() {
-        var urlParams = new URLSearchParams(window.location.search);
-        var authError = urlParams.get('error');
-        if (authError === 'google_auth_failed' || authError === 'google_profile_failed') {
-          var errEl = document.getElementById('error-message') || document.getElementById('error') || document.querySelector('.error-text');
-          if (errEl) {
-            errEl.textContent = 'Google sign-in failed. Please try again or use email/password.';
-            errEl.style.display = 'block';
-          }
-        }
-        var notice = urlParams.get('notice');
-        if (notice === 'google_oauth_unavailable') {
-          var ban = document.getElementById('google-oauth-notice-banner');
-          if (ban) {
-            ban.textContent =
-              'Google sign-in is not configured on this server yet. Create an account with email and password, or set GOOGLE_CLIENT_ID in the environment.';
-            ban.classList.remove('hidden');
-          }
-        }
-      })();
-
-      var _inviteToken = null;
-      var _inviteEmail = null;
-
-      // ── Invite flow bootstrap ──────────────────────────────────────────
-      (async function initInvite() {
-        var params = new URLSearchParams(location.search);
-        var token = params.get("invite_token");
-        if (!token) return;
-
-        _inviteToken = token;
-
-        // Fetch invite metadata for pre-fill
-        try {
-          var info = await BrokerAI.apiJson("/invite-info?token=" + encodeURIComponent(token), { method: "GET" }, true /* allow 4xx */);
-          if (info && info.valid) {
-            _inviteEmail = info.email || null;
-            // Pre-fill email and lock it
-            var emailEl = document.getElementById("email");
-            if (_inviteEmail) {
-              emailEl.value = _inviteEmail;
-              emailEl.readOnly = true;
-              emailEl.classList.add("bg-slate-50", "cursor-not-allowed");
-            }
-            // Show invite banner
-            document.getElementById("invite-banner").classList.remove("hidden");
-            document.getElementById("invite-email-hint").classList.remove("hidden");
-            document.getElementById("invite-desc").textContent =
-              "You're joining a team" + (_inviteEmail ? " as " + _inviteEmail : "") + ". Sign up to accept.";
-            document.getElementById("signup-heading").textContent = "Join your team";
-            document.getElementById("signup-btn").textContent = "Accept invite & join team";
-          } else {
-            // Invalid token — show error and disable form
-            var msg = (info && info.error) || "This invite link is invalid or has expired.";
-            document.getElementById("invite-banner").classList.remove("hidden");
-            document.getElementById("invite-banner").className =
-              document.getElementById("invite-banner").className
-                .replace("border-amber-200 bg-amber-50", "border-red-200 bg-red-50");
-            document.getElementById("invite-banner").innerHTML =
-              '<div class="flex items-start gap-3">' +
-              '<span class="mt-0.5 text-lg">⛔</span>' +
-              '<div><p class="text-sm font-semibold text-red-900">Invite invalid</p>' +
-              '<p class="mt-0.5 text-xs text-red-700">' + msg + '</p></div></div>';
-            document.getElementById("signup-btn").disabled = true;
-            document.getElementById("signup-btn").classList.add("opacity-40", "cursor-not-allowed");
-          }
-        } catch (e) {
-          // Non-critical — just proceed without pre-fill
-        }
-
-        // Hide plan section for invite signups
-        var ats = document.getElementById("account-type-section");
-        if (ats) ats.classList.add("hidden");
-      })();
-
-      // ── Public plan catalog (matches /billing/plans) ───────────────────
-      function _fmtSeats(n) {
-        var x = Number(n);
-        return !isFinite(x) || x >= 999999 ? "Unlimited" : String(x);
+        syncPlanCardStyles();
       }
-      (function loadSignupPlansSummary() {
-        var wrap = document.getElementById("signup-plans-summary");
-        var loading = document.getElementById("signup-plans-loading");
-        if (!wrap) return;
+
+      function initPlans() {
         fetch("/billing/plans")
           .then(function (r) {
             return r.json();
           })
           .then(function (data) {
-            var plans = (data && data.plans) || [];
-            if (!plans.length) {
-              if (loading) loading.remove();
-              var h0 = document.createElement("input");
-              h0.type = "hidden";
-              h0.name = "billing_plan";
-              h0.value = "starter";
-              wrap.appendChild(h0);
-              var p0 = document.createElement("p");
-              p0.className = "mt-2 text-xs text-slate-600";
-              p0.textContent = "Plan list unavailable. Defaulting to Starter.";
-              wrap.appendChild(p0);
-              return;
-            }
-            if (loading) loading.remove();
-            var grid = document.createElement("div");
-            grid.setAttribute("role", "radiogroup");
-            grid.setAttribute("aria-label", "Subscription plan");
-            grid.className = "mt-2 grid gap-2 sm:grid-cols-2";
-            plans.forEach(function (p) {
-              var rid = "billing-plan-" + p.plan;
-              var lbl = document.createElement("label");
-              lbl.className = "relative block cursor-pointer text-left";
-              var price = "$" + p.price_usd + (p.price_period || "/mo");
-              var seats = _fmtSeats(p.team_seats);
-              var camps = String(p.campaigns_per_month);
-              var checked = p.plan === "starter" ? " checked" : "";
-              var baseBorder = p.highlighted ? "border-amber-200 bg-amber-50/50" : "border-slate-200 bg-white";
-              lbl.innerHTML =
-                '<input type="radio" name="billing_plan" id="' +
-                rid +
-                '" value="' +
-                p.plan +
-                '" class="peer sr-only"' +
-                checked +
-                " />" +
-                '<span class="block rounded-lg border px-2.5 py-2 transition ' +
-                baseBorder +
-                ' peer-checked:border-amber-500 peer-checked:bg-amber-50/90 peer-checked:ring-2 peer-checked:ring-amber-400/50 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-amber-500">' +
-                '<span class="text-xs font-bold text-slate-900">' +
-                p.name +
-                (p.highlighted
-                  ? ' <span class="text-[10px] font-bold uppercase text-amber-700">Popular</span>'
-                  : "") +
-                "</span>" +
-                '<span class="mt-0.5 block text-[11px] text-slate-600">' +
-                price +
-                " · " +
-                camps +
-                " campaigns/mo · " +
-                seats +
-                " seat(s) · " +
-                p.platforms +
-                " platforms</span>" +
-                '<span class="mt-0.5 block text-[10px] text-slate-500">' +
-                (p.tagline || "") +
-                "</span></span>";
-              grid.appendChild(lbl);
-            });
-            wrap.appendChild(grid);
+            var list = (data && data.plans) || data;
+            if (Array.isArray(list) && list.length) renderPlans(list);
+            else renderPlans(FALLBACK);
           })
           .catch(function () {
-            if (loading) loading.remove();
-            var h = document.createElement("input");
-            h.type = "hidden";
-            h.name = "billing_plan";
-            h.value = "starter";
-            wrap.appendChild(h);
-            var err = document.createElement("p");
-            err.className = "mt-2 text-xs text-slate-600";
-            err.textContent =
-              "Could not load the plan list. You will be created on the Starter plan; you can upgrade after signup.";
-            wrap.appendChild(err);
+            document.getElementById("plan-load-err").textContent =
+              "Using default prices — refresh if totals look off.";
+            document.getElementById("plan-load-err").classList.remove("hidden");
+            renderPlans(FALLBACK);
           });
-      })();
+      }
 
-      // ── Form submit ───────────────────────────────────────────────────
-      var signupForm = document.getElementById("signup-form");
-      var signupBtn = document.getElementById("signup-btn");
-      var signupBtnText = signupBtn.textContent;
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initPlans);
+      } else {
+        initPlans();
+      }
 
-      signupForm.addEventListener("submit", async function (e) {
+      document.getElementById("plan-tiles").addEventListener("change", function (ev) {
+        if (ev.target && ev.target.name === "signup-plan") syncPlanCardStyles();
+      });
+
+      document.getElementById("signup-form").addEventListener("submit", async function (e) {
         e.preventDefault();
-        var fd = new FormData(e.target);
-        var tz;
-        try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (_) { tz = "UTC"; }
+        var B = window.BrokerAI;
+        if (!B) return;
+        B.clearFieldErrors(["name", "email", "password"]);
+        var fe = document.getElementById("form-error");
+        fe.classList.add("hidden");
+        fe.textContent = "";
 
-        var email = (fd.get("email") || "").toString().trim();
-        var password = (fd.get("password") || "").toString();
+        var name = document.getElementById("name").value.trim();
+        var email = document.getElementById("email").value.trim();
+        var password = document.getElementById("password").value;
+        var en = B.validateRequired(name, "Name");
+        var ee = B.validateEmail(email);
+        var ep = B.validatePassword(password);
+        B.setFieldError("name", en);
+        B.setFieldError("email", ee);
+        B.setFieldError("password", ep);
+        if (en || ee || ep) return;
 
-        // Client-side validation (inline errors, no alerts)
-        BrokerAI.clearFieldErrors(["email", "password"]);
-        var hasErr = false;
-        var eErr = BrokerAI.validateEmail(email);
-        if (eErr) { BrokerAI.setFieldError("email", eErr); hasErr = true; }
-        var pErr = BrokerAI.validatePassword(password);
-        if (pErr) { BrokerAI.setFieldError("password", pErr); hasErr = true; }
+        var sel = document.querySelector('input[name="signup-plan"]:checked');
+        var planId = sel ? sel.value : "starter";
 
-        if (hasErr) return;
-
-        var body = {
-          email: email,
-          password: password,
-          timezone: tz,
-        };
-        if (_inviteToken) {
-          body.invite_token = _inviteToken;
-        } else {
-          body.account_type = "individual";
-          var bp = (fd.get("billing_plan") || "starter").toString().trim().toLowerCase();
-          body.billing_plan = ["starter", "growth", "pro", "scale"].indexOf(bp) !== -1 ? bp : "starter";
-        }
-
-        signupBtn.disabled = true;
-        signupBtn.textContent = "Creating account…";
-        BrokerAI.setLoading(true);
         try {
-          var res = await BrokerAI.apiJson("/signup", {
+          B.setLoading(true);
+          if (B.setLoadingText) B.setLoadingText("Creating your account…");
+          var res = await B.apiJson("/api/auth/signup", {
             method: "POST",
-            body: JSON.stringify(body),
+            body: JSON.stringify({ name: name, email: email, password: password, planId: planId }),
           });
-          BrokerAI.setToken(res.access_token);
-          BrokerAI.showToast(
-            _inviteToken ? "Welcome! You've joined the team." : "Account created. Welcome!",
-            "success"
-          );
-          window.location.href = "/dashboard.html";
-        } catch (err) {
-          // Surface server-side field errors inline when possible
-          var msg = err.message || "Sign up failed";
-          if (/email/i.test(msg)) BrokerAI.setFieldError("email", msg);
-          else if (/password/i.test(msg)) BrokerAI.setFieldError("password", msg);
-          BrokerAI.showToast(msg, "error");
+          var accessToken = res && res.access_token ? String(res.access_token) : "";
+          if (accessToken) B.setToken(accessToken);
+
+          if (B.setLoadingText) B.setLoadingText("Opening secure checkout…");
+          try {
+            var co = await B.apiJson("/billing/checkout", {
+              method: "POST",
+              headers: { Authorization: "Bearer " + accessToken },
+              body: JSON.stringify({ plan: planId }),
+            });
+            if (co && co.url && /^https?:\/\//i.test(String(co.url).trim())) {
+              window.location.replace(String(co.url).trim());
+              return;
+            }
+          } catch (coErr) {
+            while (fe.firstChild) fe.removeChild(fe.firstChild);
+            var cm = (coErr && coErr.message) || "Could not start checkout.";
+            fe.appendChild(document.createTextNode(cm + " "));
+            var a = document.createElement("a");
+            a.href = "/dashboard.html";
+            a.className = "font-semibold text-amber-800 underline";
+            a.textContent = "Continue to dashboard";
+            fe.appendChild(a);
+            fe.classList.remove("hidden");
+            return;
+          }
+          window.location.href = "/dashboard.html?billing=pending";
+        } catch (err2) {
+          var msg = (err2 && err2.message) || "Something went wrong";
+          if (err2 && err2.status === 400 && /already exists/i.test(msg)) {
+            fe.textContent = "That email is already registered. Try signing in.";
+          } else if (err2 && err2.status === 400) {
+            fe.textContent = msg;
+          } else {
+            fe.textContent = "Something went wrong. Please try again.";
+          }
+          fe.classList.remove("hidden");
         } finally {
-          signupBtn.disabled = false;
-          signupBtn.textContent = signupBtnText;
-          BrokerAI.setLoading(false);
+          B.setLoading(false);
         }
       });
-    </script>
-  </body>
+    })();
+  </script>
+</body>
 </html>

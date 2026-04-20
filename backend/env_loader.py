@@ -54,9 +54,8 @@ def _strict_mode() -> bool:
     return (os.getenv("BROKERAI_STRICT_ENV") or "").strip().lower() in ("1", "true", "yes", "on")
 
 
-# JWT secret is always required — auth is broken without it.
 # DATABASE_URL is required in all modes; defaults to SQLite but must be explicit in prod.
-_REQUIRED_ALWAYS = ["JWT_SECRET_KEY"]
+_REQUIRED_ALWAYS: list[str] = []
 # Strict-only: needed for AI features; local dev can run without them.
 _REQUIRED_STRICT = ["OPENAI_API_KEY"]
 # Always warn if these are missing (non-fatal in dev, fatal in prod)

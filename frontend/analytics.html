@@ -204,6 +204,7 @@
       if (!BrokerAI.requireAuth()) {
         /* redirected */
       }
+      BrokerAI.bootAuth().catch(function () {});
 
       function showSkeleton(id) { var el = document.getElementById(id); if(el) el.style.display = ''; }
       function hideSkeleton(id) { var el = document.getElementById(id); if(el) el.style.display = 'none'; }
@@ -375,10 +376,6 @@
       if (exportLink) {
         exportLink.addEventListener("click", async function (e) {
           e.preventDefault();
-          if (!BrokerAI.getToken || !BrokerAI.getToken()) {
-            BrokerAI.showToast("Not authenticated", "error");
-            return;
-          }
           try {
             var res = await BrokerAI.fetchWithAuth("/analytics/export-csv", { method: "GET" });
             if (!res.ok) throw new Error("Export failed: " + res.status);

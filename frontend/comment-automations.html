@@ -305,16 +305,6 @@
     /* ─────────────────────────────────────────────────────────────────────
        Helpers
     ───────────────────────────────────────────────────────────────────── */
-    const TOKEN = (function () {
-      try {
-        return BrokerAI.getToken() || "";
-      } catch (e) { return ""; }
-    })();
-
-    if (!TOKEN) {
-      window.location.href = "/login.html";
-    }
-
     const API_BASE = (function () {
       const o = window.location.origin;
       return (!o || o === "null" || !/^https?:/i.test(o)) ? "http://127.0.0.1:8000" : "";
@@ -323,7 +313,6 @@
     function authFetch(path, opts) {
       opts = opts || {};
       opts.headers = Object.assign({
-        "Authorization": "Bearer " + TOKEN,
         "Content-Type": "application/json",
       }, opts.headers || {});
       return fetch(API_BASE + path, opts).then(function (r) {

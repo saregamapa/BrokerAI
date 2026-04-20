@@ -23,6 +23,12 @@ services:
         sync: false
       - key: AYRSHARE_SSO_DOMAIN
         sync: false
+      # Preferred: base64-encoded PEM — avoids multiline paste issues in Render dashboard.
+      # Run: base64 -i id-YF7L--private-key.pem | tr -d '\n'  and paste the result.
+      - key: AYRSHARE_PRIVATE_KEY_BASE64_VALUE
+        sync: false
+      # Alternative: paste full PEM with real newlines (Render supports multiline values).
+      # Leave empty if using AYRSHARE_PRIVATE_KEY_BASE64_VALUE above.
       - key: AYRSHARE_PRIVATE_KEY
         sync: false
       - key: BROKERAI_PUBLIC_ORIGIN

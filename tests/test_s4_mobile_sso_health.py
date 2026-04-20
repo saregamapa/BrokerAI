@@ -2,7 +2,7 @@
 S4-12 — Sprint 4 integration tests.
 Covers: /health, /health/ready, Redis cache layer (unit),
         request-id middleware, Sentry init, async analytics background tasks,
-        Google OAuth unconfigured guard, and mobile-API contract tests.
+        and mobile-API contract tests.
 """
 from __future__ import annotations
 
@@ -13,20 +13,16 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.helpers import create_test_user, user_headers
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 def _make_user(client: TestClient, email: str) -> dict:
-    """Register + login; return {'headers': ..., 'id': ...}."""
-    client.post("/signup", json={"email": email, "password": "Sprint4Pass!"})
-    token = client.post(
-        "/login", json={"email": email, "password": "Sprint4Pass!"}
-    ).json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
-    uid = client.get("/me", headers=headers).json()["id"]
-    return {"headers": headers, "id": uid}
+    uid = create_test_user(email, password="Sprint4Pass!")
+    return {"headers": user_headers(uid), "id": uid}
 
 
 # ---------------------------------------------------------------------------
@@ -194,23 +190,7 @@ class TestAnalyticsBackground:
 
 
 # ---------------------------------------------------------------------------
-# 5. Google OAuth unconfigured guard (lightweight — S4-05 already covers the rest)
-# ---------------------------------------------------------------------------
-
-class TestGoogleOAuthGuard:
-    def test_google_auth_no_config_returns_400(self, client: TestClient):
-        """GET /auth/google with GOOGLE_CLIENT_ID='' returns 400 or 302 to unavailable notice."""
-        with patch.dict(os.environ, {"GOOGLE_CLIENT_ID": ""}, clear=False):
-            resp = client.get("/auth/google", follow_redirects=False)
-        assert resp.status_code in (302, 400)
-        if resp.status_code == 302:
-            assert "google_oauth_unavailable" in (resp.headers.get("location") or "")
-        else:
-            assert "not configured" in resp.json()["detail"].lower()
-
-
-# ---------------------------------------------------------------------------
-# 6. Mobile API contract tests
+# 5. Mobile API contract tests
 # ---------------------------------------------------------------------------
 
 class TestMobileApiContracts:
@@ -247,15 +227,15 @@ class TestMobileApiContracts:
         # New user has no content library items
         assert body["items"] == []
 
-    def test_campaigns_list_requires_auth(self, client: TestClient):
-        """GET /campaigns without auth returns 401 or 403 (not 200)."""
-        resp = client.get("/campaigns")
-        assert resp.status_code in (401, 403)
+    def test_campaigns_list_with_user_header(self, client: TestClient):
+        uid = create_test_user("mobile_default_camps@example.com")
+        resp = client.get("/campaigns", headers=user_headers(uid))
+        assert resp.status_code == 200
 
-    def test_notifications_requires_auth(self, client: TestClient):
-        """GET /notifications/unread-count without auth returns 401 or 403."""
-        resp = client.get("/notifications/unread-count")
-        assert resp.status_code in (401, 403)
+    def test_notifications_with_user_header(self, client: TestClient):
+        uid = create_test_user("mobile_default_notif@example.com")
+        resp = client.get("/notifications/unread-count", headers=user_headers(uid))
+        assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------

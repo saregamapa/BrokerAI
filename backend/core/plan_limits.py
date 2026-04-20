@@ -54,7 +54,7 @@ PLAN_STARTER = PlanLimits(
     analytics_ai=True,
     comment_automations=False,
     custom_brand_kit=True,
-    stripe_price_id_monthly=_price("STRIPE_PRICE_STARTER", "price_starter_placeholder"),
+    stripe_price_id_monthly=_price("STRIPE_PRICE_STARTER", ""),
     monthly_price_usd=29,
 )
 
@@ -68,7 +68,7 @@ PLAN_GROWTH = PlanLimits(
     analytics_ai=True,
     comment_automations=False,
     custom_brand_kit=True,
-    stripe_price_id_monthly=_price("STRIPE_PRICE_GROWTH", "price_growth_placeholder"),
+    stripe_price_id_monthly=_price("STRIPE_PRICE_GROWTH", ""),
     monthly_price_usd=79,
 )
 
@@ -82,7 +82,7 @@ PLAN_PRO = PlanLimits(
     analytics_ai=True,
     comment_automations=True,
     custom_brand_kit=True,
-    stripe_price_id_monthly=_price("STRIPE_PRICE_PRO", "price_pro_placeholder"),
+    stripe_price_id_monthly=_price("STRIPE_PRICE_PRO", ""),
     monthly_price_usd=259,
 )
 
@@ -96,7 +96,7 @@ PLAN_SCALE = PlanLimits(
     analytics_ai=True,
     comment_automations=True,
     custom_brand_kit=True,
-    stripe_price_id_monthly=_price("STRIPE_PRICE_SCALE", "price_scale_placeholder"),
+    stripe_price_id_monthly=_price("STRIPE_PRICE_SCALE", ""),
     monthly_price_usd=399,
 )
 
@@ -282,11 +282,11 @@ def warn_placeholder_stripe_prices() -> None:
     import logging as _log
     _logger = _log.getLogger("brokerai.plan_limits")
     for tier in [PLAN_STARTER, PLAN_GROWTH, PLAN_PRO, PLAN_SCALE]:
-        if "placeholder" in (tier.stripe_price_id_monthly or "").lower():
+        pid = (tier.stripe_price_id_monthly or "").strip()
+        if not pid or "placeholder" in pid.lower():
             _logger.warning(
-                "Plan '%s' has a placeholder Stripe price ID ('%s'). "
-                "Set STRIPE_PRICE_%s env var before enabling billing.",
+                "Plan '%s' has no Stripe price ID configured. "
+                "Set STRIPE_PRICE_%s in .env (Stripe Dashboard → Product catalog → Price id price_…).",
                 tier.plan,
-                tier.stripe_price_id_monthly,
                 tier.plan.upper(),
             )

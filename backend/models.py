@@ -42,6 +42,9 @@ class User(SQLModel, table=True):
     stripe_customer_id: Optional[str] = Field(default=None, index=True)
     stripe_subscription_id: Optional[str] = Field(default=None)
     plan_expires_at: Optional[datetime] = Field(default=None)   # null = never / managed by Stripe
+    # Billing lifecycle for self-serve signup (active | trial | expired)
+    plan_status: str = Field(default="active")
+    last_login_at: Optional[datetime] = Field(default=None)
     # Ayrshare Business: per-user profile for SSO linking + publishing (Profile-Key header)
     ayrshare_profile_key: Optional[str] = Field(default=None)
     social_connected: bool = Field(default=False)

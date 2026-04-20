@@ -2,16 +2,12 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from tests.helpers import mark_user_social_connected, stub_run_campaign_phase1
+from tests.helpers import create_test_user, mark_user_social_connected, stub_run_campaign_phase1, user_headers
 
 
 def test_approve_campaign_returns_ok(client: TestClient) -> None:
-    client.post("/signup", json={"email": "appr@example.com", "password": "secret12"})
-    token = client.post("/login", json={"email": "appr@example.com", "password": "secret12"}).json()[
-        "access_token"
-    ]
-    h = {"Authorization": f"Bearer {token}"}
-    uid = client.get("/me", headers=h).json()["id"]
+    uid = create_test_user("appr@example.com", password="secret12")
+    h = user_headers(uid)
     mark_user_social_connected(uid)
     body = {"goal": "Leads", "location": "Seattle", "platforms": ["Facebook"]}
     with patch("backend.main.run_campaign_phase1", side_effect=stub_run_campaign_phase1):
@@ -24,12 +20,8 @@ def test_approve_campaign_returns_ok(client: TestClient) -> None:
 
 
 def test_analytics_reflects_campaigns(client: TestClient) -> None:
-    client.post("/signup", json={"email": "an@example.com", "password": "secret12"})
-    token = client.post("/login", json={"email": "an@example.com", "password": "secret12"}).json()[
-        "access_token"
-    ]
-    h = {"Authorization": f"Bearer {token}"}
-    uid = client.get("/me", headers=h).json()["id"]
+    uid = create_test_user("an@example.com", password="secret12")
+    h = user_headers(uid)
     mark_user_social_connected(uid)
     body = {"goal": "Leads", "location": "Miami", "platforms": ["Facebook"]}
     with patch("backend.main.run_campaign_phase1", side_effect=stub_run_campaign_phase1):

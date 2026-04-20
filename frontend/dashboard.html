@@ -129,59 +129,13 @@
             <div id="dash-rate"></div>
           </div>
 
-          <!-- Team invites: visible only for team/org owners (see load()) -->
+          <!-- Team members: visible for team/org owners (see load()) -->
           <div id="team-owner-section" class="hidden mt-10">
             <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500">Team</h2>
             <div
               class="mt-4 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md"
             >
-              <p class="text-sm leading-relaxed text-slate-600">
-                Invite teammates by email. We create a one-time signup link for that address. Copy the link and send it
-                to them (email or chat). They must sign up with the same email you enter.
-              </p>
-              <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                <div class="min-w-0 flex-1">
-                  <label for="team-invite-email" class="block text-xs font-semibold uppercase tracking-wide text-slate-500"
-                    >Teammate email</label
-                  >
-                  <input
-                    type="email"
-                    id="team-invite-email"
-                    autocomplete="email"
-                    placeholder="colleague@company.com"
-                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
-                  />
-                </div>
-                <button
-                  type="button"
-                  id="team-invite-btn"
-                  class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
-                  Send invitation
-                </button>
-              </div>
-              <div id="team-invite-result" class="mt-4 hidden rounded-xl border border-emerald-200/80 bg-emerald-50/90 p-4">
-                <p class="text-xs font-bold uppercase tracking-wide text-emerald-800">Invitation link</p>
-                <p id="team-invite-url" class="mt-2 break-all text-sm text-emerald-900"></p>
-                <button
-                  type="button"
-                  id="team-invite-copy"
-                  class="mt-3 rounded-lg border border-emerald-300 bg-white px-4 py-2 text-xs font-semibold text-emerald-900 shadow-sm transition hover:bg-emerald-50"
-                >
-                  Copy link
-                </button>
-              </div>
-              <p id="team-invite-err" class="mt-3 hidden text-sm text-red-600"></p>
-
-              <div class="mt-8 border-t border-slate-100 pt-6">
+              <div class="border-t border-slate-100 pt-2">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Team members</h3>
                 <ul id="team-members-list" class="mt-3 space-y-0 divide-y divide-slate-100 text-sm"></ul>
                 <p id="team-members-empty" class="mt-3 hidden text-sm text-slate-500">No members loaded yet.</p>
@@ -322,21 +276,10 @@
     <script src="/static/js/nav.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shepherd.js/11.2.0/js/shepherd.min.js"></script>
     <script>
-      // Handle Google OAuth redirect token
-      (function() {
-        var hash = window.location.hash;
-        if (hash && hash.includes('google_token=')) {
-          var token = hash.split('google_token=')[1].split('&')[0];
-          if (token) {
-            BrokerAI.setToken(token);
-            history.replaceState(null, '', window.location.pathname + window.location.search);
-          }
-        }
-      })();
-
       if (!BrokerAI.requireAuth()) {
         /* redirected */
       }
+      BrokerAI.bootAuth().catch(function () {});
 
       function showSkeleton(id) { var el = document.getElementById(id); if(el) el.style.display = ''; }
       function hideSkeleton(id) { var el = document.getElementById(id); if(el) el.style.display = 'none'; }
@@ -345,13 +288,6 @@
       var viewYear, viewMonth;
       var userTimeZone = "UTC";
       var dashboardTeamId = null;
-
-      function teamInviteSetError(msg) {
-        var el = document.getElementById("team-invite-err");
-        if (!el) return;
-        el.textContent = msg || "";
-        el.classList.toggle("hidden", !msg);
-      }
 
       async function loadTeamMembersList(teamId) {
         var ul = document.getElementById("team-members-list");
@@ -367,7 +303,7 @@
           if (!members || !members.length) {
             if (empty) {
               empty.classList.remove("hidden");
-              empty.textContent = "No teammates yet — send an invitation above.";
+              empty.textContent = "No teammates listed.";
             }
             return;
           }
@@ -904,8 +840,6 @@
             teamOwnerSection.classList.toggle("hidden", !canShowTeamInvite);
           }
           if (canShowTeamInvite) {
-            teamInviteSetError("");
-            document.getElementById("team-invite-result").classList.add("hidden");
             await loadTeamMembersList(dashboardTeamId);
           }
 
@@ -995,56 +929,6 @@
           viewYear++;
         }
         renderCal();
-      });
-
-      document.getElementById("team-invite-btn").addEventListener("click", async function () {
-        if (!dashboardTeamId) return;
-        var input = document.getElementById("team-invite-email");
-        var btn = document.getElementById("team-invite-btn");
-        var email = (input && input.value) || "";
-        email = String(email).trim();
-        teamInviteSetError("");
-        var resultEl = document.getElementById("team-invite-result");
-        if (resultEl) resultEl.classList.add("hidden");
-        if (!email) {
-          teamInviteSetError("Enter your teammate’s email address.");
-          return;
-        }
-        btn.disabled = true;
-        try {
-          var out = await BrokerAI.apiJson("/teams/" + dashboardTeamId + "/invite", {
-            method: "POST",
-            body: JSON.stringify({ email: email }),
-          });
-          var urlEl = document.getElementById("team-invite-url");
-          if (urlEl) urlEl.textContent = out.signup_url || "";
-          if (resultEl) resultEl.classList.remove("hidden");
-          BrokerAI.showToast("Invitation link ready — copy and share it.", "success");
-          await loadTeamMembersList(dashboardTeamId);
-        } catch (e) {
-          teamInviteSetError(e.message || "Could not create invitation.");
-          BrokerAI.showToast(e.message || "Invitation failed", "error");
-        } finally {
-          btn.disabled = false;
-        }
-      });
-
-      document.getElementById("team-invite-copy").addEventListener("click", function () {
-        var urlEl = document.getElementById("team-invite-url");
-        var url = (urlEl && urlEl.textContent) || "";
-        if (!url) return;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(
-            function () {
-              BrokerAI.showToast("Link copied", "success");
-            },
-            function () {
-              teamInviteSetError("Could not copy automatically — select the link and copy it.");
-            }
-          );
-        } else {
-          teamInviteSetError("Copy is not supported in this browser — select the link and copy it.");
-        }
       });
 
       // ── Approval-needed notification badge ───────────────────────────
@@ -1397,9 +1281,6 @@
           return;
         }
 
-        var token = localStorage.getItem('brokerai_token') || localStorage.getItem('token') || '';
-        if (!token) { alert('Please log in first.'); return; }
-
         // Show progress toast
         var toast = document.createElement('div');
         toast.id = 'report-toast';
@@ -1414,7 +1295,7 @@
         try {
           var res = await fetch('/campaigns/' + encodeURIComponent(campaignId) + '/report/pdf', {
             method: 'GET',
-            headers: { 'Authorization': 'Bearer ' + token },
+            headers: { Accept: 'application/json' },
           });
           if (!res.ok) {
             var err = await res.json().catch(function () { return {}; });
@@ -1671,15 +1552,11 @@
             }
 
             var newIso = targetDate + "T" + originalTime + "Z";
-            var token =
-              BrokerAI.getToken() ||
-              "";
 
             fetch("/posts/" + postId + "/reschedule", {
               method: "PATCH",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: "Bearer " + token,
               },
               body: JSON.stringify({ scheduled_time: newIso }),
             })

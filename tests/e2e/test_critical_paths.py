@@ -10,40 +10,19 @@ These tests require:
 Run with:
   pytest tests/e2e/ --e2e -v
 
-Skip automatically when the server is not reachable.
+Entire module is skipped until E2E is rewritten for the no-login product flow.
 """
 from __future__ import annotations
 
 import time
 import uuid
-import urllib.error
-import urllib.request
 from typing import Optional
 
 import pytest
 
 
-# ---------------------------------------------------------------------------
-# Server availability check (module-level, runs once at import time)
-# ---------------------------------------------------------------------------
-
-def _server_running(host: str = "localhost", port: int = 8000) -> bool:
-    """True when BrokerAI responds on /health (TCP-only checks can false-positive on hung workers)."""
-    try:
-        url = f"http://{host}:{port}/health"
-        req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=4) as resp:  # noqa: S310 — test helper
-            return int(resp.getcode() or 0) == 200
-    except (urllib.error.URLError, OSError, TimeoutError, ValueError):
-        return False
-
-
-SERVER_RUNNING = _server_running()
-
-# Skip every test in this module when the server is not running.
-pytestmark = pytest.mark.skipif(
-    not SERVER_RUNNING,
-    reason="BrokerAI server not running at localhost:8000 — start it with `uvicorn backend.main:app` first",
+pytestmark = pytest.mark.skip(
+    reason="E2E suite targeted removed signup/login pages and JWT APIs; rewrite against open dashboard flow when needed.",
 )
 
 

@@ -2261,6 +2261,7 @@ const WIZ = {
 // INIT
 // ════════════════════════════════════════════════════════════
 if(!BrokerAI.requireAuth()){}
+BrokerAI.bootAuth().catch(function () {});
 
 WIZ.loadBrandAssets();
 

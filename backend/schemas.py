@@ -383,6 +383,85 @@ class LoginRequest(BaseModel):
         return v
 
 
+class ApiAuthSignupRequest(BaseModel):
+    """Public signup with plan chosen on the pricing page (JSON: planId camelCase OK)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
+
+    name: str = Field(min_length=1, max_length=120)
+    email: str
+    password: str = Field(min_length=8, max_length=128)
+    plan_id: str = Field(..., min_length=1, max_length=32, alias="planId")
+
+    @field_validator("email")
+    @classmethod
+    def _email_norm(cls, v: str) -> str:
+        import re
+
+        v = str(v).strip().lower()
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError("Enter a valid email address.")
+        return v
+
+    @field_validator("name")
+    @classmethod
+    def _name_trim(cls, v: str) -> str:
+        s = str(v).strip()
+        if not s:
+            raise ValueError("Name is required.")
+        return s
+
+    @field_validator("password")
+    @classmethod
+    def _pw_strength(cls, v: str) -> str:
+        if not isinstance(v, str):
+            raise ValueError("Password is required.")
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        if v.lower() in {"password", "12345678", "qwertyui", "abc12345", "password1"}:
+            raise ValueError("Password is too common. Please choose a stronger password.")
+        return v
+
+    @field_validator("plan_id")
+    @classmethod
+    def _plan_slug(cls, v: str) -> str:
+        s = str(v).strip().lower()
+        # Agency is sales-assisted only — not self-serve signup
+        if s not in ("starter", "growth", "pro", "scale"):
+            raise ValueError("planId must be starter, growth, pro, or scale")
+        return s
+
+
+class ApiAuthForgotPasswordRequest(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def _email_norm(cls, v: str) -> str:
+        import re
+
+        v = str(v).strip().lower()
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", v):
+            raise ValueError("Enter a valid email address.")
+        return v
+
+
+class ApiAuthResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=500)
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def _pw_strength(cls, v: str) -> str:
+        if not isinstance(v, str):
+            raise ValueError("Password is required.")
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        if v.lower() in {"password", "12345678", "qwertyui", "abc12345", "password1"}:
+            raise ValueError("Password is too common. Please choose a stronger password.")
+        return v
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -393,6 +472,9 @@ class UserOut(BaseModel):
 
     id: int
     email: str
+    display_name: Optional[str] = None
+    plan: str = "starter"
+    plan_status: str = "active"
     social_connected: bool = False
     timezone: str = "UTC"
     facebook_url: str = ""
@@ -412,6 +494,12 @@ class UserOut(BaseModel):
     brand_key_messages: Optional[str] = None
     brand_forbidden_words: Optional[str] = None
     brand_cta_style: Optional[str] = None
+
+
+class AuthSessionResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
 
 
 class UpdateProfileUrlsRequest(BaseModel):

@@ -1,5 +1,5 @@
 /**
- * BrokerAI — API helpers, JWT auth, UI utilities
+ * BrokerAI — API helpers and UI utilities (no client-side auth).
  */
 (function () {
   "use strict";
@@ -29,7 +29,8 @@
 
   function setToken(token) {
     try {
-      localStorage.setItem(TOKEN_KEY, token);
+      if (token) localStorage.setItem(TOKEN_KEY, String(token));
+      else localStorage.removeItem(TOKEN_KEY);
     } catch (e) {}
   }
 
@@ -39,7 +40,7 @@
     } catch (e) {}
   }
 
-  function authHeaders() {
+  function jsonHeaders() {
     var h = {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -49,9 +50,28 @@
     return h;
   }
 
+  /**
+   * Validate stored JWT with GET /api/auth/me. Redirects to login on failure.
+   * @returns {Promise<object|null>}
+   */
+  async function bootAuth() {
+    var t = getToken();
+    if (!t) {
+      window.location.href = "/login.html";
+      return null;
+    }
+    try {
+      return await apiJson("/api/auth/me", { method: "GET" });
+    } catch (e) {
+      clearToken();
+      window.location.href = "/login.html";
+      return null;
+    }
+  }
+
   async function apiJson(path, options) {
     var opts = options || {};
-    var headers = Object.assign({}, authHeaders(), opts.headers || {});
+    var headers = Object.assign({}, jsonHeaders(), opts.headers || {});
     var res = await fetch(apiUrl(path), Object.assign({}, opts, { headers: headers }));
     var text = await res.text();
     var data = null;
@@ -59,43 +79,6 @@
       data = text ? JSON.parse(text) : null;
     } catch (e) {
       data = { detail: text || "Invalid JSON" };
-    }
-    if (res.status === 401) {
-      // Attempt a silent token refresh before giving up
-      var refreshed = false;
-      try {
-        var rfRes = await fetch(apiUrl("/auth/refresh"), { method: "POST", credentials: "include" });
-        if (rfRes.ok) {
-          var rfData = await rfRes.json();
-          if (rfData && rfData.access_token) {
-            setToken(rfData.access_token);
-            // Retry the original request with the new token
-            var retryHeaders = Object.assign({}, authHeaders(), opts.headers || {});
-            var retryRes = await fetch(apiUrl(path), Object.assign({}, opts, { headers: retryHeaders }));
-            if (retryRes.ok) {
-              var retryText = await retryRes.text();
-              try { return retryText ? JSON.parse(retryText) : null; } catch(e) { return null; }
-            }
-            refreshed = true;
-          }
-        }
-      } catch (rfErr) { /* refresh failed, fall through to logout */ }
-      if (!refreshed) {
-        var hadToken = !!getToken();
-        clearToken();
-        var onAuthPage =
-          typeof window !== "undefined" &&
-          (window.location.pathname.indexOf("login") !== -1 ||
-            window.location.pathname.indexOf("signup") !== -1 ||
-            window.location.pathname.indexOf("forgot-password") !== -1);
-        if (!onAuthPage && typeof window !== "undefined") {
-          try {
-            if (hadToken) sessionStorage.setItem("brokerai_session_expired", "1");
-            sessionStorage.setItem("brokerai_return_to", window.location.pathname + window.location.search);
-          } catch (e) {}
-          window.location.href = "/login.html" + (hadToken ? "?expired=1" : "");
-        }
-      }
     }
     if (!res.ok) {
       var msg =
@@ -110,49 +93,12 @@
   }
 
   /**
-   * fetch() with Bearer token and the same 401 → /auth/refresh → retry behavior as apiJson.
-   * For non-JSON responses (e.g. CSV download).
+   * fetch() for non-JSON responses (e.g. CSV download).
    */
   async function fetchWithAuth(path, init) {
     init = init || {};
-    var headers = Object.assign({}, init.headers || {});
-    var t = getToken();
-    if (t) headers.Authorization = "Bearer " + t;
-    var res = await fetch(apiUrl(path), Object.assign({}, init, { headers: headers }));
-    if (res.status === 401) {
-      var refreshed = false;
-      try {
-        var rfRes = await fetch(apiUrl("/auth/refresh"), { method: "POST", credentials: "include" });
-        if (rfRes.ok) {
-          var rfData = await rfRes.json();
-          if (rfData && rfData.access_token) {
-            setToken(rfData.access_token);
-            refreshed = true;
-            var retryHeaders = Object.assign({}, init.headers || {});
-            var t2 = getToken();
-            if (t2) retryHeaders.Authorization = "Bearer " + t2;
-            res = await fetch(apiUrl(path), Object.assign({}, init, { headers: retryHeaders }));
-          }
-        }
-      } catch (rfErr) {}
-      if (!refreshed || res.status === 401) {
-        var hadToken = !!getToken();
-        clearToken();
-        var onAuthPage =
-          typeof window !== "undefined" &&
-          (window.location.pathname.indexOf("login") !== -1 ||
-            window.location.pathname.indexOf("signup") !== -1 ||
-            window.location.pathname.indexOf("forgot-password") !== -1);
-        if (!onAuthPage && typeof window !== "undefined") {
-          try {
-            if (hadToken) sessionStorage.setItem("brokerai_session_expired", "1");
-            sessionStorage.setItem("brokerai_return_to", window.location.pathname + window.location.search);
-          } catch (e) {}
-          window.location.href = "/login.html" + (hadToken ? "?expired=1" : "");
-        }
-      }
-    }
-    return res;
+    var headers = Object.assign({}, jsonHeaders(), init.headers || {});
+    return fetch(apiUrl(path), Object.assign({}, init, { headers: headers }));
   }
 
   /**
@@ -161,9 +107,8 @@
    * @param {FormData} formData
    */
   async function apiForm(path, formData) {
-    var t = getToken();
-    var headers = { Accept: "application/json" };
-    if (t) headers.Authorization = "Bearer " + t;
+    var headers = Object.assign({ Accept: "application/json" }, jsonHeaders());
+    delete headers["Content-Type"];
     var res = await fetch(apiUrl(path), { method: "POST", body: formData, headers: headers });
     var text = await res.text();
     var data = null;
@@ -171,25 +116,6 @@
       data = text ? JSON.parse(text) : null;
     } catch (e) {
       data = { detail: text || "Invalid JSON" };
-    }
-    if (res.status === 401) {
-      var hadToken2 = !!getToken();
-      clearToken();
-      var onAuthPage2 =
-        typeof window !== "undefined" &&
-        (window.location.pathname.indexOf("login") !== -1 ||
-          window.location.pathname.indexOf("signup") !== -1 ||
-          window.location.pathname.indexOf("forgot-password") !== -1);
-      if (!onAuthPage2 && typeof window !== "undefined") {
-        try {
-          if (hadToken2) sessionStorage.setItem("brokerai_session_expired", "1");
-          sessionStorage.setItem(
-            "brokerai_return_to",
-            window.location.pathname + window.location.search
-          );
-        } catch (e2) {}
-        window.location.href = "/login.html" + (hadToken2 ? "?expired=1" : "");
-      }
     }
     if (!res.ok) {
       var msg2 =
@@ -387,8 +313,17 @@
   }
 
   function logout() {
+    try {
+      var t = getToken();
+      if (t) {
+        fetch(apiUrl("/api/auth/logout"), {
+          method: "POST",
+          headers: jsonHeaders(),
+        }).catch(function () {});
+      }
+    } catch (e) {}
     clearToken();
-    if (typeof window !== "undefined") window.location.href = "/";
+    if (typeof window !== "undefined") window.location.href = "/login.html";
   }
 
   /**
@@ -547,6 +482,7 @@
     getToken: getToken,
     setToken: setToken,
     clearToken: clearToken,
+    bootAuth: bootAuth,
     requireAuth: requireAuth,
     logout: logout,
     parseUtcIso: parseUtcIso,

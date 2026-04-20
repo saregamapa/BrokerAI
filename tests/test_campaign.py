@@ -2,18 +2,13 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from tests.helpers import mark_user_social_connected, stub_run_campaign_phase1
+from tests.helpers import create_test_user, mark_user_social_connected, stub_run_campaign_phase1, user_headers
 
 
 def _auth_headers(client: TestClient, email: str = "camp@example.com") -> dict:
-    client.post("/signup", json={"email": email, "password": "secret12"})
-    token = client.post("/login", json={"email": email, "password": "secret12"}).json()[
-        "access_token"
-    ]
-    h = {"Authorization": f"Bearer {token}"}
-    uid = client.get("/me", headers=h).json()["id"]
+    uid = create_test_user(email, password="secret12")
     mark_user_social_connected(uid)
-    return h
+    return user_headers(uid)
 
 
 def test_generate_campaign_and_fetch(client: TestClient) -> None:
@@ -38,11 +33,8 @@ def test_generate_campaign_and_fetch(client: TestClient) -> None:
 
 def test_generate_campaign_without_social_creates_draft(client: TestClient) -> None:
     """Users with no Ayrshare account can still generate — campaign lands in draft status."""
-    client.post("/signup", json={"email": "nosoc@example.com", "password": "secret12"})
-    token = client.post("/login", json={"email": "nosoc@example.com", "password": "secret12"}).json()[
-        "access_token"
-    ]
-    h = {"Authorization": f"Bearer {token}"}
+    uid = create_test_user("nosoc@example.com", password="secret12")
+    h = user_headers(uid)
     body = {"goal": "Leads", "location": "NYC", "platforms": ["Facebook"]}
     with patch("backend.main.run_campaign_phase1", side_effect=stub_run_campaign_phase1):
         r = client.post("/generate-campaign", json=body, headers=h)

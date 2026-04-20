@@ -28,7 +28,12 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.helpers import mark_user_social_connected, stub_run_campaign_phase1
+from tests.helpers import (
+    create_test_user,
+    mark_user_social_connected,
+    stub_run_campaign_phase1,
+    user_headers,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -38,16 +43,12 @@ _FLOW: dict = {}
 
 
 # ---------------------------------------------------------------------------
-# Helper — register + login, return (headers, user_id)
+# Helper — create user row, return (headers, user_id)
 # ---------------------------------------------------------------------------
 
 def _signup_and_login(client: TestClient, email: str, password: str) -> tuple[dict, int]:
-    r = client.post("/signup", json={"email": email, "password": password})
-    assert r.status_code == 200, f"signup failed: {r.text}"
-    token = r.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
-    uid = client.get("/me", headers=headers).json()["id"]
-    return headers, uid
+    uid = create_test_user(email, password=password)
+    return user_headers(uid), uid
 
 
 # ---------------------------------------------------------------------------
@@ -62,28 +63,18 @@ class TestOnboardingFlow:
     PASSWORD = "onboard-secret-99"
 
     # ------------------------------------------------------------------
-    # Step 1 — Signup
+    # Step 1 — Create user (no HTTP signup)
     # ------------------------------------------------------------------
     def test_01_signup(self, client: TestClient) -> None:
-        r = client.post("/signup", json={"email": self.EMAIL, "password": self.PASSWORD})
-        assert r.status_code == 200, f"[Step 1] Signup failed: {r.text}"
-        body = r.json()
-        assert "access_token" in body, "[Step 1] No access_token in signup response"
-        # Stash the token for subsequent steps
-        _FLOW["token"] = body["access_token"]
-        _FLOW["headers"] = {"Authorization": f"Bearer {_FLOW['token']}"}
+        uid = create_test_user(self.EMAIL, password=self.PASSWORD)
+        _FLOW["user_id"] = uid
+        _FLOW["headers"] = user_headers(uid)
 
     # ------------------------------------------------------------------
-    # Step 2 — Login → receive JWT
+    # Step 2 — (auth refresh removed; headers already set)
     # ------------------------------------------------------------------
     def test_02_login(self, client: TestClient) -> None:
-        r = client.post("/login", json={"email": self.EMAIL, "password": self.PASSWORD})
-        assert r.status_code == 200, f"[Step 2] Login failed: {r.text}"
-        body = r.json()
-        assert "access_token" in body, "[Step 2] No access_token in login response"
-        # Refresh stored token with the fresh one from login
-        _FLOW["token"] = body["access_token"]
-        _FLOW["headers"] = {"Authorization": f"Bearer {_FLOW['token']}"}
+        assert _FLOW.get("headers")
 
     # ------------------------------------------------------------------
     # Step 3 — GET /me → profile accessible

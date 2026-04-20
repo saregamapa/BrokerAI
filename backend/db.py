@@ -452,6 +452,18 @@ def _sqlite_migrate() -> None:
                 conn.execute(text("ALTER TABLE users ADD COLUMN display_name TEXT"))
             if "avatar_url" not in ucols2:
                 conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url TEXT"))
+            if "plan_status" not in ucols2:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN plan_status TEXT DEFAULT 'active'")
+                )
+                conn.execute(
+                    text(
+                        "UPDATE users SET plan_status = 'active' "
+                        "WHERE plan_status IS NULL OR trim(plan_status) = ''"
+                    )
+                )
+            if "last_login_at" not in ucols2:
+                conn.execute(text("ALTER TABLE users ADD COLUMN last_login_at DATETIME"))
 
     # S0-03: Refresh tokens table
     if not insp2.has_table("refresh_tokens"):

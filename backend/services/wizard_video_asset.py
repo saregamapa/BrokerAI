@@ -9,7 +9,7 @@ from typing import Callable, Awaitable
 
 from jose import JWTError, jwt
 
-from backend.auth import ALGORITHM
+ALGORITHM = "HS256"
 
 
 def _signing_key() -> str:

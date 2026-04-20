@@ -242,6 +242,7 @@
     <script>
       (function () {
         if (!BrokerAI.requireAuth()) return;
+        BrokerAI.bootAuth().catch(function () {});
 
         var statusLine = document.getElementById("connect-status-line");
         var statusHint = document.getElementById("connect-status-hint");
@@ -329,7 +330,7 @@
           try {
             var r = await fetch('/social-disconnect', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('brokerai_token') },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ platform: 'all' })
             });
             var data = await r.json();

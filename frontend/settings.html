@@ -345,59 +345,7 @@
             </div>
           </section>
 
-          <!-- ── 4. CHANGE PASSWORD ────────────────────────────────────── -->
-          <section aria-labelledby="settings-password-heading" class="mt-10">
-            <h2 id="settings-password-heading" class="text-sm font-bold uppercase tracking-wider text-slate-500">Change Password</h2>
-            <div class="mt-4 rounded-2xl border border-slate-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md">
-              <form id="change-password-form" novalidate class="space-y-4">
-                <div>
-                  <label for="pw-current" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Current password</label>
-                  <input
-                    type="password"
-                    id="pw-current"
-                    autocomplete="current-password"
-                    placeholder="Enter your current password"
-                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
-                  />
-                </div>
-                <div>
-                  <label for="pw-new" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">New password</label>
-                  <input
-                    type="password"
-                    id="pw-new"
-                    autocomplete="new-password"
-                    placeholder="Minimum 8 characters"
-                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
-                  />
-                </div>
-                <div>
-                  <label for="pw-confirm" class="block text-xs font-semibold uppercase tracking-wide text-slate-500">Confirm new password</label>
-                  <input
-                    type="password"
-                    id="pw-confirm"
-                    autocomplete="new-password"
-                    placeholder="Repeat new password"
-                    class="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm transition focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
-                  />
-                </div>
-
-                <div id="pw-error" class="hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
-
-                <div class="pt-1">
-                  <button
-                    type="submit"
-                    id="pw-submit-btn"
-                    class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                    Update password
-                  </button>
-                </div>
-              </form>
-            </div>
-          </section>
-
-          <!-- ── 5. DANGER ZONE ───────────────────────────────────────── -->
+          <!-- ── 4. DANGER ZONE ───────────────────────────────────────── -->
           <section aria-labelledby="settings-danger-heading" class="mt-10 mb-16">
             <h2 id="settings-danger-heading" class="text-sm font-bold uppercase tracking-wider text-red-500">Danger Zone</h2>
             <div class="mt-4 rounded-2xl border border-red-200/80 bg-white/90 p-6 shadow-lg backdrop-blur-md">
@@ -440,23 +388,12 @@
     <script src="/static/js/nav.js"></script>
     <script>
       if (!BrokerAI.requireAuth()) { /* redirected */ }
+      BrokerAI.bootAuth().catch(function () {});
 
       /* ── API helper ────────────────────────────────────────────────── */
       var API = {
-        getToken: function () { return localStorage.getItem('brokerai_token'); },
-        json: async function (path, opts) {
-          opts = opts || {};
-          var r = await fetch(path, Object.assign({}, opts, {
-            headers: Object.assign(
-              { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + API.getToken() },
-              opts.headers || {}
-            )
-          }));
-          if (r.status === 401) {
-            localStorage.removeItem('brokerai_token');
-            location.href = '/login.html';
-          }
-          return r.json();
+        json: function (path, opts) {
+          return BrokerAI.apiJson(path, opts || {});
         }
       };
 
@@ -737,59 +674,6 @@
         }
       });
 
-      /* ── Change password ─────────────────────────────────────────── */
-      function pwSetError(msg) {
-        var el = document.getElementById('pw-error');
-        if (msg) {
-          el.textContent = msg;
-          el.classList.remove('hidden');
-        } else {
-          el.classList.add('hidden');
-          el.textContent = '';
-        }
-      }
-
-      document.getElementById('change-password-form').addEventListener('submit', async function (e) {
-        e.preventDefault();
-        pwSetError('');
-
-        var current = document.getElementById('pw-current').value;
-        var newPw   = document.getElementById('pw-new').value;
-        var confirm = document.getElementById('pw-confirm').value;
-        var btn     = document.getElementById('pw-submit-btn');
-
-        // Client-side validation
-        if (!current) { pwSetError('Please enter your current password.'); return; }
-        if (newPw.length < 8) { pwSetError('New password must be at least 8 characters.'); return; }
-        if (newPw === current) { pwSetError('New password must be different from your current password.'); return; }
-        if (newPw !== confirm) { pwSetError('Passwords do not match. Please re-enter your new password.'); return; }
-
-        btn.disabled = true;
-        btn.textContent = 'Updating…';
-
-        try {
-          var result = await API.json('/auth/change-password', {
-            method: 'POST',
-            body: JSON.stringify({ current_password: current, new_password: newPw })
-          });
-
-          if (result && result.detail) {
-            pwSetError(result.detail);
-          } else {
-            // Clear fields on success
-            document.getElementById('pw-current').value = '';
-            document.getElementById('pw-new').value = '';
-            document.getElementById('pw-confirm').value = '';
-            BrokerAI.showToast('Password updated successfully', 'success');
-          }
-        } catch (err) {
-          pwSetError(err.message || 'Could not update password. Please try again.');
-        } finally {
-          btn.disabled = false;
-          btn.innerHTML = '<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg> Update password';
-        }
-      });
-
       /* ── Danger zone: delete account ─────────────────────────────── */
       var deleteInput = document.getElementById('delete-confirm-input');
       var deleteBtn   = document.getElementById('delete-account-btn');
@@ -812,7 +696,6 @@
           var result = await fetch('/me', {
             method: 'DELETE',
             headers: {
-              'Authorization': 'Bearer ' + API.getToken(),
               'Content-Type': 'application/json'
             }
           });

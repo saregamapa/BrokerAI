@@ -1,43 +1,24 @@
-"""End-to-end smoke test of the critical user journey.
-
-Signup → login → /me → generate campaign (LangGraph stubbed) → list posts
-→ approve post → publish (Ayrshare stubbed) → /health sanity.
-
-If this file fails, the product is broken for every user. Keep it green.
-"""
+"""End-to-end smoke test of the critical user journey (no HTTP auth)."""
 from __future__ import annotations
 
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from tests.helpers import mark_user_social_connected, stub_run_campaign_phase1
+from tests.helpers import create_test_user, mark_user_social_connected, stub_run_campaign_phase1, user_headers
 
 
 def test_critical_user_journey(client: TestClient) -> None:
     email, password = "smoke@example.com", "smoke-pass-12"
+    user_id = create_test_user(email, password=password)
+    headers = user_headers(user_id)
 
-    # 1. Signup
-    r = client.post("/signup", json={"email": email, "password": password})
-    assert r.status_code == 200, r.text
-    assert "access_token" in r.json()
-
-    # 2. Login (fresh token, proves round-trip)
-    r = client.post("/login", json={"email": email, "password": password})
-    assert r.status_code == 200, r.text
-    token = r.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
-
-    # 3. /me
     r = client.get("/me", headers=headers)
     assert r.status_code == 200, r.text
-    user_id = r.json()["id"]
     assert r.json()["email"] == email
 
-    # 4. Mark social connected (bypass Ayrshare OAuth for the test)
     mark_user_social_connected(user_id)
 
-    # 5. Generate campaign (LangGraph pipeline stubbed → 7 review posts)
     body = {
         "goal": "Buyer leads",
         "location": "Austin, TX",
@@ -52,19 +33,16 @@ def test_critical_user_journey(client: TestClient) -> None:
     posts = data["posts"]
     assert len(posts) >= 1
 
-    # 6. Fetch campaign + posts via /campaign/{id}
     r = client.get(f"/campaign/{campaign_id}", headers=headers)
     assert r.status_code == 200
     assert r.json()["campaign"]["id"] == campaign_id
     assert len(r.json()["posts"]) == len(posts)
 
-    # 7. Approve the first post (review → approved)
     post_id = posts[0]["id"]
     r = client.post(f"/approve-post/{post_id}", headers=headers)
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "approved"
 
-    # 8. Publish the approved post — Ayrshare is mocked so no real HTTP call
     async def _fake_publish(pid: int, *, force_immediate: bool = False):
         return {"ok": True, "status": "published"}
 
@@ -73,7 +51,6 @@ def test_critical_user_journey(client: TestClient) -> None:
     assert r.status_code == 200, r.text
     assert r.json()["ok"] is True
 
-    # 9. /health is live and DB ping passes
     r = client.get("/health")
     assert r.status_code == 200
     body = r.json()
@@ -82,14 +59,10 @@ def test_critical_user_journey(client: TestClient) -> None:
     assert "version" in body and "uptime_seconds" in body
 
 
-def test_login_rejects_bad_password(client: TestClient) -> None:
-    client.post("/signup", json={"email": "badpass@example.com", "password": "correct-horse"})
-    r = client.post("/login", json={"email": "badpass@example.com", "password": "wrong-horse"})
+def test_me_without_token_returns_401(client: TestClient) -> None:
+    create_test_user("smoke_first@example.com")
+    r = client.get("/me")
     assert r.status_code == 401
-
-
-def test_me_requires_token(client: TestClient) -> None:
-    assert client.get("/me").status_code == 401
 
 
 def test_healthz_alias(client: TestClient) -> None:

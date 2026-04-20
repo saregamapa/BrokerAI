@@ -10,15 +10,11 @@ from backend.db import engine
 from backend.models import Post
 from backend.services import publish_service as publish_svc
 from backend.services import scheduler as scheduler_mod
-from tests.helpers import mark_user_social_connected
+from tests.helpers import create_test_user, mark_user_social_connected
 
 
 def test_publish_due_posts_marks_published(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
-    client.post("/signup", json={"email": "sched@example.com", "password": "secret12"})
-    token = client.post("/login", json={"email": "sched@example.com", "password": "secret12"}).json()[
-        "access_token"
-    ]
-    uid = client.get("/me", headers={"Authorization": f"Bearer {token}"}).json()["id"]
+    uid = create_test_user("sched@example.com", password="secret12")
     mark_user_social_connected(uid)
 
     with Session(engine) as s:

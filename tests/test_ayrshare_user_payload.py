@@ -108,6 +108,17 @@ def test_format_ayrshare_operator_hint_invalid_api_key_message() -> None:
     assert "Render" in hint
 
 
+def test_format_ayrshare_operator_hint_profile_key_as_api_key() -> None:
+    msg = (
+        "You cannot use a Profile Key as the API Key. Please the API Key and the Profile Key: "
+        "https://www.ayrshare.com/docs/apis/overview#profile-key-format"
+    )
+    hint = format_ayrshare_operator_hint(msg)
+    assert "Primary" in hint
+    assert "Profile Key" in hint
+    assert "profile-key-format" in hint
+
+
 def test_api_key_env_strips_outer_quotes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AYRSHARE_API_KEY", '"secret-key-value"')
     assert _api_key() == "secret-key-value"

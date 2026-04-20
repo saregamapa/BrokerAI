@@ -1,8 +1,48 @@
 """Shared test helpers (no pytest imports)."""
-from sqlmodel import Session
+from __future__ import annotations
 
+import os
+from typing import Optional
+
+from sqlmodel import Session, select
+
+from backend.auth import hash_password
 from backend.db import engine
 from backend.models import Campaign, Post, User
+
+
+def create_test_user(
+    email: str,
+    *,
+    password: str = "secret12",
+    account_type: str = "individual",
+    role: str = "owner",
+    team_id: Optional[int] = None,
+) -> int:
+    """Insert a user row directly (no HTTP signup). Returns user id."""
+    em = email.strip().lower()
+    with Session(engine) as s:
+        hit = s.exec(select(User).where(User.email == em)).first()
+        if hit:
+            return int(hit.id)
+        u = User(
+            email=em,
+            password_hash=hash_password(password),
+            account_type=account_type,
+            role=role,
+            team_id=team_id,
+        )
+        s.add(u)
+        s.commit()
+        s.refresh(u)
+        return int(u.id)
+
+
+def user_headers(user_id: int) -> dict:
+    """Select which DB user the API acts as (pytest only)."""
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return {"X-BrokerAI-User-Id": str(int(user_id))}
+    return {}
 
 
 def mark_user_social_connected(

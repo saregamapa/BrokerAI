@@ -1,22 +1,17 @@
 """Analytics intelligence API: summary, posts table, bulk update, AI insights."""
 from __future__ import annotations
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from backend.db import engine
-from backend.models import Post
+from backend.models import Post, User
+
+from tests.helpers import create_test_user, user_headers
 
 
 def test_analytics_summary_and_posts_empty(client):
-    client.post(
-        "/signup",
-        json={"email": "intel0@example.com", "password": "secret12"},
-    )
-    token = client.post(
-        "/login",
-        json={"email": "intel0@example.com", "password": "secret12"},
-    ).json()["access_token"]
-    h = {"Authorization": f"Bearer {token}"}
+    uid = create_test_user("intel0@example.com", password="secret12")
+    h = user_headers(uid)
     r = client.get("/analytics/summary", headers=h)
     assert r.status_code == 200
     assert r.json()["total_impressions"] == 0
@@ -26,16 +21,8 @@ def test_analytics_summary_and_posts_empty(client):
 
 
 def test_analytics_update_and_posts_sorted(client):
-    client.post(
-        "/signup",
-        json={"email": "intel1@example.com", "password": "secret12"},
-    )
-    token = client.post(
-        "/login",
-        json={"email": "intel1@example.com", "password": "secret12"},
-    ).json()["access_token"]
-    h = {"Authorization": f"Bearer {token}"}
-    uid = client.get("/me", headers=h).json()["id"]
+    uid = create_test_user("intel1@example.com", password="secret12")
+    h = user_headers(uid)
     with Session(engine) as s:
         s.add(
             Post(
@@ -86,19 +73,9 @@ def test_analytics_update_and_posts_sorted(client):
 
 
 def test_analytics_insights_returns_shape(client):
-    client.post(
-        "/signup",
-        json={"email": "intel2@example.com", "password": "secret12"},
-    )
-    token = client.post(
-        "/login",
-        json={"email": "intel2@example.com", "password": "secret12"},
-    ).json()["access_token"]
-    h = {"Authorization": f"Bearer {token}"}
+    uid = create_test_user("intel2@example.com", password="secret12")
+    h = user_headers(uid)
     # analytics_ai requires growth plan or above — upgrade the user
-    from sqlmodel import Session, select
-    from backend.db import engine
-    from backend.models import User
     with Session(engine) as s:
         u = s.exec(select(User).where(User.email == "intel2@example.com")).first()
         if u:

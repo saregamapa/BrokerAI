@@ -77,18 +77,24 @@ def create_checkout_session(
     Returns { url: str, session_id: str }.
     Raises RuntimeError / stripe.error.StripeError on failure.
     """
+    if not os.getenv("STRIPE_SECRET_KEY", "").strip():
+        raise ValueError(
+            "STRIPE_SECRET_KEY is not set. Add your Stripe secret key (sk_test_… or sk_live_…) to .env."
+        )
+
     stripe = _stripe()
     limits = get_limits(plan)
-    if not limits.stripe_price_id_monthly or limits.stripe_price_id_monthly.endswith("_placeholder"):
+    price_id = (limits.stripe_price_id_monthly or "").strip()
+    if not price_id or price_id.endswith("_placeholder") or "placeholder" in price_id.lower():
         raise ValueError(
-            f"STRIPE_PRICE_{plan.upper()} env var is not set. "
-            "Add it to your .env file before enabling billing."
+            f"STRIPE_PRICE_{plan.upper()} is not set. In Stripe Dashboard create a monthly recurring "
+            f"price for this tier, copy its Price id (price_…), and add STRIPE_PRICE_{plan.upper()} to .env."
         )
 
     app_url = os.getenv("APP_URL", "https://brokerai.app").rstrip("/")
     params: Dict[str, Any] = {
         "mode": "subscription",
-        "line_items": [{"price": limits.stripe_price_id_monthly, "quantity": 1}],
+        "line_items": [{"price": price_id, "quantity": 1}],
         "success_url": f"{app_url}/billing-success?session_id={{CHECKOUT_SESSION_ID}}",
         "cancel_url": f"{app_url}/dashboard.html?billing=cancelled",
         "client_reference_id": str(user_id),

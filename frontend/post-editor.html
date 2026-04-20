@@ -56,9 +56,7 @@
   </main>
 
 <script>
-const TOKEN = BrokerAI.getToken() || "";
-if (!TOKEN) { window.location.href = "/login.html"; }
-const H = { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" };
+const H = { "Content-Type": "application/json" };
 const $ = (id) => document.getElementById(id);
 
 const params = new URLSearchParams(window.location.search);

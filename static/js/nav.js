@@ -213,15 +213,12 @@
   var _panelOpen  = false;
   var _notifications = [];
 
-  // ── Token helper (mirrors app.js without triggering auth redirects) ───────
-  function getToken() {
-    try { return localStorage.getItem("brokerai_token"); } catch (e) { return null; }
-  }
-
-  // ── Raw fetch — never throws on 401, never redirects ─────────────────────
   function notifFetch(path, method, body) {
-    var token = getToken();
-    if (!token) return Promise.resolve(null); // not logged in — bail silently
+    var token = null;
+    try {
+      token = window.BrokerAI && BrokerAI.getToken && BrokerAI.getToken();
+    } catch (e) {}
+    if (!token) return Promise.resolve(null);
     var API_BASE = (function () {
       var o = window.location.origin;
       return (!o || o === "null" || !/^https?:/i.test(o)) ? "http://127.0.0.1:8000" : "";
@@ -237,7 +234,6 @@
     if (body) opts.body = JSON.stringify(body);
     return fetch(API_BASE + path, opts)
       .then(function (res) {
-        if (res.status === 401) return null; // silently hide bell
         if (!res.ok) return null;
         return res.json().catch(function () { return null; });
       })

@@ -10,6 +10,7 @@ import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlencode
 
 import httpx
 
@@ -58,6 +59,18 @@ def format_ayrshare_operator_hint(message: str) -> str:
     """
     m = (message or "").strip()
     low = m.lower()
+    # Ayrshare returns this when Authorization uses a User Profile Key instead of the Primary API Key.
+    if "profile key" in low and "api key" in low and (
+        "cannot use" in low or "use a profile" in low or "profile key as" in low
+    ):
+        return (
+            "AYRSHARE_API_KEY must be the Primary (account) API Key, not a User Profile Key. "
+            "In the Ayrshare dashboard, switch to your Primary Profile (top/profile switcher), "
+            "then open Social Media API → API Key in the left nav and copy that value into "
+            "AYRSHARE_API_KEY on Render. Profile Keys are only sent as the Profile-Key header "
+            "for end users; BrokerAI stores those in the database after profile creation. "
+            "https://www.ayrshare.com/docs/apis/overview#profile-key-format"
+        )
     if "api key not valid" in low or ("authorization" in low and "bearer" in low):
         return (
             "Ayrshare rejected the server API key. On Render: Web service → Environment → "
@@ -113,13 +126,6 @@ def _load_private_key_for_jwt() -> Tuple[str, bool]:
             return "", False
         return pem, False
 
-    raw = os.getenv("AYRSHARE_PRIVATE_KEY", "").strip()
-    if raw:
-        pem = _normalize_private_key_pem(raw.replace("\\n", "\n"))
-        if b64_flag:
-            return base64.b64encode(pem.encode("utf-8")).decode("ascii"), True
-        return pem, False
-
     key_path = os.getenv("AYRSHARE_PRIVATE_KEY_PATH", "").strip()
     if key_path:
         p = Path(key_path).expanduser()
@@ -128,6 +134,13 @@ def _load_private_key_for_jwt() -> Tuple[str, bool]:
             if b64_flag:
                 return base64.b64encode(pem.encode("utf-8")).decode("ascii"), True
             return pem, False
+
+    raw = os.getenv("AYRSHARE_PRIVATE_KEY", "").strip()
+    if raw:
+        pem = _normalize_private_key_pem(raw.replace("\\n", "\n"))
+        if b64_flag:
+            return base64.b64encode(pem.encode("utf-8")).decode("ascii"), True
+        return pem, False
     return "", False
 
 
@@ -270,9 +283,10 @@ def _generate_jwt_request_form(
     ):
         for plat in ("facebook", "instagram", "linkedin"):
             form.append(("allowedSocial[]", plat))
+    form_encoded = urlencode(form)
     return client.post(
         AYRSHARE_API_GENERATE_JWT,
-        data=form,
+        content=form_encoded,
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/x-www-form-urlencoded",

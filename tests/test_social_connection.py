@@ -4,17 +4,12 @@ from unittest.mock import patch
 
 from backend.db import engine
 from backend.models import SocialAccount
-from tests.helpers import mark_user_social_connected
+from tests.helpers import create_test_user, mark_user_social_connected, user_headers
 
 
 def _auth_headers(client: TestClient, email: str) -> tuple[dict, int]:
-    client.post("/signup", json={"email": email, "password": "secret12"})
-    token = client.post("/login", json={"email": email, "password": "secret12"}).json()[
-        "access_token"
-    ]
-    h = {"Authorization": f"Bearer {token}"}
-    uid = client.get("/me", headers=h).json()["id"]
-    return h, uid
+    uid = create_test_user(email, password="secret12")
+    return user_headers(uid), uid
 
 
 def test_social_status_source_of_truth_shape(client: TestClient) -> None:

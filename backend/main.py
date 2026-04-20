@@ -39,24 +39,8 @@ from backend.agents.errors import CampaignPipelineError, OpenAINotConfiguredErro
 from backend.agents.graph import resume_campaign_publishing, run_campaign_phase1
 from backend.agents.nodes import _openai_api_key, content_node, media_node, compliance_node
 from backend.ai.compliance import check_caption_compliance
-from backend.auth import (
-    clear_refresh_cookie,
-    create_access_token,
-    create_refresh_token,
-    get_current_user,
-    get_user_by_email,
-    hash_password,
-    revoke_refresh_token,
-    revoke_all_user_tokens,
-    set_refresh_cookie,
-    verify_password,
-    verify_refresh_token,
-    generate_reset_token,
-    hash_reset_token,
-    generate_email_verify_token,
-    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES,
-    EMAIL_VERIFY_TOKEN_EXPIRE_HOURS,
-)
+from backend.auth import get_current_user
+from backend.auth_routes import router as auth_api_router
 from backend.db import create_db_and_tables, engine, get_session
 from backend.integrations.ayrshare import (
     ayrshare_connect_env_snapshot,
@@ -87,13 +71,9 @@ from backend.models import (
     Campaign,
     CommentAutomation,
     CommentTrigger,
-    EmailVerificationToken,
-    PasswordResetToken,
     Post,
-    RefreshToken,
     SocialAccount,
     Team,
-    TeamInvite,
     User,
 )
 from backend.services.audit_service import audit_log, AuditEventType
@@ -123,10 +103,6 @@ from backend.schemas import (
     GenerateCampaignResponse,
     HooksRequest,
     HooksResponse,
-    InviteLookupOut,
-    InviteMemberRequest,
-    InviteOut,
-    LoginRequest,
     MemberOut,
     ModifyCaptionRequest,
     ModifyCaptionResponse,
@@ -139,11 +115,9 @@ from backend.schemas import (
     PreviewCaptionsResponse,
     PreviewScoreRequest,
     PreviewScoreResponse,
-    SignupRequest,
     SocialConnectedCallbackResponse,
     SocialStatusResponse,
     TeamOut,
-    TokenResponse,
     UnsplashSearchResponse,
     UpdatePostRequest,
     UpdateProfileUrlsRequest,
@@ -212,12 +186,6 @@ from backend.services.brand_asset_service import (
     new_stored_filename,
     normalize_kind,
     validate_upload,
-)
-from backend.services.invite_service import (
-    create_invite,
-    get_invite_by_token,
-    validate_and_redeem_invite,
-    INVITE_TTL_HOURS,
 )
 from backend.services.ayrshare_service import (
     AyrshareServiceError,
@@ -581,6 +549,9 @@ def _user_out(session: Session, u: User) -> UserOut:
     return UserOut(
         id=u.id,
         email=u.email,
+        display_name=getattr(u, "display_name", None),
+        plan=getattr(u, "plan", None) or "starter",
+        plan_status=getattr(u, "plan_status", None) or "active",
         social_connected=bool(connected),
         timezone=normalize_iana_timezone(getattr(u, "timezone", None)),
         facebook_url=getattr(u, "facebook_url", None) or "",
@@ -880,6 +851,8 @@ except Exception as _rl_exc:  # pragma: no cover
 
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 
+app.include_router(auth_api_router)
+
 
 @app.get("/favicon.ico")
 async def serve_favicon():
@@ -922,21 +895,6 @@ async def serve_analytics_page():
     return FileResponse(BASE_DIR / "frontend" / "analytics.html")
 
 
-@app.get("/login.html")
-async def serve_login():
-    return FileResponse(BASE_DIR / "frontend" / "login.html")
-
-
-@app.get("/signup.html")
-async def serve_signup():
-    return FileResponse(BASE_DIR / "frontend" / "signup.html")
-
-
-@app.get("/forgot-password.html")
-async def serve_forgot_password():
-    return FileResponse(BASE_DIR / "frontend" / "forgot-password.html")
-
-
 @app.get("/connect.html")
 async def serve_connect():
     return FileResponse(BASE_DIR / "frontend" / "connect.html")
@@ -960,6 +918,36 @@ async def serve_terms():
 @app.get("/contact.html")
 async def serve_contact():
     return FileResponse(BASE_DIR / "frontend" / "contact.html")
+
+
+@app.get("/pricing.html")
+async def serve_pricing():
+    return FileResponse(BASE_DIR / "frontend" / "pricing.html")
+
+
+@app.get("/signup.html")
+async def serve_signup():
+    return FileResponse(BASE_DIR / "frontend" / "signup.html")
+
+
+@app.get("/login.html")
+async def serve_login():
+    return FileResponse(BASE_DIR / "frontend" / "login.html")
+
+
+@app.get("/forgot-password.html")
+async def serve_forgot_password_page():
+    return FileResponse(BASE_DIR / "frontend" / "forgot-password.html")
+
+
+@app.get("/reset-password.html")
+async def serve_reset_password_page():
+    return FileResponse(BASE_DIR / "frontend" / "reset-password.html")
+
+
+@app.get("/billing-success.html")
+async def serve_billing_success_page():
+    return FileResponse(BASE_DIR / "frontend" / "billing-success.html")
 
 
 @app.post("/connect-social", response_model=ConnectSocialResponse)
@@ -1217,531 +1205,6 @@ def social_connected_callback(
         state=state,  # type: ignore[arg-type]
         message=msg,
     )
-
-
-@app.post("/signup", response_model=TokenResponse)
-@limiter.limit("10/hour")
-def signup(
-    request: Request,
-    response: Response,
-    body: SignupRequest,
-    session: Session = Depends(get_session),
-):
-    email = body.email.strip().lower()
-    tz = normalize_iana_timezone(getattr(body, "timezone", None))
-    invite_token = (getattr(body, "invite_token", None) or "").strip() or None
-
-    # ── CASE 2: Invite signup ──────────────────────────────────────────────
-    if invite_token:
-        # validate_and_redeem_invite raises HTTPException on any failure
-        invite = validate_and_redeem_invite(session, token=invite_token, signup_email=email)
-
-        if get_user_by_email(session, email):
-            raise HTTPException(status_code=400, detail="Email already registered")
-
-        user = User(
-            email=email,
-            password_hash=hash_password(body.password),
-            timezone=tz,
-            plan="starter",
-            account_type="team",
-            role="member",
-            team_id=invite.team_id,
-        )
-        session.add(user)
-        try:
-            session.commit()
-        except IntegrityError:
-            session.rollback()
-            raise HTTPException(status_code=400, detail="Email already registered")
-
-        # Commit invite redemption (is_used=True was set in validate_and_redeem_invite)
-        session.refresh(user)
-        log_event(
-            "signup",
-            kind="invite",
-            user_id=user.id,
-            team_id=invite.team_id,
-            invite_id=invite.id,
-            email=email,
-        )
-        return TokenResponse(access_token=create_access_token(user.id))
-
-    # ── CASE 1: Normal signup ──────────────────────────────────────────────
-    if get_user_by_email(session, email):
-        raise HTTPException(status_code=400, detail="Email already registered")
-
-    account_type = (getattr(body, "account_type", None) or "individual").lower()
-
-    team_name = (getattr(body, "team_name", None) or "").strip()
-    if account_type in ("team", "org") and not team_name:
-        team_name = (
-            email.split("@")[0].replace(".", " ").title()
-            + ("'s Team" if account_type == "team" else "'s Organization")
-        )
-
-    user = User(
-        email=email,
-        password_hash=hash_password(body.password),
-        timezone=tz,
-        plan=body.billing_plan,
-        account_type=account_type,
-        role="owner",
-    )
-    session.add(user)
-    try:
-        session.commit()
-    except IntegrityError:
-        session.rollback()
-        raise HTTPException(status_code=400, detail="Email already registered")
-    session.refresh(user)
-
-    if account_type in ("team", "org"):
-        create_team(session, name=team_name, account_type=account_type, owner=user)
-        session.refresh(user)
-
-    log_event(
-        "signup",
-        kind="direct",
-        user_id=user.id,
-        account_type=account_type,
-        email=email,
-    )
-    return TokenResponse(access_token=create_access_token(user.id))
-
-
-@app.post("/login", response_model=TokenResponse)
-@limiter.limit("5/minute")  # S0-02: tightened from 20/minute
-def login(
-    request: Request,
-    response: Response,
-    body: LoginRequest,
-    session: Session = Depends(get_session),
-):
-    email = body.email.strip().lower()
-    user = get_user_by_email(session, email)
-
-    # S0-07: Check account lockout before any verification
-    if user and user.locked_until:
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        if user.locked_until > now:
-            remaining = int((user.locked_until - now).total_seconds() / 60) + 1
-            log_event("login_blocked", email=email, user_id=user.id, reason="locked",
-                      level=logging.WARNING)
-            raise HTTPException(
-                status_code=429,
-                detail=f"Account temporarily locked. Try again in {remaining} minute(s).",
-            )
-        else:
-            # Lock expired — reset counter
-            user.failed_login_attempts = 0
-            user.locked_until = None
-            session.add(user)
-            session.commit()
-
-    if not user or not verify_password(body.password, user.password_hash):
-        # S0-07: Increment failure counter, lock after 10 attempts
-        if user:
-            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
-            if user.failed_login_attempts >= 10:
-                user.locked_until = (
-                    datetime.now(timezone.utc) + timedelta(minutes=15)
-                ).replace(tzinfo=None)
-                log_event("account_locked", email=email, user_id=user.id,
-                          attempts=user.failed_login_attempts, level=logging.WARNING)
-            session.add(user)
-            session.commit()
-        log_event("login_failed", email=email, reason="bad_credentials", level=logging.WARNING)
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-
-    # Successful login — reset failure counter, issue tokens
-    user.failed_login_attempts = 0
-    user.locked_until = None
-    session.add(user)
-    session.commit()
-
-    access_token = create_access_token(user.id)
-    # S0-03: Issue refresh token and set HttpOnly cookie
-    raw_refresh = create_refresh_token(user.id, session)
-    set_refresh_cookie(response, raw_refresh)
-
-    log_event("login", user_id=user.id, email=email)
-    return TokenResponse(access_token=access_token)
-
-
-@app.post("/auth/refresh", response_model=TokenResponse)
-def refresh_access_token(
-    request: Request,
-    response: Response,
-    session: Session = Depends(get_session),
-):
-    """S0-03: Exchange a valid refresh token cookie for a new access token.
-
-    The refresh token must be present as an HttpOnly cookie named `refresh_token`.
-    On success a new access token is returned and the refresh token cookie remains
-    valid until its own expiry (sliding refresh can be added later).
-    """
-    raw = request.cookies.get("refresh_token", "")
-    if not raw:
-        raise HTTPException(status_code=401, detail="Missing refresh token")
-
-    db_token = verify_refresh_token(raw, session)
-    if db_token is None:
-        clear_refresh_cookie(response)
-        raise HTTPException(status_code=401, detail="Refresh token invalid or expired")
-
-    user = session.get(User, db_token.user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-
-    access_token = create_access_token(user.id)
-    log_event("token_refreshed", user_id=user.id)
-    return TokenResponse(access_token=access_token)
-
-
-@app.post("/auth/logout")
-def logout(
-    request: Request,
-    response: Response,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    """S0-03: Revoke the current refresh token and clear the cookie."""
-    raw = request.cookies.get("refresh_token", "")
-    if raw:
-        revoke_refresh_token(raw, session)
-    clear_refresh_cookie(response)
-    log_event("logout", user_id=current_user.id)
-    return {"ok": True}
-
-
-@app.post("/auth/logout-all")
-def logout_all(
-    response: Response,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    """Revoke ALL refresh tokens for the current user (sign out all devices)."""
-    revoke_all_user_tokens(current_user.id, session)
-    clear_refresh_cookie(response)
-    log_event("logout_all", user_id=current_user.id)
-    return {"ok": True}
-
-
-@app.post("/auth/forgot-password")
-@limiter.limit("5/hour")
-def forgot_password(
-    request: Request,
-    response: Response,
-    body: Dict[str, Any],
-    session: Session = Depends(get_session),
-):
-    """S0-04: Generate a one-time password-reset token and (when email is wired)
-    dispatch a reset link.  Always returns the same shape to prevent email enumeration.
-    """
-    email = str((body or {}).get("email") or "").strip().lower()
-    support = os.getenv("SUPPORT_EMAIL", "support@brokerai.app")
-    _generic_ok = {
-        "ok": True,
-        "message": (
-            "If that email exists, we'll send reset instructions shortly. "
-            f"You can also email {support} for help."
-        ),
-    }
-
-    if not email or "@" not in email:
-        return _generic_ok
-
-    user = get_user_by_email(session, email)
-    if user:
-        # Invalidate any existing unused tokens for this user
-        stmt = select(PasswordResetToken).where(
-            PasswordResetToken.user_id == user.id,
-            PasswordResetToken.used == False,  # noqa: E712
-        )
-        for old_tok in session.exec(stmt).all():
-            old_tok.used = True
-            session.add(old_tok)
-
-        raw_token, token_hash = generate_reset_token()
-        expires_at = (
-            datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
-        ).replace(tzinfo=None)
-
-        db_token = PasswordResetToken(
-            user_id=user.id,
-            token_hash=token_hash,
-            expires_at=expires_at,
-        )
-        session.add(db_token)
-        session.commit()
-
-        reset_base = os.getenv("APP_URL", "https://brokerai.app")
-        reset_link = f"{reset_base}/reset-password?token={raw_token}"
-
-        log_event("password_reset_token_generated", user_id=user.id, email=email)
-        log.info("password_reset_token_generated user=%s", user.email)
-
-        # Send password reset email (best-effort)
-        try:
-            from backend.services.email_service import send_password_reset_email
-            send_password_reset_email(user.email, reset_link)
-        except Exception:
-            log.warning("Failed to send password reset email to %s", user.email)
-    else:
-        log.info("password_reset_request unknown_email=%s", email)
-
-    return _generic_ok
-
-
-@app.post("/auth/reset-password")
-@limiter.limit("5/hour")
-def reset_password(
-    request: Request,
-    body: Dict[str, Any],
-    session: Session = Depends(get_session),
-):
-    """S0-04: Consume a password-reset token and update the user's password."""
-    token_raw = str((body or {}).get("token") or "").strip()
-    new_password = str((body or {}).get("password") or "").strip()
-
-    if not token_raw or not new_password:
-        raise HTTPException(status_code=400, detail="token and password are required")
-    if len(new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
-
-    token_hash = hash_reset_token(token_raw)
-    stmt = select(PasswordResetToken).where(
-        PasswordResetToken.token_hash == token_hash,
-        PasswordResetToken.used == False,  # noqa: E712
-    )
-    db_token = session.exec(stmt).first()
-    if db_token is None:
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
-
-    now = datetime.utcnow()
-    if db_token.expires_at < now:
-        db_token.used = True
-        session.add(db_token)
-        session.commit()
-        raise HTTPException(status_code=400, detail="Reset token has expired")
-
-    user = session.get(User, db_token.user_id)
-    if not user:
-        raise HTTPException(status_code=400, detail="User not found")
-
-    # Update password, mark token used, revoke all existing refresh tokens
-    user.password_hash = hash_password(new_password)
-    user.failed_login_attempts = 0
-    user.locked_until = None
-    db_token.used = True
-    session.add(user)
-    session.add(db_token)
-    session.commit()
-
-    revoke_all_user_tokens(user.id, session)
-    log_event("password_reset_complete", user_id=user.id)
-    return {"ok": True, "message": "Password updated. Please log in."}
-
-
-@app.post("/auth/send-verification")
-@limiter.limit("3/hour")
-def send_email_verification(
-    request: Request,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    """S0-06: Generate an email verification token for the current user."""
-    if current_user.email_verified:
-        return {"ok": True, "message": "Email already verified"}
-
-    # Invalidate old tokens
-    stmt = select(EmailVerificationToken).where(
-        EmailVerificationToken.user_id == current_user.id,
-        EmailVerificationToken.used == False,  # noqa: E712
-    )
-    for old_tok in session.exec(stmt).all():
-        old_tok.used = True
-        session.add(old_tok)
-
-    raw_token, token_hash = generate_email_verify_token()
-    expires_at = (
-        datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFY_TOKEN_EXPIRE_HOURS)
-    ).replace(tzinfo=None)
-
-    db_token = EmailVerificationToken(
-        user_id=current_user.id,
-        token_hash=token_hash,
-        expires_at=expires_at,
-    )
-    session.add(db_token)
-    session.commit()
-
-    verify_base = os.getenv("APP_URL", "https://brokerai.app")
-    verify_link = f"{verify_base}/verify-email?token={raw_token}"
-
-    log_event("email_verification_token_generated", user_id=current_user.id)
-    log.info("email_verification_token_generated user=%s", current_user.email)
-
-    # Send verification email (best-effort)
-    try:
-        from backend.services.email_service import send_email_verification_email
-        send_email_verification_email(current_user.email, verify_link)
-    except Exception:
-        log.warning("Failed to send verification email to %s", current_user.email)
-    return {"ok": True, "message": "Verification email sent (check your inbox)"}
-
-
-@app.get("/auth/verify-email")
-@app.post("/auth/verify-email")
-@limiter.limit("10/hour")
-def verify_email(
-    request: Request,
-    token: Optional[str] = None,
-    body: Optional[Dict[str, Any]] = None,
-    session: Session = Depends(get_session),
-):
-    """S0-06: Confirm an email verification token and mark the account as verified."""
-    from backend.auth import hash_reset_token as _hash  # reuse same SHA-256 helper
-
-    token_raw = token or str((body or {}).get("token") or "").strip()
-    if not token_raw:
-        raise HTTPException(status_code=400, detail="token is required")
-
-    token_hash = _hash(token_raw)
-    stmt = select(EmailVerificationToken).where(
-        EmailVerificationToken.token_hash == token_hash,
-        EmailVerificationToken.used == False,  # noqa: E712
-    )
-    db_token = session.exec(stmt).first()
-    if db_token is None:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
-
-    now = datetime.utcnow()
-    if db_token.expires_at < now:
-        db_token.used = True
-        session.add(db_token)
-        session.commit()
-        raise HTTPException(status_code=400, detail="Verification link has expired. Request a new one.")
-
-    user = session.get(User, db_token.user_id)
-    if not user:
-        raise HTTPException(status_code=400, detail="User not found")
-
-    user.email_verified = True
-    db_token.used = True
-    session.add(user)
-    session.add(db_token)
-    session.commit()
-
-    log_event("email_verified", user_id=user.id)
-    return {"ok": True, "message": "Email verified. You can now use all features."}
-
-
-# ---------------------------------------------------------------------------
-# S4-05: Google OAuth2 — /auth/google + /auth/google/callback
-# ---------------------------------------------------------------------------
-
-@app.get("/auth/google")
-async def google_auth_start(request: Request):
-    """Redirect user to Google OAuth2 consent screen."""
-    from fastapi.responses import RedirectResponse
-
-    client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
-    if not client_id:
-        # Browser navigation should never land on a raw JSON error page.
-        ref = (request.headers.get("referer") or "").lower()
-        dest = (
-            "/signup.html?notice=google_oauth_unavailable"
-            if "signup" in ref
-            else "/login.html?notice=google_oauth_unavailable"
-        )
-        return RedirectResponse(url=dest, status_code=302)
-    from backend.services.google_oauth import get_google_auth_url
-
-    url = get_google_auth_url()
-    return RedirectResponse(url=url)
-
-
-@app.get("/auth/google/callback")
-async def google_auth_callback(
-    code: Optional[str] = None,
-    error: Optional[str] = None,
-    session: Session = Depends(get_session),
-):
-    """Handle Google OAuth2 callback. Creates user if new, returns JWT via redirect."""
-    from fastapi.responses import RedirectResponse
-
-    if error or not code:
-        return RedirectResponse(url="/login.html?error=google_auth_failed")
-
-    from backend.services.google_oauth import exchange_code_for_profile
-    profile = await exchange_code_for_profile(code)
-    if not profile or not profile.get("email"):
-        return RedirectResponse(url="/login.html?error=google_profile_failed")
-
-    email = profile["email"].lower().strip()
-    google_id = profile.get("sub", "")
-    display_name = profile.get("name", "")
-    avatar_url = profile.get("picture", "")
-
-    # Find or create user
-    user = session.exec(select(User).where(User.email == email)).first()
-    if user is None:
-        # New user — create with a random unusable password (Google-only login)
-        user = User(
-            email=email,
-            password_hash=hash_password(os.urandom(32).hex()),
-            google_id=google_id,
-            display_name=display_name or None,
-            avatar_url=avatar_url or None,
-            email_verified=True,  # Google already verified the email
-        )
-        session.add(user)
-        try:
-            session.commit()
-        except IntegrityError:
-            session.rollback()
-            # Race condition: another request registered the same email simultaneously
-            user = session.exec(select(User).where(User.email == email)).first()
-            if user is None:
-                return RedirectResponse(url="/login.html?error=google_profile_failed")
-        else:
-            session.refresh(user)
-        log_event("signup", kind="google", user_id=user.id, email=email)
-    else:
-        # Existing user — backfill Google fields if not yet set
-        changed = False
-        if hasattr(user, "google_id") and not user.google_id:
-            user.google_id = google_id
-            changed = True
-        if hasattr(user, "display_name") and not user.display_name:
-            user.display_name = display_name or None
-            changed = True
-        if hasattr(user, "avatar_url") and not user.avatar_url:
-            user.avatar_url = avatar_url or None
-            changed = True
-        if changed:
-            session.add(user)
-            session.commit()
-        log_event("login", kind="google", user_id=user.id, email=email)
-
-    # Issue short-lived JWT — deliver via an intermediate HTML page so the token
-    # never appears in the URL (browser history, Referer headers, analytics tools).
-    token = create_access_token(user.id)
-    from fastapi.responses import HTMLResponse
-    html_content = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Signing in\u2026</title></head>
-<body>
-<script>
-try {{
-  localStorage.setItem('brokerai_token', '{token}');
-}} catch(e) {{}}
-window.location.replace('/dashboard.html');
-</script>
-<noscript><meta http-equiv="refresh" content="0;url=/dashboard.html"></noscript>
-</body></html>"""
-    return HTMLResponse(content=html_content)
 
 
 @app.get("/me", response_model=UserOut)
@@ -2818,80 +2281,6 @@ def get_team_members(
         )
         for m in members
     ]
-
-
-@app.post("/teams/{team_id}/invite", response_model=InviteOut)
-def invite_team_member(
-    team_id: int,
-    body: InviteMemberRequest,
-    request: Request,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Owner creates an invite link for *email*.
-    Returns the invite record including the signup URL.
-    No email is sent — caller is responsible for sharing the link.
-    """
-    # Derive base URL from the incoming request so the link works in all environments
-    base_url = (
-        os.getenv("BROKERAI_PUBLIC_ORIGIN", "").rstrip("/")
-        or str(request.base_url).rstrip("/")
-    )
-    invite = create_invite(
-        session,
-        team_id=team_id,
-        requester=current_user,
-        email=str(body.email),
-        base_url=base_url,
-    )
-    signup_url = f"{base_url}/signup.html?invite_token={invite.token}"
-    log.info(
-        "invite_created team_id=%s inviter_id=%s email=%s invite_id=%s",
-        team_id, current_user.id, body.email, invite.id,
-    )
-    # Send invite email (best-effort)
-    try:
-        from backend.services.email_service import send_team_invite_email
-        team_row = session.get(Team, team_id)
-        team_display = team_row.name if team_row else f"Team {team_id}"
-        send_team_invite_email(
-            str(body.email),
-            current_user.email or current_user.name or "A teammate",
-            team_display,
-            signup_url,
-        )
-    except Exception:
-        pass
-    return InviteOut(
-        id=invite.id,
-        email=invite.email,
-        team_id=invite.team_id,
-        role=invite.role,
-        token=invite.token,
-        is_used=invite.is_used,
-        expires_at=invite.expires_at,
-        created_at=invite.created_at,
-        signup_url=signup_url,
-    )
-
-
-@app.get("/invite-info", response_model=InviteLookupOut)
-def invite_info(token: str, session: Session = Depends(get_session)):
-    """
-    Public endpoint — frontend calls this to pre-fill the signup form.
-    Returns invite metadata (email, team_id) if the token is valid,
-    or an error message if it is not.
-    """
-    from backend.services.invite_service import _utcnow
-    invite = get_invite_by_token(session, token)
-    if invite is None:
-        return InviteLookupOut(valid=False, error="Invalid invite token")
-    if invite.is_used:
-        return InviteLookupOut(valid=False, error="This invite has already been used")
-    if _utcnow() > invite.expires_at:
-        return InviteLookupOut(valid=False, error="This invite has expired")
-    return InviteLookupOut(valid=True, email=invite.email, team_id=invite.team_id)
 
 
 @app.put("/teams/{team_id}/members/{user_id}", response_model=MemberOut)
@@ -4618,13 +4007,19 @@ def create_checkout(
     if plan not in ("starter", "growth", "pro", "scale"):
         raise HTTPException(status_code=400, detail="plan must be starter, growth, pro, or scale")
 
-    # Prevent downgrade via checkout (must use portal)
+    # Block downgrades via checkout; allow same-tier checkout only for first-time subscribers (no Stripe subscription yet).
     try:
         current_idx = PLAN_ORDER.index(current_user.plan)
         requested_idx = PLAN_ORDER.index(plan)
     except ValueError:
         current_idx = requested_idx = 0
-    if requested_idx <= current_idx:
+    has_active_sub = bool((current_user.stripe_subscription_id or "").strip())
+    if requested_idx < current_idx:
+        raise HTTPException(
+            status_code=400,
+            detail="To downgrade your plan, use the billing portal.",
+        )
+    if requested_idx <= current_idx and has_active_sub:
         raise HTTPException(
             status_code=400,
             detail="To change or cancel your subscription, use the billing portal.",
@@ -4692,6 +4087,13 @@ async def stripe_webhook(
 
     try:
         import stripe as stripe_lib
+    except ModuleNotFoundError as e:
+        raise HTTPException(
+            status_code=503,
+            detail="Stripe SDK is not installed; billing webhooks are unavailable.",
+        ) from e
+
+    try:
         result = handle_stripe_webhook(payload, sig, session)
     except stripe_lib.error.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Webhook signature verification failed")
@@ -4889,10 +4291,8 @@ def delete_content_item(
 
 @app.get("/api/public-config")
 def public_config():
-    """Unauthenticated bootstrap (login/signup) — feature flags only."""
-    return {
-        "google_oauth_enabled": bool(os.getenv("GOOGLE_CLIENT_ID", "").strip()),
-    }
+    """Public bootstrap metadata for the static frontend."""
+    return {}
 
 
 @app.get("/me/plan")

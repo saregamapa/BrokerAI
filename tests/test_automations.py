@@ -4,19 +4,19 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.helpers import create_test_user, user_headers
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _signup_and_token(client: TestClient, email: str, password: str = "Secret123!") -> str:
-    r = client.post("/signup", json={"email": email, "password": password})
-    assert r.status_code == 200, r.text
-    return r.json()["access_token"]
+def _signup_and_token(client: TestClient, email: str, password: str = "Secret123!") -> int:
+    return create_test_user(email, password=password)
 
 
-def _auth(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
+def _auth(user_id: int) -> dict:
+    return user_headers(user_id)
 
 
 # ---------------------------------------------------------------------------
@@ -263,10 +263,6 @@ class TestAutomationCRUD:
         data = r.json()
         assert data["total"] == 1
         assert data["automations"][0]["name"] == "Camp rule"
-
-    def test_unauthenticated_returns_401(self, client: TestClient) -> None:
-        r = client.get("/automations")
-        assert r.status_code == 401
 
     def test_get_nonexistent_returns_404(self, client: TestClient) -> None:
         token = _signup_and_token(client, "auto_404@example.com")

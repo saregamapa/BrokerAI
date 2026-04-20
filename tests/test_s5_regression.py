@@ -24,27 +24,24 @@ from sqlmodel import Session
 from backend.db import engine
 from backend.models import AuditEvent, Campaign, Post
 
+from tests.helpers import create_test_user, user_headers
+
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-def _signup_and_token(client: TestClient, email: str, password: str = "Sprint5Pass!") -> str:
-    r = client.post("/signup", json={"email": email, "password": password})
-    assert r.status_code == 200, f"signup failed for {email}: {r.text}"
-    return r.json()["access_token"]
+def _signup_and_token(client: TestClient, email: str, password: str = "Sprint5Pass!") -> int:
+    return create_test_user(email, password=password)
 
 
-def _auth(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
+def _auth(user_id: int) -> dict:
+    return user_headers(user_id)
 
 
 def _make_user(client: TestClient, email: str) -> dict:
-    """Register + login; return {'token': ..., 'id': ..., 'headers': ...}."""
-    token = _signup_and_token(client, email)
-    headers = _auth(token)
-    uid = client.get("/me", headers=headers).json()["id"]
-    return {"token": token, "headers": headers, "id": uid}
+    uid = create_test_user(email, password="Sprint5Pass!")
+    return {"headers": user_headers(uid), "id": uid}
 
 
 def _mark_social_connected(user_id: int) -> None:
@@ -311,11 +308,6 @@ class TestAuditLog:
         assert "events" in data
         assert isinstance(data["events"], list)
 
-    def test_audit_log_requires_auth(self, client: TestClient) -> None:
-        """GET /audit-log without auth returns 401 or 403."""
-        r = client.get("/audit-log")
-        assert r.status_code in (401, 403), r.text
-
     def test_audit_event_created_on_campaign_generation(self, client: TestClient) -> None:
         """Campaign generation triggers audit events that appear in /audit-log."""
         from tests.helpers import mark_user_social_connected, stub_run_campaign_phase1
@@ -484,11 +476,6 @@ class TestSoftDeleteEdgeCases:
         assert r.status_code == 200
         post_ids = [p["id"] for p in r.json()]
         assert pid not in post_ids
-
-    def test_campaigns_deleted_requires_auth(self, client: TestClient) -> None:
-        """GET /campaigns/deleted without auth returns 401 or 403."""
-        r = client.get("/campaigns/deleted")
-        assert r.status_code in (401, 403)
 
     def test_restore_active_campaign_returns_404(self, client: TestClient) -> None:
         """POST /campaigns/{id}/restore on a non-deleted campaign returns 404."""
@@ -684,8 +671,8 @@ class TestAutomationsAdditional:
 
     def test_simulate_multi_keyword_first_match_wins(self, client: TestClient) -> None:
         """Simulate with multiple keywords; first matching keyword is returned."""
-        token = _signup_and_token(client, "auto_multi_kw@example.com")
-        headers = _auth(token)
+        uid = _signup_and_token(client, "auto_multi_kw@example.com")
+        headers = _auth(uid)
         r = client.post(
             "/automations",
             json={
@@ -709,8 +696,8 @@ class TestAutomationsAdditional:
 
     def test_simulate_case_insensitive_matching(self, client: TestClient) -> None:
         """Simulate trigger keyword matching is case-insensitive."""
-        token = _signup_and_token(client, "auto_case_insensitive@example.com")
-        headers = _auth(token)
+        uid = _signup_and_token(client, "auto_case_insensitive@example.com")
+        headers = _auth(uid)
         r = client.post(
             "/automations",
             json={
@@ -734,8 +721,8 @@ class TestAutomationsAdditional:
 
     def test_simulate_no_match_triggered_false(self, client: TestClient) -> None:
         """Simulate with a comment that does not match any keyword."""
-        token = _signup_and_token(client, "auto_no_match_add@example.com")
-        headers = _auth(token)
+        uid = _signup_and_token(client, "auto_no_match_add@example.com")
+        headers = _auth(uid)
         r = client.post(
             "/automations",
             json={
@@ -758,8 +745,8 @@ class TestAutomationsAdditional:
 
     def test_toggle_from_false_to_true(self, client: TestClient) -> None:
         """Toggling an inactive automation makes it active."""
-        token = _signup_and_token(client, "auto_toggle_up@example.com")
-        headers = _auth(token)
+        uid = _signup_and_token(client, "auto_toggle_up@example.com")
+        headers = _auth(uid)
         r = client.post(
             "/automations",
             json={
@@ -779,8 +766,8 @@ class TestAutomationsAdditional:
 
     def test_reply_preview_replaces_name_placeholder(self, client: TestClient) -> None:
         """Simulate reply_preview replaces {{name}} with empty string."""
-        token = _signup_and_token(client, "auto_name_replace@example.com")
-        headers = _auth(token)
+        uid = _signup_and_token(client, "auto_name_replace@example.com")
+        headers = _auth(uid)
         r = client.post(
             "/automations",
             json={

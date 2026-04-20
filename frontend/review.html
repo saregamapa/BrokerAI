@@ -208,6 +208,7 @@
       if (!BrokerAI.requireAuth()) {
         /* redirected */
       }
+      BrokerAI.bootAuth().catch(function () {});
 
       function showSkeleton(id) { var el = document.getElementById(id); if(el) el.style.display = ''; }
       function hideSkeleton(id) { var el = document.getElementById(id); if(el) el.style.display = 'none'; }
@@ -1027,7 +1028,7 @@
         try {
           var res = await fetch('/posts/' + postId + '/regenerate', {
             method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('brokerai_token') || localStorage.getItem('token') || '') }
+            headers: { Accept: 'application/json' }
           });
           if (!res.ok) throw new Error(await res.text());
           var data = await res.json();
@@ -1151,9 +1152,6 @@
           return;
         }
 
-        var token = localStorage.getItem('brokerai_token') || localStorage.getItem('token') || '';
-        if (!token) { alert('Please log in first.'); return; }
-
         // Progress toast
         var toast = document.createElement('div');
         toast.id = 'report-toast';
@@ -1168,7 +1166,7 @@
         try {
           var res = await fetch('/campaigns/' + encodeURIComponent(campaignId) + '/report/pdf', {
             method: 'GET',
-            headers: { 'Authorization': 'Bearer ' + token },
+            headers: { Accept: 'application/json' },
           });
           if (!res.ok) {
             var err = await res.json().catch(function () { return {}; });
