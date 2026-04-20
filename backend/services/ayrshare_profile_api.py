@@ -182,6 +182,42 @@ def create_user_profile(user_id: int, _email: str) -> str:
         data = {"raw": resp.text}
     if resp.status_code >= 400 or not isinstance(data, dict):
         msg = str(data.get("message") if isinstance(data, dict) else "Invalid response")
+        if "Profile title already exists" in msg or "duplicate" in msg.lower():
+            recovered = recover_profile_key_for_user(user_id)
+            if recovered:
+                log.info("create_user_profile duplicate title recovered (4xx path) user_id=%s", user_id)
+                return recovered
+            unique_suffix = uuid.uuid4().hex[:8]
+            fallback_title = f"BrokerAI User {int(user_id)} {unique_suffix}"
+            log.warning(
+                "create_user_profile 4xx recovery failed, unique title fallback user_id=%s title=%s",
+                user_id, fallback_title,
+            )
+            fallback_payload = {
+                "title": fallback_title,
+                "refId": brokerai_profile_ref_id(user_id),
+            }
+            try:
+                with httpx.Client(timeout=25.0) as client:
+                    fb_resp = client.post(
+                        AYRSHARE_API_CREATE_PROFILE,
+                        json=fallback_payload,
+                        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    )
+                fb_data = fb_resp.json() if fb_resp.content else {}
+                if fb_resp.status_code < 400 and isinstance(fb_data, dict) and fb_data.get("status") != "error":
+                    fb_pk = str(fb_data.get("profileKey") or "").strip()
+                    if fb_pk:
+                        log.info("create_user_profile 4xx unique-title fallback succeeded user_id=%s", user_id)
+                        return fb_pk
+            except Exception as fb_exc:
+                log.warning("create_user_profile 4xx unique-title fallback failed: %s", fb_exc)
+            raise AyrshareProfileApiError(
+                "Could not create your social profile on Ayrshare. "
+                "A profile with this name already exists and could not be recovered. "
+                "Please contact support or try reconnecting from Settings.",
+                status_code=502,
+            )
         raise AyrshareProfileApiError(msg or "Could not create Ayrshare user profile", status_code=502)
     if data.get("status") == "error":
         msg = str(data.get("message") or "Ayrshare profile creation rejected")
