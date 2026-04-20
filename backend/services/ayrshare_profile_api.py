@@ -151,8 +151,9 @@ def recover_profile_key_for_user(user_id: int, *, timeout_sec: float = 25.0) -> 
     for p in all_rows:
         rid = str(p.get("refId") or "").strip()
         t = str(p.get("title") or "").strip()
-        # Match on refId (exact) or title (case-insensitive exact or prefix match)
-        if rid == ref or t.lower() == title_lower or t.lower().startswith(title_lower):
+        # Match on refId (exact) or exact title only — avoid prefix matches that could
+        # attach the wrong profileKey if another profile's title starts the same way.
+        if rid == ref or t.lower() == title_lower:
             pk = str(p.get("profileKey") or "").strip()
             if pk:
                 return pk

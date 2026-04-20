@@ -3539,9 +3539,11 @@ def create_checkout(
         )
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
     except Exception as e:
         log.exception("stripe_checkout_error user_id=%s", current_user.id)
-        raise HTTPException(status_code=502, detail=f"Billing error: {e}")
+        raise HTTPException(status_code=503, detail=f"Billing error: {e}")
     return result
 
 
