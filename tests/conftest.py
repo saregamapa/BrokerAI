@@ -17,6 +17,7 @@ except OSError:
 os.environ["DATABASE_URL"] = f"sqlite:///{_test_db.as_posix()}"
 os.environ["JWT_SECRET_KEY"] = "test-jwt-secret-key-32-characters-minimum"
 os.environ["BROKERAI_DISABLE_SCHEDULER"] = "1"
+os.environ["BROKERAI_DISABLE_SOCIAL_BACKGROUND_SYNC"] = "1"
 # Required by API guard; LangGraph is mocked in most tests via stub_run_campaign_phase1.
 os.environ.setdefault(
     "OPENAI_API_KEY",
@@ -62,21 +63,28 @@ def _stub_ayrshare_profile_sync(monkeypatch: pytest.MonkeyPatch) -> None:
     import backend.main as main_mod
 
     real_fetch = ayrshare_service.fetch_active_social_accounts
-    real_profiles = ayrshare_service.fetch_profiles_by_ref_id
+    real_user_json = ayrshare_service.fetch_user_profile_json
 
     def _fetch(pk: str, **kwargs):
         if (pk or "").strip() == "pytest-ayrshare-profile-key":
             return ["facebook", "instagram", "linkedin"]
         return real_fetch(pk, **kwargs)
 
-    def _profiles(ref_id: str, *, include=None, **kwargs):
-        if str(ref_id or "").strip().startswith("brokerai_user_"):
-            return [{"refId": ref_id, "title": "Pytest Profile"}]
-        return real_profiles(ref_id, include=include, **kwargs)
+    def _user_json(pk: str, **kwargs):
+        if (pk or "").strip() == "pytest-ayrshare-profile-key":
+            return {
+                "displayNames": [
+                    {"platform": "facebook", "id": "fb_test_1", "displayName": "Pytest Facebook"},
+                    {"platform": "linkedin", "id": "li_test_1", "displayName": "Pytest LinkedIn"},
+                ],
+            }
+        return real_user_json(pk, **kwargs)
 
     monkeypatch.setattr(ayrshare_service, "fetch_active_social_accounts", _fetch)
-    monkeypatch.setattr(ayrshare_service, "fetch_profiles_by_ref_id", _profiles)
-    # backend.main imports service functions directly; patch bound references too.
-    monkeypatch.setattr(main_mod, "fetch_profiles_by_ref_id", _profiles)
+    monkeypatch.setattr(ayrshare_service, "fetch_user_profile_json", _user_json)
+    # social_accounts_service binds fetch_user_profile_json at import — patch the used name too.
+    from backend.services import social_accounts_service as _soc
+
+    monkeypatch.setattr(_soc, "fetch_user_profile_json", _user_json)
     if hasattr(main_mod, "fetch_active_social_accounts"):
         monkeypatch.setattr(main_mod, "fetch_active_social_accounts", _fetch)

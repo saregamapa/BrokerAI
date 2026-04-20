@@ -78,7 +78,7 @@ def send_post_published_email(to: str, platform: str, campaign_name: str, review
     return _send_email(to, "Your BrokerAI post was published ✅", html)
 
 
-def send_post_failed_email(to: str, platform: str, error_hint: str = "", connect_url: str = "/connect.html") -> bool:
+def send_post_failed_email(to: str, platform: str, error_hint: str = "", connect_url: str = "/dashboard.html") -> bool:
     html = _html_wrap(f"""
       <h2 style="margin:0 0 8px;font-size:20px;color:#111827;">Post failed to publish ⚠️</h2>
       <p style="color:#6B7280;margin:0 0 12px;line-height:1.6;">We were unable to publish your post to <strong style="color:#DC2626;">{platform.title()}</strong> after multiple attempts.</p>

@@ -175,17 +175,9 @@ async def publish_post(
             "body": {"error": "missing_env", "detail": "AYRSHARE_API_KEY is not set"},
         }
 
-    single_primary = _ayrshare_single_account_publish()
     pk = (profile_key or "").strip()
-    if not pk and not single_primary:
-        return {
-            "ok": False,
-            "status_code": 0,
-            "body": {
-                "error": "not_connected",
-                "detail": "Social accounts not connected",
-            },
-        }
+    # Per-user Profile-Key connect flow removed: publish with primary account when no key.
+    single_primary = _ayrshare_single_account_publish() or not pk
 
     normalized = normalize_platforms(platforms)
     if not normalized:

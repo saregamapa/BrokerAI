@@ -279,6 +279,40 @@ class GenerateCampaignResponse(BaseModel):
     social_connected: bool = True
 
 
+class SocialAccountOut(BaseModel):
+    id: int
+    platform: str
+    account_id: str
+    account_name: str
+    status: str
+    last_synced_at: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SocialAccountsListResponse(BaseModel):
+    accounts: List[SocialAccountOut]
+    has_profile: bool = False
+
+
+class SocialSyncResponse(BaseModel):
+    ok: bool
+    error: Optional[str] = None
+    accounts: List[SocialAccountOut] = Field(default_factory=list)
+    last_synced_at: Optional[str] = None
+
+
+class SocialConnectResponse(BaseModel):
+    url: str
+
+
+class SocialDisconnectRequest(BaseModel):
+    id: int
+
+
+class SocialDisconnectResponse(BaseModel):
+    ok: bool
+
+
 class ApproveCampaignRequest(BaseModel):
     campaign_id: int
 
@@ -503,7 +537,7 @@ class AuthSessionResponse(BaseModel):
 
 
 class UpdateProfileUrlsRequest(BaseModel):
-    """Optional profile/page URLs for AI context (saved from Connect Accounts)."""
+    """Optional profile/page URLs for AI context (saved from Settings)."""
 
     facebook_url: Optional[str] = None
     instagram_url: Optional[str] = None
@@ -529,27 +563,6 @@ class UpdateProfileUrlsRequest(BaseModel):
         if len(v) > 2048:
             raise ValueError("URL is too long (max 2048 characters)")
         return v
-
-
-class ConnectSocialResponse(BaseModel):
-    connect_url: str
-
-
-class SocialStatusResponse(BaseModel):
-    connected: bool
-    state: Literal["connected", "not_connected", "verify_failed_temp", "pending_oauth"] = "not_connected"
-    profile_key_present: bool = False
-    can_create_campaign: bool = False
-    last_verified_at: Optional[datetime] = None
-    ayrshare_sync_ok: bool = True
-    """False if Ayrshare GET /profiles verification failed."""
-
-
-class SocialConnectedCallbackResponse(BaseModel):
-    ok: bool
-    connected: bool
-    state: Literal["connected", "not_connected", "verify_failed_temp", "pending_oauth"] = "not_connected"
-    message: Optional[str] = None
 
 
 class AnalyticsOut(BaseModel):

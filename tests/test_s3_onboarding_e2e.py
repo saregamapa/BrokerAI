@@ -5,20 +5,18 @@ Covers the end-to-end journey a brand-new user takes:
   1. Signup
   2. Login → receive JWT
   3. GET /me → profile accessible
-  4. GET /social-status → not connected (baseline)
-  5. POST /connect-social (mock Ayrshare) → returns connect_url
-  6. GET /social-status → now connected (after marking via helper)
-  7. POST /generate-campaign → AI generation (LangGraph stubbed)
-  8. GET /campaign/{id} → posts created
-  9. GET /posts → posts visible
-  10. GET /notifications → has a notification (seeded directly via service)
-  11. GET /content-library → empty for new user
-  12. POST /content-library → create a library item
-  13. GET /content-library → item appears
-  14. PATCH /notifications/{id}/read → marks read
-  15. GET /notifications/unread-count → count decremented
-  16. POST /notifications/read-all → all read
-  17. GET /notifications/unread-count → 0
+  4. Mark social flags (test helper; in-app Ayrshare connect flow removed)
+  5. POST /generate-campaign → AI generation (LangGraph stubbed)
+  6. GET /campaign/{id} → posts created
+  7. GET /posts → posts visible
+  8. GET /notifications → has a notification (seeded directly via service)
+  9. GET /content-library → empty for new user
+  10. POST /content-library → create a library item
+  11. GET /content-library → item appears
+  12. PATCH /notifications/{id}/read → marks read
+  13. GET /notifications/unread-count → count decremented
+  14. POST /notifications/read-all → all read
+  15. GET /notifications/unread-count → 0
 """
 from __future__ import annotations
 
@@ -88,54 +86,16 @@ class TestOnboardingFlow:
         _FLOW["user_id"] = body["id"]
 
     # ------------------------------------------------------------------
-    # Step 4 — GET /social-status → not connected (baseline)
+    # Step 4 — DB helper: publishing-related flags (no /connect-social in product)
     # ------------------------------------------------------------------
-    def test_04_social_status_not_connected(self, client: TestClient) -> None:
-        r = client.get("/social-status", headers=_FLOW["headers"])
-        assert r.status_code == 200, f"[Step 4] GET /social-status failed: {r.text}"
-        body = r.json()
-        assert body["connected"] is False, "[Step 4] Expected connected=False for fresh user"
-        assert body["state"] == "not_connected", "[Step 4] Expected state='not_connected'"
-
-    # ------------------------------------------------------------------
-    # Step 5 — POST /connect-social (mock Ayrshare) → returns connect_url
-    # ------------------------------------------------------------------
-    def test_05_connect_social(self, client: TestClient) -> None:
-        # Patch fetch_profiles_by_ref_id to return [] so the route does not
-        # hit the 409 "profile already exists" guard (conftest stubs it for the
-        # standard pytest-ayrshare-profile-key user, but our unique user hasn't
-        # registered a profile yet).
-        with patch(
-            "backend.main.fetch_profiles_by_ref_id",
-            return_value=[],
-        ), patch(
-            "backend.main.create_ayrshare_profile",
-            return_value="pytest-ayrshare-profile-key",
-        ), patch(
-            "backend.main.generate_social_connect_url",
-            return_value="https://profile.ayrshare.com/mock-sso-jwt",
-        ):
-            r = client.post("/connect-social", json={}, headers=_FLOW["headers"])
-        assert r.status_code == 200, f"[Step 5] POST /connect-social failed: {r.text}"
-        body = r.json()
-        assert "connect_url" in body, "[Step 5] Missing 'connect_url' in response"
-        assert body["connect_url"], "[Step 5] connect_url is empty"
-
-    # ------------------------------------------------------------------
-    # Step 6 — GET /social-status → now connected (after DB helper)
-    # ------------------------------------------------------------------
-    def test_06_social_status_connected(self, client: TestClient) -> None:
-        # Use the direct DB helper to simulate Ayrshare OAuth completion.
+    def test_04_mark_social_connected_stub(self, client: TestClient) -> None:
         mark_user_social_connected(_FLOW["user_id"])
-        r = client.get("/social-status", headers=_FLOW["headers"])
-        assert r.status_code == 200, f"[Step 6] GET /social-status failed: {r.text}"
-        body = r.json()
-        assert body["connected"] is True, "[Step 6] Expected connected=True after mark_user_social_connected"
-        assert body["state"] == "connected", "[Step 6] Expected state='connected'"
-        assert body["can_create_campaign"] is True, "[Step 6] Expected can_create_campaign=True"
+        r = client.get("/me", headers=_FLOW["headers"])
+        assert r.status_code == 200, f"[Step 4] GET /me failed: {r.text}"
+        assert r.json().get("social_connected") is True, "[Step 4] Expected social_connected=True after helper"
 
     # ------------------------------------------------------------------
-    # Step 7 — POST /generate-campaign → AI generation (LangGraph stubbed)
+    # Step 5 — POST /generate-campaign → AI generation (LangGraph stubbed)
     # ------------------------------------------------------------------
     def test_07_generate_campaign(self, client: TestClient) -> None:
         body = {

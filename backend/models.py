@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import JSON, Column, Text
+from sqlalchemy import JSON, Column, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -48,7 +48,7 @@ class User(SQLModel, table=True):
     # Ayrshare Business: per-user profile for SSO linking + publishing (Profile-Key header)
     ayrshare_profile_key: Optional[str] = Field(default=None)
     social_connected: bool = Field(default=False)
-    # Optional profile/page URLs for AI personalization (set on Connect Accounts)
+    # Optional profile/page URLs for AI personalization (set in Settings)
     facebook_url: str = ""
     instagram_url: str = ""
     linkedin_url: str = ""
@@ -82,14 +82,27 @@ class User(SQLModel, table=True):
 
 
 class SocialAccount(SQLModel, table=True):
+    """Per linked network row; DB is the UI source of truth (synced from Ayrshare GET /user)."""
+
     __tablename__ = "social_accounts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "platform", "account_id", name="ux_social_accounts_user_platform_account"),
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    # Single source of truth row can use platform="ayrshare_profile"
-    platform: str = Field(default="ayrshare_profile", index=True)
+    # facebook | instagram | linkedin | twitter | … (not the legacy aggregate "ayrshare_profile")
+    platform: str = Field(default="", index=True)
+    # Ayrshare Business User Profile key (Profile-Key header scope for this user)
+    profile_key: str = Field(default="", sa_column=Column(Text))
+    account_id: str = Field(default="", sa_column=Column(Text))
+    account_name: str = Field(default="", sa_column=Column(Text))
+    # connected | disconnected | expired | error
+    status: str = Field(default="connected", sa_column=Column(Text))
+    last_synced_at: Optional[datetime] = Field(default=None)
+    metadata_json: str = Field(default="{}", sa_column=Column(Text))
+    # Legacy mirror for older code paths; keep in sync with status == "connected"
     is_connected: bool = Field(default=False)
-    profile_key: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

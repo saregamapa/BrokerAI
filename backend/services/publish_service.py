@@ -377,7 +377,7 @@ def _finalize_publish_result(
                 "post_failed",
                 "Post failed to publish",
                 f"Publishing failed after {attempts} attempt(s). Please check your social connection.",
-                action_url="/connect.html",
+                action_url="/dashboard.html",
                 metadata={"post_id": row.id},
             )
         except Exception:
@@ -500,8 +500,8 @@ async def safe_publish_post(post_id: int, *, force_immediate: bool = False) -> D
                         "error": "not_connected",
                         "detail": "No Ayrshare-linked networks match this post's platforms.",
                         "user_message": (
-                            "Connect the networks you want on Connect Accounts, "
-                            "or edit the post to use only linked platforms."
+                            "No linked networks match this post's platforms in Ayrshare. "
+                            "Edit the post to use linked platforms or check your Ayrshare account."
                         ),
                         "retryable": False,
                         "action": "reconnect",

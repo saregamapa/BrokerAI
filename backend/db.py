@@ -536,25 +536,51 @@ def _sqlite_migrate() -> None:
                     "CREATE TABLE social_accounts ("
                     "id INTEGER PRIMARY KEY, "
                     "user_id INTEGER NOT NULL, "
-                    "platform TEXT DEFAULT 'ayrshare_profile', "
-                    "is_connected INTEGER DEFAULT 0, "
+                    "platform TEXT DEFAULT '', "
                     "profile_key TEXT DEFAULT '', "
+                    "account_id TEXT DEFAULT '', "
+                    "account_name TEXT DEFAULT '', "
+                    "status TEXT DEFAULT 'connected', "
+                    "last_synced_at DATETIME, "
+                    "metadata_json TEXT DEFAULT '{}', "
+                    "is_connected INTEGER DEFAULT 0, "
                     "created_at DATETIME, "
                     "updated_at DATETIME)"
                 )
             )
             conn.execute(
                 text(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_social_accounts_user_platform "
-                    "ON social_accounts(user_id, platform)"
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_social_accounts_user_platform_account "
+                    "ON social_accounts(user_id, platform, account_id)"
                 )
             )
-    else:
+
+    # Social accounts: per-network rows + sync metadata (replaces single aggregate row)
+    if insp2.has_table("social_accounts"):
+        sacols = {c["name"] for c in insp2.get_columns("social_accounts")}
         with engine.begin() as conn:
+            if "account_id" not in sacols:
+                conn.execute(text("ALTER TABLE social_accounts ADD COLUMN account_id TEXT DEFAULT ''"))
+            if "account_name" not in sacols:
+                conn.execute(text("ALTER TABLE social_accounts ADD COLUMN account_name TEXT DEFAULT ''"))
+            if "status" not in sacols:
+                conn.execute(text("ALTER TABLE social_accounts ADD COLUMN status TEXT DEFAULT 'connected'"))
+                conn.execute(
+                    text(
+                        "UPDATE social_accounts SET status = CASE WHEN is_connected = 1 "
+                        "THEN 'connected' ELSE 'disconnected' END WHERE status IS NULL OR trim(status) = ''"
+                    )
+                )
+            if "last_synced_at" not in sacols:
+                conn.execute(text("ALTER TABLE social_accounts ADD COLUMN last_synced_at DATETIME"))
+            if "metadata_json" not in sacols:
+                conn.execute(text("ALTER TABLE social_accounts ADD COLUMN metadata_json TEXT DEFAULT '{}'"))
+            # Drop legacy unique index so we can use (user_id, platform, account_id)
+            conn.execute(text("DROP INDEX IF EXISTS ux_social_accounts_user_platform"))
             conn.execute(
                 text(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_social_accounts_user_platform "
-                    "ON social_accounts(user_id, platform)"
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_social_accounts_user_platform_account "
+                    "ON social_accounts(user_id, platform, account_id)"
                 )
             )
 

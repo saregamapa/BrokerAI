@@ -3,12 +3,9 @@
 import pytest
 
 from backend.integrations.ayrshare import ayrshare_connect_env_snapshot, normalize_ayrshare_api_key
-from backend.services import ayrshare_service as ayrshare_service_mod
 from backend.services.ayrshare_service import (
     _api_key,
     _parse_active_social_accounts_from_user_payload,
-    fetch_linked_platforms_via_ref_id,
-    format_ayrshare_operator_hint,
     parse_profile_linked_platforms,
 )
 
@@ -82,41 +79,6 @@ def test_parse_profile_prefers_active_social_accounts() -> None:
         "socialHealth": {"facebook": {"linked": True}},
     }
     assert parse_profile_linked_platforms(prof) == ["twitter"]
-
-
-def test_fetch_linked_via_ref_delegates_to_profiles(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake(ref_id: str, *, include=None, **kwargs):
-        assert include == "socialHealth"
-        return [
-            {
-                "refId": ref_id,
-                "socialHealth": {"linkedin": {"linked": True}},
-            }
-        ]
-
-    monkeypatch.setattr(ayrshare_service_mod, "fetch_profiles_by_ref_id", fake)
-    assert fetch_linked_platforms_via_ref_id("brokerai_user_99") == ["linkedin"]
-
-
-def test_format_ayrshare_operator_hint_invalid_api_key_message() -> None:
-    msg = (
-        "API Key not valid. Please be sure to send a Header Authorization containing "
-        "'Bearer API_KEY'. https://www.ayrshare.com/docs/apis/overview"
-    )
-    hint = format_ayrshare_operator_hint(msg)
-    assert "AYRSHARE_API_KEY" in hint
-    assert "Render" in hint
-
-
-def test_format_ayrshare_operator_hint_profile_key_as_api_key() -> None:
-    msg = (
-        "You cannot use a Profile Key as the API Key. Please the API Key and the Profile Key: "
-        "https://www.ayrshare.com/docs/apis/overview#profile-key-format"
-    )
-    hint = format_ayrshare_operator_hint(msg)
-    assert "Primary" in hint
-    assert "Profile Key" in hint
-    assert "profile-key-format" in hint
 
 
 def test_api_key_env_strips_outer_quotes(monkeypatch: pytest.MonkeyPatch) -> None:

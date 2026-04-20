@@ -3,417 +3,132 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="BrokerAI — AI-powered social media campaigns for any business. Generate, schedule, and publish a month of content in minutes." />
-    <meta name="og:site_name" content="BrokerAI" />
-    <meta property="og:type" content="website" />
-    <title>Connect Social Media Accounts — BrokerAI</title>
+    <meta name="description" content="BrokerAI — Connect social media accounts via Ayrshare." />
+    <title>Social accounts — BrokerAI</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/styles.css" />
   </head>
-  <body class="brokerai-app min-h-screen bg-[#f9fafb] text-slate-900 antialiased" data-page="connect">
+  <body
+    class="brokerai-app min-h-screen bg-[#f9fafb] text-slate-900 antialiased"
+    data-page="connect"
+  >
+    <div
+      id="brokerai-loading"
+      class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/20 backdrop-blur-sm"
+    >
+      <div class="flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-slate-200/90 bg-white/95 p-10 shadow-2xl shadow-slate-300/50 ring-1 ring-slate-100">
+        <div class="brokerai-spinner" aria-label="Loading"></div>
+        <p class="text-center text-sm font-medium text-slate-700" data-brokerai-loading-text>Loading…</p>
+      </div>
+    </div>
 
-    <div id="app-sidebar-overlay" class="fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur-sm md:hidden" aria-hidden="true"></div>
-    <aside id="app-sidebar" class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl md:block"></aside>
+    <div
+      id="app-sidebar-overlay"
+      class="fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur-sm md:hidden"
+      aria-hidden="true"
+    ></div>
+
+    <aside
+      id="app-sidebar"
+      class="fixed inset-y-0 left-0 z-40 w-64 border-r border-slate-800/80 bg-[#0f172a] shadow-xl md:block"
+    ></aside>
 
     <div id="app-layout" class="flex min-h-screen flex-col md:pl-64">
-      <header id="app-topnav" class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"></header>
+      <header
+        id="app-topnav"
+        class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 shadow-sm backdrop-blur-md"
+      ></header>
 
-      <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/25 px-4 py-8 md:px-8">
-        <div class="mx-auto max-w-2xl">
-
-          <!-- Page header -->
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Connect Social Media Accounts</h1>
-              <p id="connect-page-subtitle" class="mt-1.5 text-sm text-slate-600">
-                Manage your Ayrshare connection so BrokerAI can publish approved posts to your linked social accounts.
-              </p>
-            </div>
-          </div>
-
-          <!-- Team member / admin: social is the owner’s Ayrshare profile -->
-          <div
-            id="connect-team-inherited"
-            class="mt-8 hidden rounded-2xl border border-sky-200/80 bg-sky-50/90 p-5 shadow-sm"
-          >
-            <div class="flex items-start gap-3">
-              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/20">
-                <svg class="h-4 w-4 text-sky-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-              </div>
+      <main class="brokerai-page flex-1 bg-gradient-to-br from-[#f9fafb] via-white to-amber-50/25 px-4 py-8 md:px-10 md:py-10">
+        <div class="mx-auto max-w-4xl space-y-8 pb-16">
+          <!-- Page intro -->
+          <header class="space-y-3">
+            <p
+              class="inline-flex items-center gap-2 rounded-full border border-amber-200/80 bg-amber-50/90 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-amber-800"
+            >
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true"></span>
+              Integrations
+            </p>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p class="text-sm font-bold text-sky-950">Team workspace</p>
-                <p class="mt-1.5 text-sm leading-relaxed text-sky-900/85">
-                  Your team uses the <span class="font-semibold">owner’s</span> connected social accounts for publishing.
-                  You do not need to connect your own profiles. If posts cannot publish, ask the team owner to connect
-                  (or reconnect) accounts on this page while signed in as them.
+                <h1 class="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">Social accounts</h1>
+                <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 md:text-[15px]">
+                  Link the networks you publish to. BrokerAI keeps connection status in sync with Ayrshare—refresh
+                  anytime, or wait a few seconds after you return from the connect flow.
                 </p>
               </div>
             </div>
-          </div>
+          </header>
 
-          <!-- How it works -->
-          <div id="connect-how-owner" class="mt-8 rounded-2xl border border-amber-200/80 bg-amber-50/90 p-5 shadow-sm">
-            <div class="flex items-start gap-3">
-              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20">
-                <svg class="h-4 w-4 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              </div>
-              <div>
-                <p class="text-sm font-bold text-amber-900">How to connect (2 steps)</p>
-                <ol class="mt-2 list-decimal space-y-1.5 pl-4 text-sm text-amber-900/80 leading-relaxed">
-                  <li>Tap <span class="font-semibold">Connect via Ayrshare</span> below. You'll be redirected to Ayrshare to authorize your accounts (Facebook, Instagram, LinkedIn, and more).</li>
-                  <li>Once you've finished at Ayrshare, come back and tap <span class="font-semibold">Verify connection</span> to confirm everything is linked.</li>
-                </ol>
-              </div>
-            </div>
-          </div>
+          <!-- Supported platforms (injected) -->
+          <div id="social-supported-strip" class="scroll-mt-4"></div>
 
-          <!-- Platform cards -->
-          <div class="mt-8">
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Supported platforms</p>
-            <div class="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-              <!-- Instagram -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#f58529] via-[#dd2a7b] to-[#8134af] shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">Instagram</span>
-              </div>
-              <!-- Facebook -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1877F2] shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">Facebook</span>
-              </div>
-              <!-- LinkedIn -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0A66C2] shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">LinkedIn</span>
-              </div>
-              <!-- X/Twitter -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-black shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">X / Twitter</span>
-              </div>
-              <!-- TikTok -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-black shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V9.14a8.17 8.17 0 004.84 1.56V7.26a4.85 4.85 0 01-1.07-.57z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">TikTok</span>
-              </div>
-              <!-- YouTube -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FF0000] shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">YouTube</span>
-              </div>
-              <!-- Pinterest -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#BD081C] shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.911 2.168-2.911 1.024 0 1.518.769 1.518 1.688 0 1.029-.653 2.567-.992 3.992-.285 1.193.6 2.165 1.775 2.165 2.128 0 3.768-2.245 3.768-5.487 0-2.861-2.063-4.869-5.008-4.869-3.41 0-5.409 2.562-5.409 5.199 0 1.033.394 2.143.889 2.741.099.12.112.225.085.345-.09.375-.293 1.199-.334 1.363-.053.225-.172.271-.401.165-1.495-.69-2.433-2.878-2.433-4.646 0-3.776 2.748-7.252 7.92-7.252 4.158 0 7.392 2.967 7.392 6.923 0 4.135-2.607 7.462-6.233 7.462-1.214 0-2.354-.629-2.758-1.379l-.749 2.848c-.269 1.045-1.004 2.352-1.498 3.146 1.123.345 2.306.535 3.55.535 6.607 0 11.985-5.365 11.985-11.987C23.97 5.39 18.592.026 11.985.026L12.017 0z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">Pinterest</span>
-              </div>
-              <!-- Threads -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-black shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.586-1.308-.883-2.359-.89h-.029c-.844 0-1.992.232-2.721 1.32L7.734 7.847c.98-1.454 2.568-2.256 4.478-2.256h.044c3.194.02 5.097 1.975 5.287 5.388.108.046.216.094.321.142 1.49.7 2.58 1.761 3.154 3.07.797 1.82.871 4.79-1.548 7.158-1.85 1.81-4.094 2.628-7.277 2.65Zm1.003-11.69c-.242 0-.487.007-.739.021-1.836.103-2.98.946-2.916 2.143.067 1.256 1.452 1.839 2.784 1.767 1.224-.065 2.818-.543 3.086-3.71a10.5 10.5 0 0 0-2.215-.221z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">Threads</span>
-              </div>
-              <!-- Bluesky -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1185FE] shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.056-.138.022-.276.04-.415.056-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.056c.14.017.279.036.415.056 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.206-.659-.298-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8Z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">Bluesky</span>
-              </div>
-              <!-- Reddit -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FF4500] shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.373 0 0 5.373 0 12c0 3.314 1.343 6.314 3.515 8.485l-2.286 2.286C.775 23.225 1.097 24 1.738 24H12c6.627 0 12-5.373 12-12S18.627 0 12 0Zm4.388 3.199c1.104 0 1.999.895 1.999 1.999 0 1.105-.895 2-1.999 2-.946 0-1.739-.657-1.947-1.539v.002c-1.147.162-2.032 1.15-2.032 2.341v.007c1.776.067 3.4.567 4.686 1.363.473-.363 1.064-.58 1.707-.58 1.547 0 2.802 1.254 2.802 2.802 0 1.117-.655 2.081-1.601 2.531-.088 3.256-3.637 5.876-7.997 5.876-4.361 0-7.905-2.617-7.998-5.87-.954-.447-1.614-1.415-1.614-2.538 0-1.548 1.255-2.802 2.803-2.802.645 0 1.239.218 1.712.585 1.275-.79 2.881-1.291 4.64-1.365v-.01c0-1.663 1.263-3.034 2.88-3.207.188-.911.993-1.595 1.959-1.595Zm-8.085 8.376c-.784 0-1.459.78-1.506 1.797-.047 1.016.64 1.429 1.426 1.429.786 0 1.371-.369 1.418-1.385.047-1.017-.553-1.841-1.338-1.841Zm7.406 0c-.786 0-1.385.824-1.338 1.841.047 1.017.634 1.385 1.418 1.385.785 0 1.473-.413 1.426-1.429-.046-1.017-.721-1.797-1.506-1.797Zm-3.703 4.013c-.974 0-1.907.048-2.77.135-.147.015-.241.168-.183.305.483 1.154 1.622 1.964 2.953 1.964 1.33 0 2.47-.81 2.953-1.964.057-.137-.037-.29-.184-.305-.863-.087-1.795-.135-2.769-.135Z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">Reddit</span>
-              </div>
-              <!-- Snapchat -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FFFC00] shadow-md">
-                  <svg class="h-6 w-6 text-black" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.659-.12 1.033-.301.165-.088.344-.104.464-.104.182 0 .359.029.509.09.45.149.734.479.734.838.015.449-.39.839-1.213 1.168-.089.029-.209.075-.344.119-.45.135-1.139.36-1.333.81-.09.224-.061.524.12.868l.015.015c.06.136 1.526 3.475 4.791 4.014.255.044.435.27.42.509 0 .075-.015.149-.045.225-.24.569-1.273.988-3.146 1.271-.059.091-.12.375-.164.57-.029.179-.074.36-.134.553-.076.271-.27.405-.555.405h-.03c-.135 0-.313-.031-.538-.074-.36-.075-.765-.135-1.273-.135-.3 0-.599.015-.913.074-.6.104-1.123.464-1.723.884-.853.599-1.826 1.288-3.294 1.288-.06 0-.119-.015-.18-.015h-.149c-1.468 0-2.427-.675-3.279-1.288-.599-.42-1.107-.779-1.707-.884-.314-.045-.629-.074-.928-.074-.54 0-.958.089-1.272.149-.211.043-.391.074-.54.074-.374 0-.523-.224-.583-.42-.061-.192-.09-.389-.135-.567-.046-.181-.105-.494-.166-.57-1.918-.222-2.95-.642-3.189-1.226-.031-.063-.052-.15-.055-.225-.015-.243.165-.465.42-.509 3.264-.54 4.73-3.879 4.791-4.02l.016-.029c.18-.345.224-.645.119-.869-.195-.434-.884-.658-1.332-.809-.121-.029-.24-.074-.346-.119-1.107-.435-1.257-.93-1.197-1.273.09-.479.674-.793 1.168-.793.146 0 .27.029.383.074.42.194.789.3 1.104.3.234 0 .384-.06.465-.105l-.046-.569c-.098-1.626-.225-3.651.307-4.837C7.392 1.077 10.739.807 11.727.807l.419-.015h.06z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">Snapchat</span>
-              </div>
-              <!-- Telegram -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#229ED9] shadow-md">
-                  <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">Telegram</span>
-              </div>
-              <!-- Google Business -->
-              <div class="flex flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <span class="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-md">
-                  <svg class="h-6 w-6" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                </span>
-                <span class="text-xs font-semibold text-slate-700">Google Business</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Connection status card -->
-          <div class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-md transition">
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <p class="text-xs font-bold uppercase tracking-wider text-slate-500">Connection status</p>
-                <p id="connect-status-line" class="mt-2 text-lg font-semibold text-slate-400">Checking…</p>
-                <p id="connect-status-hint" class="mt-1 text-sm text-slate-500"></p>
-              </div>
-              <div id="connect-status-icon" class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100">
-                <svg class="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>
-              </div>
-            </div>
-            <div id="platform-badges" class="flex flex-wrap gap-2 mt-3"></div>
-          </div>
-
-          <!-- Action buttons (hidden for team members — owner connects for the workspace) -->
-          <div id="connect-owner-actions" class="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              id="btn-connect-accounts"
-              class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-amber-500/25 transition duration-200 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
+          <!-- Primary panel -->
+          <section
+            class="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xl shadow-slate-200/50 ring-1 ring-slate-100/80"
+            aria-labelledby="social-linked-heading"
+          >
+            <div
+              class="border-b border-slate-100 bg-gradient-to-br from-slate-50/90 via-white to-amber-50/30 px-5 py-5 sm:px-6 sm:py-6"
             >
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-              Connect via Ayrshare
-            </button>
-            <button
-              type="button"
-              id="btn-sync-callback"
-              class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 shadow-sm transition duration-200 hover:border-amber-300 hover:bg-amber-50/50 hover:shadow-md active:scale-[0.98]"
-            >
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              Verify connection
-            </button>
-          </div>
-          <div id="connect-disconnect-row" class="mt-3 hidden">
-            <button onclick="disconnectSocial()" class="px-4 py-2 text-sm font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
-              🔌 Disconnect all accounts
-            </button>
-          </div>
-
-          <!-- Already connected next steps -->
-          <div class="mt-8 rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm">
-            <p class="text-sm font-semibold text-slate-800">What happens after connecting?</p>
-            <ul class="mt-3 space-y-2 text-sm text-slate-600">
-              <li class="flex items-start gap-2">
-                <svg class="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                Approved campaign posts will automatically publish to your connected accounts on schedule.
-              </li>
-              <li class="flex items-start gap-2">
-                <svg class="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                Performance metrics (likes, comments, impressions) will be pulled into your analytics dashboard.
-              </li>
-              <li class="flex items-start gap-2">
-                <svg class="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                You stay in full control — nothing publishes without your approval first.
-              </li>
-            </ul>
-            <div class="mt-4">
-              <a href="/wizard.html" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition hover:scale-105 active:scale-95">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-                Create a campaign
-              </a>
+              <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0 space-y-1">
+                  <h2 id="social-linked-heading" class="text-lg font-bold tracking-tight text-slate-900">
+                    Linked accounts
+                  </h2>
+                  <p id="social-accounts-summary" class="text-sm text-slate-600">
+                    Loading status…
+                  </p>
+                </div>
+                <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                  <div
+                    id="social-last-sync-wrap"
+                    class="inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm"
+                    title="Based on your most recently synced account"
+                  >
+                    <svg class="h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span id="social-last-sync">—</span>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      id="btn-connect"
+                      class="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/25 transition hover:from-amber-400 hover:to-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      Connect account
+                    </button>
+                    <button
+                      type="button"
+                      id="btn-refresh"
+                      class="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <svg class="h-4 w-4 shrink-0 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Sync now
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
 
+            <div class="px-5 py-6 sm:px-6 sm:py-7">
+              <p id="social-accounts-meta" class="mb-5 hidden rounded-xl border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm leading-snug text-sky-900"></p>
+              <div id="social-accounts-list" class="flex flex-col gap-3" role="list" aria-live="polite"></div>
+            </div>
+          </section>
         </div>
       </main>
     </div>
 
     <script src="/static/js/app.js"></script>
     <script src="/static/js/nav.js"></script>
-    <script>
-      (function () {
-        if (!BrokerAI.requireAuth()) return;
-        BrokerAI.bootAuth().catch(function () {});
-
-        var statusLine = document.getElementById("connect-status-line");
-        var statusHint = document.getElementById("connect-status-hint");
-        var statusIcon = document.getElementById("connect-status-icon");
-        var usesOwnerSocial = false;
-
-        async function initTeamRole() {
-          try {
-            var u = await BrokerAI.apiJson("/me", { method: "GET" });
-            usesOwnerSocial = !!(
-              u &&
-              u.team_id &&
-              String(u.role || "").toLowerCase() !== "owner"
-            );
-            if (usesOwnerSocial) {
-              var inh = document.getElementById("connect-team-inherited");
-              if (inh) inh.classList.remove("hidden");
-              var act = document.getElementById("connect-owner-actions");
-              if (act) act.classList.add("hidden");
-              var how = document.getElementById("connect-how-owner");
-              if (how) how.classList.add("hidden");
-              var sub = document.getElementById("connect-page-subtitle");
-              if (sub) {
-                sub.textContent =
-                  "Your team publishes through the owner’s linked channels. Status below reflects that connection.";
-              }
-            }
-          } catch (e) {
-            /* non-fatal */
-          }
-        }
-
-        function setStatus(connected, detail, syncOk) {
-          if (!statusLine) return;
-          if (connected) {
-            statusLine.textContent = "Connected";
-            statusLine.className = "mt-2 text-lg font-semibold text-emerald-600";
-            statusHint.textContent =
-              detail ||
-              (usesOwnerSocial
-                ? "The team owner’s Ayrshare profile is verified. Posts can publish to their linked accounts."
-                : "Your Ayrshare profile is verified. Posts will publish automatically.");
-            if (statusIcon) {
-              statusIcon.className = "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100";
-              statusIcon.innerHTML = '<svg class="h-6 w-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
-            }
-          } else {
-            statusLine.textContent = "Not connected";
-            statusLine.className = "mt-2 text-lg font-semibold text-red-500";
-            var parts = [];
-            if (detail) parts.push(detail);
-            if (syncOk === false) {
-              parts.push("Could not verify with Ayrshare. Check server config and retry.");
-            } else if (usesOwnerSocial) {
-              parts.push(
-                "Ask your team owner to open this page while signed in as the owner and complete Connect via Ayrshare."
-              );
-            } else {
-              parts.push('Tap "Connect via Ayrshare", complete the flow, then click "Verify connection".');
-            }
-            statusHint.textContent = parts.join(" ");
-            if (statusIcon) {
-              statusIcon.className = "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100";
-              statusIcon.innerHTML = '<svg class="h-6 w-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
-            }
-          }
-        }
-
-        function renderPlatformBadges(platforms) {
-          var ICONS = { instagram: '📷', linkedin: '💼', facebook: '👥', twitter: '✦', tiktok: '🎵', youtube: '▶️' };
-          var container = document.getElementById('platform-badges');
-          if (!container) return;
-          if (!platforms || platforms.length === 0) {
-            container.innerHTML = '<span class="text-sm text-slate-400">No platforms connected yet</span>';
-            return;
-          }
-          container.innerHTML = platforms.map(function(p) {
-            return '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">' +
-              (ICONS[p.toLowerCase()] || '🔗') + ' ' + p.charAt(0).toUpperCase() + p.slice(1) + ' <span class="text-emerald-500">✓</span></span>';
-          }).join('');
-        }
-
-        async function disconnectSocial() {
-          if (!confirm('Disconnect your social accounts? Posts in the queue will not be affected.')) return;
-          try {
-            var r = await fetch('/social-disconnect', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ platform: 'all' })
-            });
-            var data = await r.json();
-            if (data.ok) {
-              BrokerAI.showToast('Social accounts disconnected', 'success');
-              setTimeout(function() { location.reload(); }, 1200);
-            }
-          } catch(e) {
-            BrokerAI.showToast('Disconnect failed', 'error');
-          }
-        }
-
-        async function refreshStatus() {
-          try {
-            var s = await BrokerAI.apiJson("/social-status", { method: "GET" });
-            setStatus(s.connected, null, s.ayrshare_sync_ok);
-            renderPlatformBadges(s.platforms || []);
-            var disconnectRow = document.getElementById('connect-disconnect-row');
-            if (disconnectRow && !usesOwnerSocial) {
-              if (s.connected) {
-                disconnectRow.classList.remove('hidden');
-              } else {
-                disconnectRow.classList.add('hidden');
-              }
-            }
-          } catch (e) {
-            setStatus(false, (e && e.message) || "Could not load status.", true);
-            renderPlatformBadges([]);
-          }
-        }
-
-        document.getElementById("btn-connect-accounts").addEventListener("click", async function () {
-          try {
-            BrokerAI.setLoading(true);
-            var res = await BrokerAI.apiJson("/connect-social", { method: "POST", body: "{}" });
-            if (res.connect_url) window.location.href = res.connect_url;
-          } catch (e) {
-            BrokerAI.showToast(e.message || "Could not start connect flow", "error");
-          } finally {
-            BrokerAI.setLoading(false);
-          }
-        });
-
-        document.getElementById("btn-sync-callback").addEventListener("click", async function () {
-          try {
-            BrokerAI.setLoading(true);
-            var cb = await BrokerAI.apiJson("/social-connected-callback", { method: "POST", body: "{}" });
-            await refreshStatus();
-            if (cb && cb.connected) {
-              BrokerAI.showToast("Connected successfully!", "success");
-            } else {
-              BrokerAI.showToast((cb && cb.message) || "Not connected yet — check Ayrshare and try again", "info");
-            }
-          } catch (e) {
-            BrokerAI.showToast(e.message || "Sync failed", "error");
-          } finally {
-            BrokerAI.setLoading(false);
-          }
-        });
-
-        (async function boot() {
-          await initTeamRole();
-          if (window.location.search.indexOf("returned=1") !== -1) {
-            try {
-              BrokerAI.setLoading(true);
-              var cb = await BrokerAI.apiJson("/social-connected-callback", { method: "POST", body: "{}" });
-              await refreshStatus();
-              if (cb && cb.connected) {
-                BrokerAI.showToast("Connected! Welcome back.", "success");
-              } else {
-                BrokerAI.showToast((cb && cb.message) || "Back from Ayrshare — not connected yet", "info");
-              }
-            } catch (e) {
-              console.warn("[connect] returned=1 callback failed:", e);
-              await refreshStatus();
-            } finally {
-              BrokerAI.setLoading(false);
-            }
-          } else {
-            await refreshStatus();
-          }
-        })();
-      })();
-    </script>
+    <script src="/static/js/socialAccountsManager.js"></script>
   </body>
 </html>

@@ -415,8 +415,7 @@
         page === "dashboard" ||
         page === "wizard" ||
         page === "review" ||
-        page === "analytics" ||
-        page === "connect";
+        page === "analytics";
       var brandBlock = workspaceNoBrand
         ? ""
         : '<a href="/" class="font-bold text-white">Broker<span class="text-amber-400">AI</span></a>';

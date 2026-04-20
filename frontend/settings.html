@@ -182,18 +182,6 @@
                 <p id="profile-timezone-err" class="mt-2 hidden text-sm text-red-600"></p>
               </div>
 
-              <!-- Social connections status -->
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Connected social accounts</p>
-                <p class="mt-0.5 text-[11px] text-slate-400">Manage full connections on the <a href="/connect.html" class="font-medium text-amber-600 hover:underline">Connect page</a>.</p>
-                <div id="social-status-list" class="mt-3 flex flex-wrap gap-3">
-                  <!-- JS fills -->
-                  <div class="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-400">
-                    <div class="brokerai-spinner h-3 w-3 shrink-0 border-slate-300 border-t-slate-500"></div>
-                    Loading…
-                  </div>
-                </div>
-              </div>
             </div>
           </section>
 
@@ -570,39 +558,6 @@
         }
       });
 
-      /* ── Load social connection status ───────────────────────────── */
-      var SOCIAL_PLATFORMS = [
-        { key: 'linkedin',  label: 'LinkedIn',  color: 'text-sky-700',   bg: 'bg-sky-50',   border: 'border-sky-200'   },
-        { key: 'instagram', label: 'Instagram', color: 'text-pink-700',  bg: 'bg-pink-50',  border: 'border-pink-200'  },
-        { key: 'facebook',  label: 'Facebook',  color: 'text-blue-700',  bg: 'bg-blue-50',  border: 'border-blue-200'  },
-      ];
-
-      async function loadSocialStatus() {
-        var container = document.getElementById('social-status-list');
-        try {
-          var data = await API.json('/social-status', { method: 'GET' });
-          var connectedPlatforms = (data.platforms || []).map(function (p) {
-            return String(p).toLowerCase();
-          });
-
-          container.innerHTML = '';
-          SOCIAL_PLATFORMS.forEach(function (p) {
-            var isConnected = connectedPlatforms.indexOf(p.key) !== -1 || data.connected === true;
-            var pill = document.createElement('div');
-            pill.className = 'flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium ' +
-              (isConnected ? p.bg + ' ' + p.border + ' ' + p.color : 'bg-slate-50 border-slate-200 text-slate-500');
-
-            var dot = isConnected
-              ? '<span class="flex h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>'
-              : '<span class="flex h-2 w-2 shrink-0 rounded-full bg-slate-300"></span>';
-            pill.innerHTML = dot + p.label;
-            container.appendChild(pill);
-          });
-        } catch (e) {
-          container.innerHTML = '<p class="text-xs text-slate-400">Could not load social account status.</p>';
-        }
-      }
-
       /* ── Brand Kit: color picker ↔ hex text sync ────────────────── */
       (function () {
         function syncColorPicker(pickerId, hexId) {
@@ -716,7 +671,7 @@
       async function load() {
         BrokerAI.setLoading(true);
         try {
-          await Promise.all([loadPlan(), loadProfile(), loadSocialStatus()]);
+          await Promise.all([loadPlan(), loadProfile()]);
         } catch (e) {
           BrokerAI.showToast(e.message || 'Failed to load settings', 'error');
         } finally {
